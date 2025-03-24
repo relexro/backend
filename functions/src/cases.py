@@ -32,21 +32,42 @@ def create_case(request):
         data = request.get_json(silent=True)
         if not data:
             logging.error("Bad Request: No JSON data provided")
-            return ({"error": "Bad Request: No JSON data provided"}, 400)
+            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
         
         # Validate required fields
-        if "title" not in data or not data["title"] or not isinstance(data["title"], str):
-            logging.error("Bad Request: Missing or invalid title")
-            return ({"error": "Bad Request: Missing or invalid title"}, 400)
+        if "title" not in data:
+            logging.error("Bad Request: Missing title")
+            return ({"error": "Bad Request", "message": "Title is required"}, 400)
+            
+        if not isinstance(data["title"], str):
+            logging.error("Bad Request: Title must be a string")
+            return ({"error": "Bad Request", "message": "Title must be a string"}, 400)
+            
+        if not data["title"].strip():
+            logging.error("Bad Request: Title cannot be empty")
+            return ({"error": "Bad Request", "message": "Title cannot be empty"}, 400)
         
-        if "description" not in data or not data["description"] or not isinstance(data["description"], str):
-            logging.error("Bad Request: Missing or invalid description")
-            return ({"error": "Bad Request: Missing or invalid description"}, 400)
+        if "description" not in data:
+            logging.error("Bad Request: Missing description")
+            return ({"error": "Bad Request", "message": "Description is required"}, 400)
+            
+        if not isinstance(data["description"], str):
+            logging.error("Bad Request: Description must be a string")
+            return ({"error": "Bad Request", "message": "Description must be a string"}, 400)
+            
+        if not data["description"].strip():
+            logging.error("Bad Request: Description cannot be empty")
+            return ({"error": "Bad Request", "message": "Description cannot be empty"}, 400)
+        
+        # Validate businessId if provided
+        business_id = data.get("businessId")
+        if business_id is not None and (not isinstance(business_id, str) or not business_id.strip()):
+            logging.error("Bad Request: Invalid businessId")
+            return ({"error": "Bad Request", "message": "Business ID must be a non-empty string"}, 400)
         
         # Extract fields
-        title = data["title"]
-        description = data["description"]
-        business_id = data.get("businessId")
+        title = data["title"].strip()
+        description = data["description"].strip()
         
         # Initialize Firestore client
         db = firestore.client()
@@ -54,7 +75,7 @@ def create_case(request):
         
         # Prepare case data
         case_data = {
-            "userId": "test-user-id",  # Hardcoded for testing
+            "userId": "test-user",  # Placeholder until auth is implemented
             "businessId": business_id,
             "title": title,
             "description": description,
@@ -68,7 +89,7 @@ def create_case(request):
         return ({"caseId": case_ref.id, "message": "Case created successfully"}, 201)
     except Exception as e:
         logging.error(f"Error creating case: {str(e)}")
-        return ({"error": str(e)}, 500)
+        return ({"error": "Internal Server Error", "message": "Failed to create case"}, 500)
 
 def get_case(request):
     """Get a case by ID."""
@@ -92,4 +113,4 @@ def upload_file(request):
 
 def download_file(request):
     """Download a file from a case."""
-    pass 
+    pass

@@ -45,8 +45,10 @@ Backend for Relex, an AI-powered legal chat application built using Firebase Fun
 
 2. Deploy the infrastructure:
    ```bash
-   terraform apply
+   terraform apply -auto-approve
    ```
+
+**Note**: We always use `-auto-approve` flag with terraform apply to automate the deployment process.
 
 ## Development
 
@@ -58,6 +60,134 @@ pip install -r requirements.txt
 functions-framework --target=cases_create_case
 ```
 
+## Deployment
+
+### Using Terraform
+
+```bash
+cd terraform
+terraform init
+terraform apply -auto-approve
+```
+
+### Using gcloud CLI (Recommended for monitoring and debugging)
+
+The gcloud CLI is the recommended tool for monitoring and debugging Cloud Functions:
+
+```bash
+# Deploy a function using gcloud (alternative to Terraform)
+gcloud functions deploy relex-backend-create-case \
+  --gen2 \
+  --runtime=python310 \
+  --region=europe-west3 \
+  --source=./functions/src \
+  --entry-point=cases_create_case \
+  --trigger-http \
+  --allow-unauthenticated
+
+# View logs for a function
+gcloud functions logs read relex-backend-create-case --gen2 --region=europe-west3
+
+# Describe a function to get details
+gcloud functions describe relex-backend-create-case --gen2 --region=europe-west3
+
+# Test a function directly with HTTP
+gcloud functions call relex-backend-create-case --gen2 --region=europe-west3 --data '{"title": "Test Case", "description": "Test Description"}'
+```
+
+**Note**: Always use gcloud CLI for monitoring and debugging functions rather than creating temporary testing solutions.
+
+## Deployment Troubleshooting
+
+### Common Issues
+
+1. **Missing Dependencies**: Ensure there's a `requirements.txt` file in the `functions/src` directory with all required packages.
+
+2. **Dependency Version Conflicts**: Pin specific versions of packages that are known to work together:
+   ```
+   flask==2.2.3
+   werkzeug==2.2.3
+   ```
+
+3. **Container Health Check Failures**: If you see "Container Healthcheck failed" errors, check the logs with:
+   ```bash
+   gcloud functions logs read <function-name> --gen2 --region=europe-west3
+   ```
+
+4. **Import Errors**: Make sure all imported modules are listed in requirements.txt with correct versions.
+
+5. **Function Entry Point**: Verify the entry point in Terraform config matches the function name in `main.py`.
+
 ## Testing
+
+### Testing the create_case Function
+
+You can test the `create_case` function using curl or a tool like Postman:
+
+#### Success Case
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Test Case", "description": "Test Description"}' \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 201):
+```json
+{
+  "caseId": "<generated-id>",
+  "message": "Case created successfully"
+}
+```
+
+#### With Business ID
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Business Case", "description": "Business Description", "businessId": "test-business-id"}' \
+  <FUNCTION_URL>
+```
+
+#### Validation Failure: Missing Title
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"description": "No title"}' \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "Title is required"
+}
+```
+
+#### Validation Failure: Empty Fields
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"title": "", "description": ""}' \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "Title cannot be empty"
+}
+```
+
+**Note**: The function currently uses a placeholder user ID (`"test-user"`) since authentication has not yet been implemented.
+
+### Verifying Data
+After creating a case, you can verify it was created successfully by checking the Firebase Console:
+1. Go to the Firebase Console (https://console.firebase.google.com/)
+2. Select your project (`relexro`)
+3. Navigate to Firestore Database
+4. Look for the `cases` collection
+5. Find the document with the matching `caseId` returned in the API response
 
 Tests will be added in future updates. 
