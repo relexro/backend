@@ -461,4 +461,450 @@ resource "google_cloud_run_service_iam_member" "download_file_function_invoker" 
   member   = "allUsers"
 }
 
+# Auth Functions
+
+# Cloud Function for validate_user
+resource "google_cloudfunctions2_function" "validate_user_function" {
+  name        = "relex-backend-validate-user"
+  description = "Validate a user's authentication token"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "auth_validate_user"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the validate_user function
+resource "google_cloud_run_service_iam_member" "validate_user_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.validate_user_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for check_permissions
+resource "google_cloudfunctions2_function" "check_permissions_function" {
+  name        = "relex-backend-check-permissions"
+  description = "Check a user's permissions for a resource"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "auth_check_permissions"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the check_permissions function
+resource "google_cloud_run_service_iam_member" "check_permissions_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.check_permissions_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for get_user_role
+resource "google_cloudfunctions2_function" "get_user_role_function" {
+  name        = "relex-backend-get-user-role"
+  description = "Retrieve a user's role in a business"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "auth_get_user_role"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the get_user_role function
+resource "google_cloud_run_service_iam_member" "get_user_role_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.get_user_role_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Business Functions
+
+# Cloud Function for create_business
+resource "google_cloudfunctions2_function" "create_business_function" {
+  name        = "relex-backend-create-business"
+  description = "Create a new business account"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "business_create_business"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the create_business function
+resource "google_cloud_run_service_iam_member" "create_business_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.create_business_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for get_business
+resource "google_cloudfunctions2_function" "get_business_function" {
+  name        = "relex-backend-get-business"
+  description = "Retrieve a business account by ID"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "business_get_business"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the get_business function
+resource "google_cloud_run_service_iam_member" "get_business_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.get_business_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for add_business_user
+resource "google_cloudfunctions2_function" "add_business_user_function" {
+  name        = "relex-backend-add-business-user"
+  description = "Add a user to a business account"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "business_add_business_user"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the add_business_user function
+resource "google_cloud_run_service_iam_member" "add_business_user_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.add_business_user_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for set_user_role
+resource "google_cloudfunctions2_function" "set_user_role_function" {
+  name        = "relex-backend-set-user-role"
+  description = "Update a user's role in a business"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "business_set_user_role"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the set_user_role function
+resource "google_cloud_run_service_iam_member" "set_user_role_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.set_user_role_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Chat Functions
+
+# Cloud Function for receive_prompt
+resource "google_cloudfunctions2_function" "receive_prompt_function" {
+  name        = "relex-backend-receive-prompt"
+  description = "Receive a prompt from a user"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "chat_receive_prompt"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the receive_prompt function
+resource "google_cloud_run_service_iam_member" "receive_prompt_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.receive_prompt_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for send_to_vertex_ai
+resource "google_cloudfunctions2_function" "send_to_vertex_ai_function" {
+  name        = "relex-backend-send-to-vertex-ai"
+  description = "Send a prompt to Vertex AI"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "chat_send_to_vertex_ai"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the send_to_vertex_ai function
+resource "google_cloud_run_service_iam_member" "send_to_vertex_ai_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.send_to_vertex_ai_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for store_conversation
+resource "google_cloudfunctions2_function" "store_conversation_function" {
+  name        = "relex-backend-store-conversation"
+  description = "Store a conversation in Firestore"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "chat_store_conversation"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the store_conversation function
+resource "google_cloud_run_service_iam_member" "store_conversation_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.store_conversation_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 # Additional functions for chat, auth, payments, and business would be defined similarly 

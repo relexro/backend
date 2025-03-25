@@ -529,4 +529,313 @@ After uploading a file, you can verify it was stored correctly by:
    - Look for the file at path `cases/<case-id>/documents/<generated-filename>`
    - Verify the file metadata in Firestore's `documents` collection
 
+### Testing Authentication Functions
+
+#### Testing the validate_user Function
+
+You can test the `validate_user` function using curl or a tool like Postman:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  <FUNCTION_URL>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token.
+
+Expected response (HTTP 200):
+```json
+{
+  "userId": "<user-id>",
+  "email": "user@example.com",
+  "isValid": true
+}
+```
+
+#### Without Authentication Token
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 401):
+```json
+{
+  "error": "Unauthorized",
+  "message": "No authentication token provided"
+}
+```
+
+#### With Invalid Token
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer invalid-token" \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 401):
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid authentication token"
+}
+```
+
+#### Testing the check_permissions Function
+
+You can test the `check_permissions` function using curl or a tool like Postman:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"resourceType": "case", "resourceId": "<CASE_ID>", "action": "read"}' \
+  <FUNCTION_URL>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<CASE_ID>` with an actual case ID.
+
+Expected response (HTTP 200):
+```json
+{
+  "hasPermission": true
+}
+```
+
+#### Missing Parameters
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"resourceType": "case"}' \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "resourceId and action are required"
+}
+```
+
+#### Testing the get_user_role Function
+
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  <FUNCTION_URL>/<BUSINESS_ID>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<BUSINESS_ID>` with an actual business ID.
+
+Expected response (HTTP 200):
+```json
+{
+  "userId": "<user-id>",
+  "businessId": "<business-id>",
+  "role": "admin"
+}
+```
+
+#### User Not in Business
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  <FUNCTION_URL>/<BUSINESS_ID>
+```
+
+Expected response (HTTP 404):
+```json
+{
+  "error": "Not Found",
+  "message": "User not found in business"
+}
+```
+
+### Testing Business Account Management Functions
+
+#### Testing the create_business Function
+
+You can test the `create_business` function using curl or a tool like Postman:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"name": "Test Business", "industry": "Legal", "size": "small"}' \
+  <FUNCTION_URL>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token.
+
+Expected response (HTTP 201):
+```json
+{
+  "businessId": "<generated-id>",
+  "message": "Business created successfully"
+}
+```
+
+#### Validation Failure
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"industry": "Legal"}' \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "Business name is required"
+}
+```
+
+#### Testing the get_business Function
+
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  <FUNCTION_URL>/<BUSINESS_ID>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<BUSINESS_ID>` with an actual business ID.
+
+Expected response (HTTP 200):
+```json
+{
+  "businessId": "<business-id>",
+  "name": "Test Business",
+  "industry": "Legal",
+  "size": "small",
+  "creationDate": { ... }
+}
+```
+
+#### Not Found Business
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  <FUNCTION_URL>/nonexistent-business-id
+```
+
+Expected response (HTTP 404):
+```json
+{
+  "error": "Not Found",
+  "message": "Business not found"
+}
+```
+
+#### Testing the add_business_user Function
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"userId": "<USER_ID>", "role": "member"}' \
+  <FUNCTION_URL>/<BUSINESS_ID>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<BUSINESS_ID>` with an actual business ID, and `<USER_ID>` with the ID of the user to add.
+
+Expected response (HTTP 200):
+```json
+{
+  "message": "User added to business successfully"
+}
+```
+
+#### Testing the set_user_role Function
+
+```bash
+curl -X PUT \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"userId": "<USER_ID>", "role": "admin"}' \
+  <FUNCTION_URL>/<BUSINESS_ID>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<BUSINESS_ID>` with an actual business ID, and `<USER_ID>` with the ID of the user whose role should be updated.
+
+Expected response (HTTP 200):
+```json
+{
+  "message": "User role updated successfully"
+}
+```
+
+### Testing Chat Functions
+
+#### Testing the receive_prompt Function
+
+You can test the `receive_prompt` function using curl or a tool like Postman:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"message": "What is the statute of limitations for personal injury in California?", "conversationId": "<CONVERSATION_ID>"}' \
+  <FUNCTION_URL>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token. The `conversationId` is optional and can be omitted for a new conversation.
+
+Expected response (HTTP 200):
+```json
+{
+  "promptId": "<generated-id>",
+  "conversationId": "<conversation-id>",
+  "message": "Prompt received successfully"
+}
+```
+
+#### Testing the send_to_vertex_ai Function
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"prompt": "What is the statute of limitations for personal injury in California?", "conversationId": "<CONVERSATION_ID>"}' \
+  <FUNCTION_URL>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<CONVERSATION_ID>` with an actual conversation ID.
+
+Expected response (HTTP 200):
+```json
+{
+  "responseId": "<generated-id>",
+  "response": "In California, the statute of limitations for personal injury claims is generally two years from the date of the injury...",
+  "conversationId": "<conversation-id>"
+}
+```
+
+#### Testing the store_conversation Function
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"conversationId": "<CONVERSATION_ID>", "prompt": "What is the statute of limitations for personal injury in California?", "response": "In California, the statute of limitations for personal injury claims is generally two years from the date of the injury..."}' \
+  <FUNCTION_URL>
+```
+
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<CONVERSATION_ID>` with an actual conversation ID.
+
+Expected response (HTTP 200):
+```json
+{
+  "messageId": "<generated-id>",
+  "conversationId": "<conversation-id>",
+  "message": "Conversation stored successfully"
+}
+```
+
 Tests will be added in future updates. 
