@@ -15,6 +15,54 @@ except ValueError:
     # Use the application default credentials
     firebase_admin.initialize_app()
 
+def get_authenticated_user(request):
+    """Helper function to validate a user's authentication token and return user info.
+    
+    Args:
+        request (flask.Request): HTTP request object with Authorization header.
+        
+    Returns:
+        dict: User information if authenticated, None otherwise
+        int: HTTP status code
+        str: Error message (if any)
+    """
+    try:
+        # Extract the Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return None, 401, "No authorization token provided"
+        
+        # Check if the header starts with 'Bearer '
+        if not auth_header.startswith('Bearer '):
+            return None, 401, "Invalid authorization header format"
+        
+        # Extract the token
+        token = auth_header.split('Bearer ')[1]
+        if not token:
+            return None, 401, "Empty token"
+        
+        # Verify the token
+        try:
+            decoded_token = auth.verify_id_token(token)
+            user_id = decoded_token.get('uid')
+            email = decoded_token.get('email', '')
+            
+            logging.info(f"Successfully validated token for user: {user_id}")
+            return {"userId": user_id, "email": email}, 200, None
+        except auth.InvalidIdTokenError:
+            return None, 401, "Invalid token"
+        except auth.ExpiredIdTokenError:
+            return None, 401, "Token expired"
+        except auth.RevokedIdTokenError:
+            return None, 401, "Token revoked"
+        except auth.CertificateFetchError:
+            return None, 500, "Certificate fetch error"
+        except ValueError as e:
+            return None, 401, str(e)
+    except Exception as e:
+        logging.error(f"Error validating user: {str(e)}")
+        return None, 500, f"Failed to validate token: {str(e)}"
+
 @functions_framework.http
 def validate_user(request):
     """Validate a user's authentication token.

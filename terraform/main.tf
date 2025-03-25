@@ -866,7 +866,7 @@ resource "google_cloud_run_service_iam_member" "send_to_vertex_ai_function_invok
 # Cloud Function for store_conversation
 resource "google_cloudfunctions2_function" "store_conversation_function" {
   name        = "relex-backend-store-conversation"
-  description = "Store a conversation in Firestore"
+  description = "Store a conversation"
   location    = var.region
   
   build_config {
@@ -907,4 +907,270 @@ resource "google_cloud_run_service_iam_member" "store_conversation_function_invo
   member   = "allUsers"
 }
 
-# Additional functions for chat, auth, payments, and business would be defined similarly 
+# Cloud Function for enrich_prompt
+resource "google_cloudfunctions2_function" "enrich_prompt_function" {
+  name        = "relex-backend-enrich-prompt"
+  description = "Enrich a prompt with case context"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "chat_enrich_prompt"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the enrich_prompt function
+resource "google_cloud_run_service_iam_member" "enrich_prompt_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.enrich_prompt_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for update_business
+resource "google_cloudfunctions2_function" "update_business_function" {
+  name        = "relex-backend-update-business"
+  description = "Update a business account"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "business_update_business"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the update_business function
+resource "google_cloud_run_service_iam_member" "update_business_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.update_business_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for list_business_users
+resource "google_cloudfunctions2_function" "list_business_users_function" {
+  name        = "relex-backend-list-business-users"
+  description = "List users in a business account"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "business_list_business_users"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the list_business_users function
+resource "google_cloud_run_service_iam_member" "list_business_users_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.list_business_users_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for remove_business_user
+resource "google_cloudfunctions2_function" "remove_business_user_function" {
+  name        = "relex-backend-remove-business-user"
+  description = "Remove a user from a business account"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "business_remove_business_user"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the remove_business_user function
+resource "google_cloud_run_service_iam_member" "remove_business_user_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.remove_business_user_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for create_payment_intent
+resource "google_cloudfunctions2_function" "create_payment_intent_function" {
+  name        = "relex-backend-create-payment-intent"
+  description = "Create a Stripe payment intent"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "payments_create_payment_intent"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      STRIPE_SECRET_KEY = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the create_payment_intent function
+resource "google_cloud_run_service_iam_member" "create_payment_intent_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.create_payment_intent_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for create_checkout_session
+resource "google_cloudfunctions2_function" "create_checkout_session_function" {
+  name        = "relex-backend-create-checkout-session"
+  description = "Create a Stripe checkout session"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "payments_create_checkout_session"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      STRIPE_SECRET_KEY = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the create_checkout_session function
+resource "google_cloud_run_service_iam_member" "create_checkout_session_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.create_checkout_session_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Output variables to access deployed resources 

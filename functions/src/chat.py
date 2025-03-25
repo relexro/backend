@@ -95,9 +95,110 @@ def receive_prompt(request):
         logging.error(f"Error receiving prompt: {str(e)}")
         return ({"error": "Internal Server Error", "message": "Failed to process prompt"}, 500)
 
+@functions_framework.http
 def enrich_prompt(request):
-    """Enrich the prompt with context before sending to Vertex AI."""
-    pass
+    """Enrich the prompt with context before sending to Vertex AI.
+    
+    Args:
+        request (flask.Request): HTTP request object.
+        
+    Returns:
+        tuple: (response, status_code)
+    """
+    logging.info("Received request to enrich a prompt with context")
+    
+    try:
+        # Extract data from request
+        data = request.get_json(silent=True)
+        if not data:
+            logging.error("Bad Request: No JSON data provided")
+            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
+        
+        # Validate required fields
+        if "prompt" not in data:
+            logging.error("Bad Request: Missing prompt")
+            return ({"error": "Bad Request", "message": "prompt is required"}, 400)
+            
+        if not isinstance(data["prompt"], str):
+            logging.error("Bad Request: prompt must be a string")
+            return ({"error": "Bad Request", "message": "prompt must be a string"}, 400)
+            
+        if not data["prompt"].strip():
+            logging.error("Bad Request: prompt cannot be empty")
+            return ({"error": "Bad Request", "message": "prompt cannot be empty"}, 400)
+        
+        # Extract fields
+        prompt = data["prompt"].strip()
+        case_id = data.get("caseId")
+        
+        # If no case ID provided, return the original prompt
+        if not case_id:
+            logging.info("No case ID provided, returning original prompt")
+            return ({"enrichedPrompt": prompt, "originalPrompt": prompt}, 200)
+        
+        # Initialize Firestore client
+        db = firestore.client()
+        
+        # Get the case document
+        case_doc = db.collection("cases").document(case_id).get()
+        
+        # If case doesn't exist, return the original prompt
+        if not case_doc.exists:
+            logging.warning(f"Case with ID {case_id} not found, returning original prompt")
+            return ({"enrichedPrompt": prompt, "originalPrompt": prompt}, 200)
+        
+        # Extract case data
+        case_data = case_doc.to_dict()
+        
+        # Build context from case data
+        context = []
+        context.append(f"Case ID: {case_id}")
+        
+        if "title" in case_data:
+            context.append(f"Title: {case_data['title']}")
+        
+        if "description" in case_data:
+            context.append(f"Description: {case_data['description']}")
+        
+        if "status" in case_data:
+            context.append(f"Status: {case_data['status']}")
+        
+        # Get most recent documents (up to 3)
+        try:
+            docs_query = db.collection("documents").where("caseId", "==", case_id).order_by("uploadDate", direction=firestore.Query.DESCENDING).limit(3).get()
+            if docs_query:
+                doc_names = [doc.to_dict().get("originalFilename", "Unknown file") for doc in docs_query]
+                if doc_names:
+                    context.append(f"Recent documents: {', '.join(doc_names)}")
+        except Exception as e:
+            logging.warning(f"Error fetching documents for case {case_id}: {str(e)}")
+        
+        # Get most recent messages (up to 5)
+        try:
+            messages_query = db.collection("cases").document(case_id).collection("messages").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(5).get()
+            if messages_query:
+                recent_messages = []
+                for msg in messages_query:
+                    msg_data = msg.to_dict()
+                    if "content" in msg_data and "sender" in msg_data:
+                        recent_messages.append(f"{msg_data['sender']}: {msg_data['content']}")
+                
+                if recent_messages:
+                    context.append("Recent messages:")
+                    context.extend(recent_messages)
+        except Exception as e:
+            logging.warning(f"Error fetching messages for case {case_id}: {str(e)}")
+        
+        # Combine context and prompt
+        context_str = "\n".join(context)
+        enriched_prompt = f"Context:\n{context_str}\n\nUser query: {prompt}"
+        
+        # Return the enriched prompt
+        logging.info(f"Successfully enriched prompt for case {case_id}")
+        return ({"enrichedPrompt": enriched_prompt, "originalPrompt": prompt}, 200)
+    except Exception as e:
+        logging.error(f"Error enriching prompt: {str(e)}")
+        return ({"error": "Internal Server Error", "message": "Failed to enrich prompt"}, 500)
 
 @functions_framework.http
 def send_to_vertex_ai(request):

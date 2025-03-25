@@ -68,6 +68,10 @@ def create_case(request):
             logging.error("Bad Request: Invalid businessId")
             return ({"error": "Bad Request", "message": "Business ID must be a non-empty string"}, 400)
         
+        # Get the authenticated user ID
+        user_id = getattr(request, 'user_id', 'test-user')
+        logging.info(f"Creating case for user: {user_id}")
+        
         # Extract fields
         title = data["title"].strip()
         description = data["description"].strip()
@@ -78,7 +82,7 @@ def create_case(request):
         
         # Prepare case data
         case_data = {
-            "userId": "test-user",  # Placeholder until auth is implemented
+            "userId": user_id,
             "businessId": business_id,
             "title": title,
             "description": description,

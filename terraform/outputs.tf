@@ -83,3 +83,31 @@ output "store_conversation_function_url" {
 }
 
 # Additional function URLs would be output similarly 
+
+output "test_function_url" {
+  value = google_cloudfunctions2_function.test_function.url
+}
+
+output "update_business_function_url" {
+  value = google_cloudfunctions2_function.update_business_function.url
+}
+
+output "list_business_users_function_url" {
+  value = google_cloudfunctions2_function.list_business_users_function.url
+}
+
+output "remove_business_user_function_url" {
+  value = google_cloudfunctions2_function.remove_business_user_function.url
+}
+
+output "enrich_prompt_function_url" {
+  value = google_cloudfunctions2_function.enrich_prompt_function.url
+}
+
+output "create_payment_intent_function_url" {
+  value = google_cloudfunctions2_function.create_payment_intent_function.url
+}
+
+output "create_checkout_session_function_url" {
+  value = google_cloudfunctions2_function.create_checkout_session_function.url
+} 
