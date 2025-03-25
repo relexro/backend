@@ -58,6 +58,64 @@ All implemented functions have been successfully deployed to Google Cloud Functi
 - ✅ **File Handling**: Uploading and downloading files is functional.
 - ✅ **Payment Processing**: Core payment functions using Stripe (create_payment_intent and create_checkout_session) are deployed.
 
+## Firebase Authentication Setup
+
+To complete the Firebase Authentication setup (this requires manual steps in the console):
+
+1. **Enable Firebase Authentication in the console:**
+   - Go to the Firebase console: https://console.firebase.google.com/
+   - Select your project: `relexro`
+   - Navigate to the Authentication section
+   - Click "Get started" if it hasn't been set up yet
+
+2. **Configure Google Sign-in:**
+   - In the Authentication section, go to the "Sign-in method" tab
+   - Enable Google as a sign-in provider
+   - **IMPORTANT**: Configure the OAuth consent screen with appropriate app name, logos, and contact details
+   - For local testing, add `localhost` to the authorized domains list
+   - Ensure the Web SDK configuration is properly set up with the correct API Key and Auth Domain
+
+3. **Configure Facebook Sign-in (if needed):**
+   - In the Authentication section, go to the "Sign-in method" tab
+   - Enable Facebook as a sign-in provider
+   - Enter your Facebook App ID and App Secret (you'll need to create these in the Facebook Developer Console)
+
+4. **Update Web App Configuration:**
+   - In the Project Settings, find the Web App created via Terraform
+   - Get the Firebase configuration object that includes apiKey, authDomain, etc.
+   - Update your frontend application with this configuration
+
+5. **Important: Configure Cloud Functions Authentication:**
+   - Go to the IAM & Admin section in the Google Cloud Console
+   - Ensure that the Cloud Functions service account has the Firebase Admin role
+   - Add the following to your functions that need authentication:
+     ```python
+     # Import Firebase Admin SDK
+     import firebase_admin
+     from firebase_admin import auth, credentials
+     
+     # Initialize Firebase Admin
+     firebase_admin.initialize_app()
+     
+     # Verify token in your function
+     def verify_token(id_token):
+         try:
+             decoded_token = auth.verify_id_token(id_token)
+             return decoded_token
+         except Exception as e:
+             return None
+     ```
+
+6. **Test Authentication:**
+   - After manual setup in the console, use the `gcloud auth print-identity-token` command to get a Google ID token
+   - Test the token with your API endpoints by including it in Authorization header:
+     ```
+     curl -X GET "https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user" \
+       -H "Authorization: Bearer YOUR_TOKEN_HERE"
+     ```
+
+> **Note**: The current authentication setup requires manual configuration in the Firebase console. Terraform has set up the necessary infrastructure, but the OAuth credentials and provider-specific configuration must be completed in the console.
+
 ## Best Practices
 - Using Terraform for infrastructure as code ensures consistent deployments
 - Authentication and validation is handled for all endpoints
@@ -75,7 +133,8 @@ All implemented functions have been successfully deployed to Google Cloud Functi
 
 ## Testing
 - Manual testing confirms all deployed functions are working properly
-- Authentication is correctly integrated with endpoints
+- Authentication is correctly integrated with endpoints and has been successfully tested with Firebase
+- The `test-auth.html` utility successfully authenticates users via Google Sign-in and validates tokens with the backend
 - The business module functions are correctly handling CRUD operations
 - Chat enhancement with enriched context is functioning as expected
 - Payment processing integration with Stripe is working as expected

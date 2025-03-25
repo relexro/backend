@@ -7,6 +7,7 @@ import uuid
 import datetime
 from google.cloud import aiplatform
 import google.auth
+import os
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -259,8 +260,8 @@ def send_to_vertex_ai(request):
             # Get default project from credentials
             credentials, project_id = google.auth.default()
             # Override project_id with explicitly set value (relexro)
-            project_id = "relexro"
-            location = "europe-west3"
+            project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "relexro")
+            location = os.environ.get("GOOGLE_CLOUD_REGION", "europe-west3")
             
             logging.info(f"Initializing Vertex AI client with project={project_id}, location={location}")
             

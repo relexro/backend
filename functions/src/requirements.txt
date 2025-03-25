@@ -5,4 +5,5 @@ google-cloud-storage==2.10.0
 stripe==6.6.0
 google-cloud-aiplatform==1.36.3
 flask==2.2.3
-werkzeug==2.2.3 
+werkzeug==2.2.3
+PyJWT==2.8.0 

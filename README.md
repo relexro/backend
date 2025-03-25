@@ -97,6 +97,66 @@ gcloud functions call relex-backend-create-case --gen2 --region=europe-west3 --d
 
 **Note**: Always use gcloud CLI for monitoring and debugging functions rather than creating temporary testing solutions.
 
+## Authentication Testing
+
+### Testing with test-auth.html
+
+We've included a simple HTML utility for testing Firebase Authentication:
+
+1. Start a local web server:
+   ```bash
+   python3 -m http.server 8000
+   ```
+
+2. Navigate to http://localhost:8000/test-auth.html in your browser
+
+3. Click "Sign in with Google" and complete the authentication flow
+
+4. Once authenticated, you'll see your user ID and can view your ID token
+
+5. Test API endpoints by entering the function URL in the input field and clicking "Test API with Token"
+   - Example URL to test: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user`
+
+6. The API response will be displayed, showing your authenticated user information
+
+### Manual Authentication Testing with gcloud
+
+For testing without a browser, you can obtain an ID token using gcloud:
+
+1. Make sure you're authenticated with gcloud:
+   ```bash
+   gcloud auth login
+   ```
+
+2. Get an ID token:
+   ```bash
+   gcloud auth print-identity-token
+   ```
+
+3. Use the token in API requests:
+   ```bash
+   curl -X GET \
+     -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+     https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user
+   ```
+
+Expected response (HTTP 200):
+```json
+{
+  "userId": "your-user-id",
+  "email": "your-email@example.com"
+}
+```
+
+**Important Note**: To use Firebase Authentication:
+1. Google Sign-in must be enabled in Firebase Console (Authentication → Sign-in methods)
+2. The OAuth consent screen must be properly configured
+3. "localhost" must be added to authorized domains for local testing
+
+## API Documentation
+
+See [api.md](api.md) for complete documentation of all API endpoints.
+
 ## Deployment Troubleshooting
 
 ### Common Issues
@@ -838,4 +898,60 @@ Expected response (HTTP 200):
 }
 ```
 
-Tests will be added in future updates. 
+Tests will be added in future updates.
+
+## Authentication Testing
+
+To test the authentication endpoints with real Google credentials, follow these steps:
+
+1. **Complete Firebase Authentication Setup in Console (Required First):**
+   - Go to the Firebase console: https://console.firebase.google.com/
+   - Select your project: `relexro`
+   - Navigate to the Authentication section
+   - Click "Get started" and enable Google Sign-in provider
+   - Configure the OAuth consent screen properly
+   - Add `localhost` to the authorized domains list
+
+2. First, ensure you have the `gcloud` CLI installed and are logged in:
+```bash
+# Install gcloud CLI (if not already installed)
+# macOS (with Homebrew):
+brew install google-cloud-sdk
+
+# Login with your Google account
+gcloud auth login
+```
+
+3. Set up application default credentials:
+```bash
+gcloud auth application-default login
+```
+
+4. Get an ID token for testing:
+```bash
+# This will generate a JWT token valid for 1 hour
+gcloud auth print-identity-token
+```
+
+5. Use the token in your API requests:
+```bash
+curl -X GET "https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+Note: The token expires after 1 hour. You'll need to generate a new one using `gcloud auth print-identity-token` if you get authentication errors.
+
+### Troubleshooting
+
+- If you get a "quota exceeded" error, you may need to set up a quota project:
+```bash
+gcloud auth application-default set-quota-project YOUR_PROJECT_ID
+```
+
+- If you get an "Invalid token" error, ensure that:
+  1. You've completed the Firebase Authentication setup in the console
+  2. Your token hasn't expired
+  3. You're using the correct project ID
+  4. The service account has the necessary IAM permissions
+  
+- The token from `gcloud auth print-identity-token` is a Google-signed token, but Firebase Authentication needs to be configured to accept it. See the setup steps in status.md for more details. 

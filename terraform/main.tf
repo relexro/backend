@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 4.80.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 4.80.0"
+    }
   }
   backend "local" {
     path = "terraform.tfstate"
@@ -11,6 +15,11 @@ terraform {
 }
 
 provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
   project = var.project_id
   region  = var.region
 }
@@ -132,6 +141,7 @@ resource "google_cloudfunctions2_function" "create_case_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -176,6 +186,7 @@ resource "google_cloudfunctions2_function" "get_case_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -220,6 +231,7 @@ resource "google_cloudfunctions2_function" "list_cases_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -264,6 +276,7 @@ resource "google_cloudfunctions2_function" "test_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -308,6 +321,7 @@ resource "google_cloudfunctions2_function" "archive_case_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -352,6 +366,7 @@ resource "google_cloudfunctions2_function" "delete_case_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -396,6 +411,7 @@ resource "google_cloudfunctions2_function" "upload_file_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -440,6 +456,7 @@ resource "google_cloudfunctions2_function" "download_file_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -486,6 +503,7 @@ resource "google_cloudfunctions2_function" "validate_user_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -530,6 +548,7 @@ resource "google_cloudfunctions2_function" "check_permissions_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -574,6 +593,7 @@ resource "google_cloudfunctions2_function" "get_user_role_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -620,6 +640,7 @@ resource "google_cloudfunctions2_function" "create_business_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -664,6 +685,7 @@ resource "google_cloudfunctions2_function" "get_business_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -708,6 +730,7 @@ resource "google_cloudfunctions2_function" "add_business_user_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -752,6 +775,7 @@ resource "google_cloudfunctions2_function" "set_user_role_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -798,6 +822,7 @@ resource "google_cloudfunctions2_function" "receive_prompt_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -842,6 +867,7 @@ resource "google_cloudfunctions2_function" "send_to_vertex_ai_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -886,6 +912,7 @@ resource "google_cloudfunctions2_function" "store_conversation_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -930,6 +957,7 @@ resource "google_cloudfunctions2_function" "enrich_prompt_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -974,6 +1002,7 @@ resource "google_cloudfunctions2_function" "update_business_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -1018,6 +1047,7 @@ resource "google_cloudfunctions2_function" "list_business_users_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -1062,6 +1092,7 @@ resource "google_cloudfunctions2_function" "remove_business_user_function" {
     timeout_seconds    = 60
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -1107,6 +1138,7 @@ resource "google_cloudfunctions2_function" "create_payment_intent_function" {
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
       STRIPE_SECRET_KEY = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -1152,6 +1184,7 @@ resource "google_cloudfunctions2_function" "create_checkout_session_function" {
     environment_variables = {
       GOOGLE_CLOUD_PROJECT = var.project_id
       STRIPE_SECRET_KEY = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
+      GOOGLE_CLOUD_REGION  = var.region
     }
     # Use default service account
     service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
@@ -1173,4 +1206,29 @@ resource "google_cloud_run_service_iam_member" "create_checkout_session_function
   member   = "allUsers"
 }
 
-# Output variables to access deployed resources 
+# Firebase Authentication Configuration
+resource "google_firebase_project" "default" {
+  provider = google-beta
+  project  = var.project_id
+  depends_on = [google_project_service.firebase]
+}
+
+resource "google_firebase_web_app" "default" {
+  provider     = google-beta
+  project      = var.project_id
+  display_name = "Relex Web App"
+  depends_on   = [google_firebase_project.default]
+}
+
+# Enable Identity Platform API
+resource "google_project_service" "identity_platform" {
+  project = var.project_id
+  service = "identitytoolkit.googleapis.com"
+  disable_on_destroy = false
+}
+
+# Configure authentication methods in the console
+# We can't fully automate the OAuth setup with Terraform
+# Instructions are documented in status.md
+
+# Output variables to access deployed resources are in outputs.tf 

@@ -29,4 +29,17 @@ variable "bucket_names" {
     "files"     = "files"
     "functions" = "functions"
   }
+}
+
+variable "facebook_client_id" {
+  description = "Facebook OAuth Client ID"
+  type        = string
+  default     = ""
+}
+
+variable "facebook_client_secret" {
+  description = "Facebook OAuth Client Secret"
+  type        = string
+  default     = ""
+  sensitive   = true
 } 

@@ -4,6 +4,7 @@ import firebase_admin
 from firebase_admin import auth
 from firebase_admin import firestore
 import json
+import flask
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -44,19 +45,22 @@ def get_authenticated_user(request):
         # Verify the token
         try:
             decoded_token = auth.verify_id_token(token)
+            
+            # Get user ID from the token
             user_id = decoded_token.get('uid')
             email = decoded_token.get('email', '')
             
             logging.info(f"Successfully validated token for user: {user_id}")
             return {"userId": user_id, "email": email}, 200, None
-        except auth.InvalidIdTokenError:
-            return None, 401, "Invalid token"
+        except auth.InvalidIdTokenError as e:
+            logging.error(f"Invalid token error: {str(e)}")
+            return None, 401, f"Invalid token: {str(e)}"
         except auth.ExpiredIdTokenError:
             return None, 401, "Token expired"
         except auth.RevokedIdTokenError:
             return None, 401, "Token revoked"
         except auth.CertificateFetchError:
-            return None, 500, "Certificate fetch error"
+            return None, 401, "Certificate fetch error"
         except ValueError as e:
             return None, 401, str(e)
     except Exception as e:
@@ -65,60 +69,27 @@ def get_authenticated_user(request):
 
 @functions_framework.http
 def validate_user(request):
-    """Validate a user's authentication token.
+    """HTTP Cloud Function to validate a user's token."""
+    # Handle CORS preflight request
+    if request.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '3600'
+        }
+        return ('', 204, headers)
+
+    # Set CORS headers for the main request
+    headers = {
+        'Access-Control-Allow-Origin': '*'
+    }
     
-    Args:
-        request (flask.Request): HTTP request object with Authorization header.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to validate user token")
+    user_data, status_code, error_message = get_authenticated_user(request)
+    if status_code != 200:
+        return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code, headers
     
-    try:
-        # Extract the Authorization header
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            logging.error("Unauthorized: No Authorization header provided")
-            return ({"error": "Unauthorized", "message": "No token provided"}, 401)
-        
-        # Check if the header starts with 'Bearer '
-        if not auth_header.startswith('Bearer '):
-            logging.error("Unauthorized: Invalid Authorization header format")
-            return ({"error": "Unauthorized", "message": "Invalid token format"}, 401)
-        
-        # Extract the token
-        token = auth_header.split('Bearer ')[1]
-        if not token:
-            logging.error("Unauthorized: Empty token")
-            return ({"error": "Unauthorized", "message": "Empty token"}, 401)
-        
-        # Verify the token
-        try:
-            decoded_token = auth.verify_id_token(token)
-            user_id = decoded_token.get('uid')
-            email = decoded_token.get('email', '')
-            
-            logging.info(f"Successfully validated token for user: {user_id}")
-            return ({"userId": user_id, "email": email}, 200)
-        except auth.InvalidIdTokenError:
-            logging.error("Unauthorized: Invalid token")
-            return ({"error": "Unauthorized", "message": "Invalid token"}, 401)
-        except auth.ExpiredIdTokenError:
-            logging.error("Unauthorized: Expired token")
-            return ({"error": "Unauthorized", "message": "Token expired"}, 401)
-        except auth.RevokedIdTokenError:
-            logging.error("Unauthorized: Revoked token")
-            return ({"error": "Unauthorized", "message": "Token revoked"}, 401)
-        except auth.CertificateFetchError:
-            logging.error("Internal Server Error: Certificate fetch error")
-            return ({"error": "Internal Server Error", "message": "Certificate fetch error"}, 500)
-        except ValueError as e:
-            logging.error(f"Unauthorized: {str(e)}")
-            return ({"error": "Unauthorized", "message": str(e)}, 401)
-    except Exception as e:
-        logging.error(f"Error validating user: {str(e)}")
-        return ({"error": "Internal Server Error", "message": "Failed to validate token"}, 500)
+    return flask.jsonify(user_data), 200, headers
 
 @functions_framework.http
 def check_permissions(request):

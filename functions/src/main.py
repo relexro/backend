@@ -5,6 +5,11 @@ from business import create_business, get_business, add_business_user, set_user_
 from chat import receive_prompt, send_to_vertex_ai, store_conversation, enrich_prompt
 from payments import create_payment_intent, create_checkout_session
 import flask
+import json
+import logging
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
 
 @functions_framework.http
 def cases_create_case(request):
