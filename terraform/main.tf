@@ -153,6 +153,94 @@ resource "google_cloud_run_service_iam_member" "create_case_function_invoker" {
   member   = "allUsers"
 }
 
+# Cloud Function for get_case
+resource "google_cloudfunctions2_function" "get_case_function" {
+  name        = "relex-backend-get-case"
+  description = "Get a case by ID"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "cases_get_case"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the get_case function
+resource "google_cloud_run_service_iam_member" "get_case_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.get_case_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for list_cases
+resource "google_cloudfunctions2_function" "list_cases_function" {
+  name        = "relex-backend-list-cases"
+  description = "List cases with optional filtering"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "cases_list_cases"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the list_cases function
+resource "google_cloud_run_service_iam_member" "list_cases_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.list_cases_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 # Cloud Function for test_function
 resource "google_cloudfunctions2_function" "test_function" {
   name        = "relex-backend-test-function"

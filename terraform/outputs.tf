@@ -13,4 +13,14 @@ output "create_case_function_url" {
   value       = google_cloudfunctions2_function.create_case_function.service_config[0].uri
 }
 
+output "get_case_function_url" {
+  description = "The URL of the get_case Cloud Function"
+  value       = google_cloudfunctions2_function.get_case_function.service_config[0].uri
+}
+
+output "list_cases_function_url" {
+  description = "The URL of the list_cases Cloud Function"
+  value       = google_cloudfunctions2_function.list_cases_function.service_config[0].uri
+}
+
 # Additional function URLs would be output similarly 

@@ -27,6 +27,10 @@
 - ✅ Added testing instructions for `create_case` in README.md
 - ✅ Fixed dependency issues by adding requirements.txt to src directory
 - ✅ Successfully deployed and tested `create_case` function with real data in Firestore
+- ✅ Implemented `get_case` function with proper validation and error handling
+- ✅ Implemented `list_cases` function with status filtering
+- ✅ Added testing instructions for `get_case` and `list_cases` in README.md
+- ✅ Successfully deployed and tested `get_case` and `list_cases` functions
 
 ## Current Status
 
@@ -34,12 +38,14 @@
 
 #### Main Module (`main.py`)
 - ✅ `cases_create_case`: **COMPLETE** - HTTP Cloud Function wrapper for creating a case
+- ✅ `cases_get_case`: **COMPLETE** - HTTP Cloud Function wrapper for retrieving a case
+- ✅ `cases_list_cases`: **COMPLETE** - HTTP Cloud Function wrapper for listing cases
 - ✅ `test_function`: **COMPLETE** - Test function to verify deployment
 
 #### Cases Module (`cases.py`)
 - ✅ `create_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration
-- ❌ `get_case`: **NOT STARTED** - Only placeholder function defined
-- ❌ `list_cases`: **NOT STARTED** - Only placeholder function defined
+- ✅ `get_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration
+- ✅ `list_cases`: **COMPLETE** - Fully implemented with status filtering, error handling, and Firestore integration
 - ❌ `archive_case`: **NOT STARTED** - Only placeholder function defined
 - ❌ `delete_case`: **NOT STARTED** - Only placeholder function defined
 - ❌ `upload_file`: **NOT STARTED** - Only placeholder function defined
@@ -72,6 +78,8 @@
 
 ### Exposed HTTP Endpoints
 - ✅ `/relex-backend-create-case`: Production-ready endpoint for creating cases
+- ✅ `/relex-backend-get-case`: Production-ready endpoint for retrieving a case by ID
+- ✅ `/relex-backend-list-cases`: Production-ready endpoint for listing cases with optional status filtering
 - ✅ `/relex-backend-test-function`: Simple test endpoint that returns a success message
 
 ### Working Features
@@ -82,6 +90,9 @@
 - Input validation for case creation
 - Robust error handling for case creation
 - Production-ready `create_case` function
+- Case retrieval by ID with proper validation and error handling
+- List cases with optional status filtering
+- Production-ready `get_case` and `list_cases` functions
 
 ### Best Practices
 - Always use `terraform apply -auto-approve` for consistent automated deployments
@@ -100,8 +111,6 @@
    - `check_permissions`: Check a user's permissions for a resource
 
 2. Implement remaining case management functions:
-   - `get_case`: Retrieve case details by ID
-   - `list_cases`: Retrieve cases with filtering options
    - `archive_case`: Change case status to archived
    - `delete_case`: Delete case and related data
    - `upload_file`: Add files to cases
@@ -141,19 +150,18 @@ None. All identified issues have been resolved.
 
 ## Next Steps
 1. Implement authentication
-2. Implement `get_case` and `list_cases` functions
+2. Implement `archive_case` and `delete_case` functions
 3. Test all case management functions with actual data
 4. Begin implementing chat functionality
 
 ## Implementation Priority
 1. Complete Case Management Module
-   - Implement `get_case` and `list_cases` first
-   - Then `archive_case` and `delete_case`
-   - Finally `upload_file` and `download_file`
+   - Implement `archive_case` and `delete_case` next
+   - Then `upload_file` and `download_file`
 
 2. Authentication Module
    - Implement Firebase Authentication integration
-   - Update `create_case` to use actual user IDs
+   - Update case functions to use actual user IDs
 
 3. Business Module
    - Focus on basic business account management
@@ -195,4 +203,7 @@ None. All identified issues have been resolved.
 - ✅ Added robust input validation and error handling
 - ✅ Standardized Terraform deployments with auto-approve flag
 - ✅ Fixed dependency issues by adding requirements.txt to src directory with pinned versions
-- ✅ Successfully deployed and tested `create_case` function with real data 
+- ✅ Successfully deployed and tested `create_case` function with real data
+- ✅ Implemented `get_case` and `list_cases` functions with proper validation and error handling
+- ✅ Updated Terraform configuration to deploy the new functions
+- ✅ Added testing instructions for the new functions to README.md 

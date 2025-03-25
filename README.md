@@ -190,4 +190,112 @@ After creating a case, you can verify it was created successfully by checking th
 4. Look for the `cases` collection
 5. Find the document with the matching `caseId` returned in the API response
 
+### Testing the get_case Function
+
+You can test the `get_case` function using curl or a tool like Postman:
+
+#### Success Case
+```bash
+curl -X GET \
+  <FUNCTION_URL>/<CASE_ID>
+```
+
+Replace `<CASE_ID>` with an actual case ID from a previously created case.
+
+Expected response (HTTP 200):
+```json
+{
+  "caseId": "<case-id>",
+  "title": "Test Case",
+  "description": "Test Description",
+  "status": "open",
+  "userId": "test-user",
+  "creationDate": { ... }
+}
+```
+
+#### Not Found Case
+```bash
+curl -X GET \
+  <FUNCTION_URL>/nonexistent-case-id
+```
+
+Expected response (HTTP 404):
+```json
+{
+  "error": "Not Found",
+  "message": "Case not found"
+}
+```
+
+#### Missing Case ID
+```bash
+curl -X GET \
+  <FUNCTION_URL>/
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "Case ID is required"
+}
+```
+
+### Testing the list_cases Function
+
+You can test the `list_cases` function using curl or a tool like Postman:
+
+#### List All Cases
+```bash
+curl -X GET \
+  <FUNCTION_URL>
+```
+
+Expected response (HTTP 200):
+```json
+{
+  "cases": [
+    {
+      "caseId": "<case-id-1>",
+      "title": "Test Case 1",
+      "description": "Test Description 1",
+      "status": "open",
+      "userId": "test-user",
+      "creationDate": { ... }
+    },
+    {
+      "caseId": "<case-id-2>",
+      "title": "Test Case 2",
+      "description": "Test Description 2",
+      "status": "closed",
+      "userId": "test-user",
+      "creationDate": { ... }
+    }
+  ]
+}
+```
+
+#### Filter Cases by Status
+```bash
+curl -X GET \
+  <FUNCTION_URL>?status=open
+```
+
+Expected response (HTTP 200, only includes cases with "open" status):
+```json
+{
+  "cases": [
+    {
+      "caseId": "<case-id-1>",
+      "title": "Test Case 1",
+      "description": "Test Description 1",
+      "status": "open",
+      "userId": "test-user",
+      "creationDate": { ... }
+    }
+  ]
+}
+```
+
 Tests will be added in future updates. 
