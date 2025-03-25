@@ -298,4 +298,110 @@ Expected response (HTTP 200, only includes cases with "open" status):
 }
 ```
 
+### Testing the archive_case Function
+
+You can test the `archive_case` function using curl or a tool like Postman:
+
+#### Success Case
+```bash
+curl -X POST \
+  <FUNCTION_URL>/<CASE_ID>
+```
+
+Replace `<CASE_ID>` with an actual case ID from a previously created case.
+
+Expected response (HTTP 200):
+```json
+{
+  "message": "Case archived successfully"
+}
+```
+
+#### Not Found Case
+```bash
+curl -X POST \
+  <FUNCTION_URL>/nonexistent-case-id
+```
+
+Expected response (HTTP 404):
+```json
+{
+  "error": "Not Found",
+  "message": "Case not found"
+}
+```
+
+#### Missing Case ID
+```bash
+curl -X POST \
+  <FUNCTION_URL>/
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "Case ID is required"
+}
+```
+
+### Testing the delete_case Function
+
+You can test the `delete_case` function using curl or a tool like Postman:
+
+#### Success Case
+```bash
+curl -X DELETE \
+  <FUNCTION_URL>/<CASE_ID>
+```
+
+Replace `<CASE_ID>` with an actual case ID from a previously created case.
+
+Expected response (HTTP 200):
+```json
+{
+  "message": "Case marked as deleted successfully"
+}
+```
+
+#### Not Found Case
+```bash
+curl -X DELETE \
+  <FUNCTION_URL>/nonexistent-case-id
+```
+
+Expected response (HTTP 404):
+```json
+{
+  "error": "Not Found",
+  "message": "Case not found"
+}
+```
+
+#### Missing Case ID
+```bash
+curl -X DELETE \
+  <FUNCTION_URL>/
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "Case ID is required"
+}
+```
+
+### Verifying Archive and Delete Operations
+After archiving or deleting a case, you can verify it was updated successfully by:
+1. Using the `get_case` function to check the updated status
+2. Checking the Firebase Console:
+   - Go to the Firebase Console (https://console.firebase.google.com/)
+   - Select your project (`relexro`)
+   - Navigate to Firestore Database
+   - Look for the `cases` collection
+   - Find the document with the matching `caseId`
+   - Verify the `status` field is set to either `"archived"` or `"deleted"`
+   - Verify the `archiveDate` or `deletionDate` field is set
+
 Tests will be added in future updates. 

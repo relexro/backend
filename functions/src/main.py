@@ -1,5 +1,5 @@
 import functions_framework
-from cases import create_case, get_case, list_cases
+from cases import create_case, get_case, list_cases, archive_case, delete_case
 import flask
 
 @functions_framework.http
@@ -23,6 +23,22 @@ def cases_list_cases(request):
     """HTTP Cloud Function for listing cases."""
     try:
         return list_cases(request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def cases_archive_case(request):
+    """HTTP Cloud Function for archiving a case."""
+    try:
+        return archive_case(request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def cases_delete_case(request):
+    """HTTP Cloud Function for marking a case as deleted."""
+    try:
+        return delete_case(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 

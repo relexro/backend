@@ -46,8 +46,8 @@
 - ✅ `create_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration
 - ✅ `get_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration
 - ✅ `list_cases`: **COMPLETE** - Fully implemented with status filtering, error handling, and Firestore integration
-- ❌ `archive_case`: **NOT STARTED** - Only placeholder function defined
-- ❌ `delete_case`: **NOT STARTED** - Only placeholder function defined
+- ✅ `archive_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration
+- ✅ `delete_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration (soft delete)
 - ❌ `upload_file`: **NOT STARTED** - Only placeholder function defined
 - ❌ `download_file`: **NOT STARTED** - Only placeholder function defined
 
@@ -80,6 +80,8 @@
 - ✅ `/relex-backend-create-case`: Production-ready endpoint for creating cases
 - ✅ `/relex-backend-get-case`: Production-ready endpoint for retrieving a case by ID
 - ✅ `/relex-backend-list-cases`: Production-ready endpoint for listing cases with optional status filtering
+- ✅ `/relex-backend-archive-case`: Production-ready endpoint for archiving a case
+- ✅ `/relex-backend-delete-case`: Production-ready endpoint for marking a case as deleted (soft delete)
 - ✅ `/relex-backend-test-function`: Simple test endpoint that returns a success message
 
 ### Working Features
@@ -93,6 +95,10 @@
 - Case retrieval by ID with proper validation and error handling
 - List cases with optional status filtering
 - Production-ready `get_case` and `list_cases` functions
+- Case archival with proper status tracking
+- Soft delete functionality for cases
+- Comprehensive error handling and validation
+- All core case management functions implemented and tested
 
 ### Best Practices
 - Always use `terraform apply -auto-approve` for consistent automated deployments
@@ -111,8 +117,6 @@
    - `check_permissions`: Check a user's permissions for a resource
 
 2. Implement remaining case management functions:
-   - `archive_case`: Change case status to archived
-   - `delete_case`: Delete case and related data
    - `upload_file`: Add files to cases
    - `download_file`: Retrieve files from cases
    - Add HTTP wrappers in main.py for each function
@@ -146,18 +150,28 @@
 8. Add proper logging and monitoring
 
 ### Current Issues
-None. All identified issues have been resolved.
+None. All identified issues have been resolved. Recent testing of archive and delete functions showed proper functionality and error handling.
 
 ## Next Steps
-1. Implement authentication
-2. Implement `archive_case` and `delete_case` functions
-3. Test all case management functions with actual data
-4. Begin implementing chat functionality
+1. Implement file management functions
+   - Focus on implementing `upload_file` and `download_file` functions
+   - Add Cloud Storage integration for file handling
+   - Update Terraform configuration for new functions
+
+2. Implement authentication
+   - Replace "test-user" placeholder with actual authentication
+   - Integrate Firebase Authentication
+   - Add proper user validation and authorization
+
+3. Begin implementing chat functionality
+   - Set up Vertex AI integration
+   - Implement basic chat endpoints
 
 ## Implementation Priority
 1. Complete Case Management Module
-   - Implement `archive_case` and `delete_case` next
-   - Then `upload_file` and `download_file`
+   - ✅ Basic CRUD operations completed
+   - ✅ Status management (archive/delete) completed
+   - Next: Implement file management functions
 
 2. Authentication Module
    - Implement Firebase Authentication integration
@@ -206,4 +220,63 @@ None. All identified issues have been resolved.
 - ✅ Successfully deployed and tested `create_case` function with real data
 - ✅ Implemented `get_case` and `list_cases` functions with proper validation and error handling
 - ✅ Updated Terraform configuration to deploy the new functions
-- ✅ Added testing instructions for the new functions to README.md 
+- ✅ Added testing instructions for the new functions to README.md
+- ✅ Implemented `archive_case` and `delete_case` functions with proper validation and error handling
+- ✅ Updated Terraform configuration to deploy the additional functions
+- ✅ Added comprehensive testing instructions for all case management functions
+- ✅ Successfully tested all case management functions including error cases
+- ✅ Verified proper status updates in Firestore for archived and deleted cases
+- ✅ Confirmed proper error handling for missing case IDs and non-existent cases
+
+## Implementation Priority
+1. Complete Case Management Module
+   - ✅ Basic CRUD operations completed
+   - ✅ Status management (archive/delete) completed
+   - Next: Implement file management functions
+
+2. Authentication Module
+   - Implement Firebase Authentication integration
+   - Update case functions to use actual user IDs
+
+3. Business Module
+   - Focus on basic business account management
+
+4. Chat Module
+   - Implement integration with Vertex AI
+
+5. Payments Module
+   - Implement Stripe integration
+
+## Environment Details
+- Project ID: relexro
+- Region: europe-west3
+- Credentials: GOOGLE_APPLICATION_CREDENTIALS
+- Runtime: Python 3.10
+- Framework: Firebase Functions
+- Database: Firestore
+- Storage: Cloud Storage
+- Authentication: Firebase Auth (pending)
+- Required Tools: Terraform, gcloud CLI
+
+## Deployment Notes
+- Always use `terraform apply -auto-approve` for consistent automated deployments
+- Terraform state is stored locally (see terraform/terraform.tfstate)
+- All infrastructure changes must be made through Terraform
+- Use gcloud CLI to monitor and debug Cloud Functions:
+  - `gcloud functions logs read <function-name> --gen2 --region=europe-west3`
+  - `gcloud functions describe <function-name> --gen2 --region=europe-west3`
+  - `gcloud functions call <function-name> --gen2 --region=europe-west3 --data '{"key": "value"}'`
+- Include requirements.txt in the src directory for Cloud Functions deployment
+- Pin specific compatible versions of Flask and Werkzeug to avoid compatibility issues
+
+## Recent Progress
+- ✅ Successfully deployed and tested `create_case` function with real data
+- ✅ Implemented `get_case` and `list_cases` functions with proper validation and error handling
+- ✅ Updated Terraform configuration to deploy the new functions
+- ✅ Added testing instructions for the new functions to README.md
+- ✅ Implemented `archive_case` and `delete_case` functions with proper validation and error handling
+- ✅ Updated Terraform configuration to deploy the additional functions
+- ✅ Added comprehensive testing instructions for all case management functions
+- ✅ Successfully tested all case management functions including error cases
+- ✅ Verified proper status updates in Firestore for archived and deleted cases
+- ✅ Confirmed proper error handling for missing case IDs and non-existent cases 

@@ -285,4 +285,92 @@ resource "google_cloud_run_service_iam_member" "test_function_invoker" {
   member   = "allUsers"
 }
 
+# Cloud Function for archive_case
+resource "google_cloudfunctions2_function" "archive_case_function" {
+  name        = "relex-backend-archive-case"
+  description = "Archive a case by ID"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "cases_archive_case"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the archive_case function
+resource "google_cloud_run_service_iam_member" "archive_case_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.archive_case_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for delete_case
+resource "google_cloudfunctions2_function" "delete_case_function" {
+  name        = "relex-backend-delete-case"
+  description = "Mark a case as deleted"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "cases_delete_case"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the delete_case function
+resource "google_cloud_run_service_iam_member" "delete_case_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.delete_case_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 # Additional functions for chat, auth, payments, and business would be defined similarly 

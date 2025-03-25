@@ -184,13 +184,99 @@ def list_cases(request):
         logging.error(f"Error listing cases: {str(e)}")
         return ({"error": "Internal Server Error", "message": "Failed to list cases"}, 500)
 
+@functions_framework.http
 def archive_case(request):
-    """Archive a case."""
-    pass
+    """Archive a case by ID.
+    
+    Args:
+        request (flask.Request): HTTP request object.
+        
+    Returns:
+        tuple: (response, status_code)
+    """
+    logging.info("Received request to archive a case")
+    
+    try:
+        # Extract case ID from the request path
+        path_parts = request.path.split('/')
+        case_id = path_parts[-1] if len(path_parts) > 0 else None
+        
+        # Validate case ID
+        if not case_id or case_id == "":
+            logging.error("Bad Request: Missing case ID")
+            return ({"error": "Bad Request", "message": "Case ID is required"}, 400)
+        
+        # Initialize Firestore client
+        db = firestore.client()
+        
+        # Get the case document reference
+        case_ref = db.collection("cases").document(case_id)
+        case_doc = case_ref.get()
+        
+        # Check if the case exists
+        if not case_doc.exists:
+            logging.error(f"Not Found: Case with ID {case_id} not found")
+            return ({"error": "Not Found", "message": "Case not found"}, 404)
+        
+        # Update the case status to archived
+        case_ref.update({
+            "status": "archived",
+            "archiveDate": firestore.SERVER_TIMESTAMP
+        })
+        
+        # Return success message
+        logging.info(f"Successfully archived case with ID: {case_id}")
+        return ({"message": "Case archived successfully"}, 200)
+    except Exception as e:
+        logging.error(f"Error archiving case: {str(e)}")
+        return ({"error": "Internal Server Error", "message": "Failed to archive case"}, 500)
 
+@functions_framework.http
 def delete_case(request):
-    """Delete a case."""
-    pass
+    """Mark a case as deleted (soft delete).
+    
+    Args:
+        request (flask.Request): HTTP request object.
+        
+    Returns:
+        tuple: (response, status_code)
+    """
+    logging.info("Received request to delete a case")
+    
+    try:
+        # Extract case ID from the request path
+        path_parts = request.path.split('/')
+        case_id = path_parts[-1] if len(path_parts) > 0 else None
+        
+        # Validate case ID
+        if not case_id or case_id == "":
+            logging.error("Bad Request: Missing case ID")
+            return ({"error": "Bad Request", "message": "Case ID is required"}, 400)
+        
+        # Initialize Firestore client
+        db = firestore.client()
+        
+        # Get the case document reference
+        case_ref = db.collection("cases").document(case_id)
+        case_doc = case_ref.get()
+        
+        # Check if the case exists
+        if not case_doc.exists:
+            logging.error(f"Not Found: Case with ID {case_id} not found")
+            return ({"error": "Not Found", "message": "Case not found"}, 404)
+        
+        # Update the case status to deleted (soft delete)
+        case_ref.update({
+            "status": "deleted",
+            "deletionDate": firestore.SERVER_TIMESTAMP
+        })
+        
+        # Return success message
+        logging.info(f"Successfully marked case with ID: {case_id} as deleted")
+        return ({"message": "Case marked as deleted successfully"}, 200)
+    except Exception as e:
+        logging.error(f"Error deleting case: {str(e)}")
+        return ({"error": "Internal Server Error", "message": "Failed to delete case"}, 500)
 
 def upload_file(request):
     """Upload a file to a case."""
