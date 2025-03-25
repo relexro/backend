@@ -373,4 +373,92 @@ resource "google_cloud_run_service_iam_member" "delete_case_function_invoker" {
   member   = "allUsers"
 }
 
+# Cloud Function for upload_file
+resource "google_cloudfunctions2_function" "upload_file_function" {
+  name        = "relex-backend-upload-file"
+  description = "Upload a file to a case"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "cases_upload_file"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the upload_file function
+resource "google_cloud_run_service_iam_member" "upload_file_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.upload_file_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for download_file
+resource "google_cloudfunctions2_function" "download_file_function" {
+  name        = "relex-backend-download-file"
+  description = "Generate signed URL for downloading a file"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "cases_download_file"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the download_file function
+resource "google_cloud_run_service_iam_member" "download_file_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.download_file_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 # Additional functions for chat, auth, payments, and business would be defined similarly 

@@ -48,8 +48,8 @@
 - ✅ `list_cases`: **COMPLETE** - Fully implemented with status filtering, error handling, and Firestore integration
 - ✅ `archive_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration
 - ✅ `delete_case`: **COMPLETE** - Fully implemented with validation, error handling, and Firestore integration (soft delete)
-- ❌ `upload_file`: **NOT STARTED** - Only placeholder function defined
-- ❌ `download_file`: **NOT STARTED** - Only placeholder function defined
+- ✅ `upload_file`: **COMPLETE** - Fully implemented with validation, error handling, Cloud Storage and Firestore integration
+- ✅ `download_file`: **COMPLETE** - Fully implemented with validation, error handling, and signed URL generation
 
 #### Chat Module (`chat.py`)
 - ❌ `receive_prompt`: **NOT STARTED** - Only placeholder function defined
@@ -82,6 +82,8 @@
 - ✅ `/relex-backend-list-cases`: Production-ready endpoint for listing cases with optional status filtering
 - ✅ `/relex-backend-archive-case`: Production-ready endpoint for archiving a case
 - ✅ `/relex-backend-delete-case`: Production-ready endpoint for marking a case as deleted (soft delete)
+- ✅ `/relex-backend-upload-file`: Production-ready endpoint for uploading files to cases
+- ✅ `/relex-backend-download-file`: Production-ready endpoint for generating signed URLs to download files
 - ✅ `/relex-backend-test-function`: Simple test endpoint that returns a success message
 
 ### Working Features
@@ -99,6 +101,8 @@
 - Soft delete functionality for cases
 - Comprehensive error handling and validation
 - All core case management functions implemented and tested
+- File upload to Cloud Storage with metadata in Firestore
+- Secure file download with signed URLs
 
 ### Best Practices
 - Always use `terraform apply -auto-approve` for consistent automated deployments
@@ -117,9 +121,9 @@
    - `check_permissions`: Check a user's permissions for a resource
 
 2. Implement remaining case management functions:
-   - `upload_file`: Add files to cases
-   - `download_file`: Retrieve files from cases
-   - Add HTTP wrappers in main.py for each function
+   - ✅ `upload_file`: Add files to cases
+   - ✅ `download_file`: Retrieve files from cases
+   - ✅ Add HTTP wrappers in main.py for each function
 
 3. Implement chat functionality:
    - `receive_prompt`: Handle user message input
@@ -171,7 +175,7 @@ None. All identified issues have been resolved. Recent testing of archive and de
 1. Complete Case Management Module
    - ✅ Basic CRUD operations completed
    - ✅ Status management (archive/delete) completed
-   - Next: Implement file management functions
+   - ✅ File management functions implemented
 
 2. Authentication Module
    - Implement Firebase Authentication integration
@@ -227,12 +231,16 @@ None. All identified issues have been resolved. Recent testing of archive and de
 - ✅ Successfully tested all case management functions including error cases
 - ✅ Verified proper status updates in Firestore for archived and deleted cases
 - ✅ Confirmed proper error handling for missing case IDs and non-existent cases
+- ✅ Implemented `upload_file` function with Cloud Storage integration
+- ✅ Implemented `download_file` function with signed URL generation
+- ✅ Added comprehensive testing instructions for file management functions
+- ✅ Updated Terraform configuration to deploy file management functions
 
 ## Implementation Priority
 1. Complete Case Management Module
    - ✅ Basic CRUD operations completed
    - ✅ Status management (archive/delete) completed
-   - Next: Implement file management functions
+   - ✅ File management functions implemented
 
 2. Authentication Module
    - Implement Firebase Authentication integration

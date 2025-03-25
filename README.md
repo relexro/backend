@@ -404,4 +404,129 @@ After archiving or deleting a case, you can verify it was updated successfully b
    - Verify the `status` field is set to either `"archived"` or `"deleted"`
    - Verify the `archiveDate` or `deletionDate` field is set
 
+### Testing the upload_file Function
+
+You can test the `upload_file` function using curl or a tool like Postman:
+
+#### Success Case
+```bash
+curl -X POST \
+  -F "file=@/path/to/your/file.pdf" \
+  <FUNCTION_URL>/<CASE_ID>
+```
+
+Replace `<CASE_ID>` with an actual case ID from a previously created case. Replace `/path/to/your/file.pdf` with the path to the file you want to upload.
+
+Expected response (HTTP 201):
+```json
+{
+  "documentId": "<generated-document-id>",
+  "filename": "<generated-filename>",
+  "originalFilename": "file.pdf",
+  "storagePath": "cases/<case-id>/documents/<generated-filename>",
+  "message": "File uploaded successfully"
+}
+```
+
+#### Not Found Case
+```bash
+curl -X POST \
+  -F "file=@/path/to/your/file.pdf" \
+  <FUNCTION_URL>/nonexistent-case-id
+```
+
+Expected response (HTTP 404):
+```json
+{
+  "error": "Not Found",
+  "message": "Case not found"
+}
+```
+
+#### Missing File
+```bash
+curl -X POST \
+  <FUNCTION_URL>/<CASE_ID>
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "No file uploaded"
+}
+```
+
+#### Using Postman
+For testing with Postman:
+1. Set the method to POST
+2. Enter the function URL with the case ID
+3. Go to the "Body" tab
+4. Select "form-data"
+5. Add a key named "file" and select "File" from the dropdown
+6. Click "Select Files" and choose the file to upload
+7. Click Send
+
+### Testing the download_file Function
+
+You can test the `download_file` function using curl or a browser:
+
+#### Success Case
+```bash
+curl -X GET \
+  <FUNCTION_URL>/<DOCUMENT_ID>
+```
+
+Replace `<DOCUMENT_ID>` with a document ID returned from a successful file upload.
+
+Expected response (HTTP 200):
+```json
+{
+  "downloadUrl": "<signed-url>",
+  "filename": "original-filename.pdf",
+  "documentId": "<document-id>",
+  "message": "Download URL generated successfully"
+}
+```
+
+You can then use the `downloadUrl` in a browser to download the file.
+
+#### Not Found Document
+```bash
+curl -X GET \
+  <FUNCTION_URL>/nonexistent-document-id
+```
+
+Expected response (HTTP 404):
+```json
+{
+  "error": "Not Found",
+  "message": "Document not found"
+}
+```
+
+#### Missing Document ID
+```bash
+curl -X GET \
+  <FUNCTION_URL>/
+```
+
+Expected response (HTTP 400):
+```json
+{
+  "error": "Bad Request",
+  "message": "Document ID is required"
+}
+```
+
+### Verifying File Upload and Download Operations
+After uploading a file, you can verify it was stored correctly by:
+1. Using the `download_file` function to generate a signed URL and download the file
+2. Checking the Firebase Console:
+   - Go to the Firebase Console (https://console.firebase.google.com/)
+   - Select your project (`relexro`)
+   - Navigate to Storage
+   - Look for the file at path `cases/<case-id>/documents/<generated-filename>`
+   - Verify the file metadata in Firestore's `documents` collection
+
 Tests will be added in future updates. 

@@ -2,8 +2,11 @@ import functions_framework
 import logging
 import firebase_admin
 from firebase_admin import firestore
+from firebase_admin import storage
 import json
 import os
+import uuid
+import datetime
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -278,10 +281,169 @@ def delete_case(request):
         logging.error(f"Error deleting case: {str(e)}")
         return ({"error": "Internal Server Error", "message": "Failed to delete case"}, 500)
 
+@functions_framework.http
 def upload_file(request):
-    """Upload a file to a case."""
-    pass
+    """Upload a file to a case and store in Cloud Storage.
+    
+    Args:
+        request (flask.Request): HTTP request object.
+        
+    Returns:
+        tuple: (response, status_code)
+    """
+    logging.info("Received request to upload a file")
+    
+    try:
+        # Extract case ID from the request path
+        path_parts = request.path.split('/')
+        case_id = path_parts[-1] if len(path_parts) > 0 else None
+        
+        # Validate case ID
+        if not case_id or case_id == "":
+            logging.error("Bad Request: Missing case ID")
+            return ({"error": "Bad Request", "message": "Case ID is required"}, 400)
+        
+        # Validate file presence
+        if 'file' not in request.files:
+            logging.error("Bad Request: No file uploaded")
+            return ({"error": "Bad Request", "message": "No file uploaded"}, 400)
+        
+        file = request.files['file']
+        
+        # Validate file name
+        if file.filename == '':
+            logging.error("Bad Request: Empty filename")
+            return ({"error": "Bad Request", "message": "Filename cannot be empty"}, 400)
+        
+        # Initialize Firestore client
+        db = firestore.client()
+        
+        # Verify the case exists
+        case_doc = db.collection("cases").document(case_id).get()
+        if not case_doc.exists:
+            logging.error(f"Not Found: Case with ID {case_id} not found")
+            return ({"error": "Not Found", "message": "Case not found"}, 404)
+        
+        # Generate a unique filename
+        unique_id = uuid.uuid4().hex
+        original_filename = file.filename
+        file_extension = os.path.splitext(original_filename)[1] if '.' in original_filename else ''
+        filename = f"{unique_id}{file_extension}"
+        
+        # Define the storage path
+        storage_path = f"cases/{case_id}/documents/{filename}"
+        
+        # Initialize Cloud Storage bucket
+        bucket = storage.bucket("relex-files")
+        blob = bucket.blob(storage_path)
+        
+        # Get content type or use default
+        content_type = file.content_type or 'application/octet-stream'
+        
+        # Upload the file to Cloud Storage
+        file_content = file.read()
+        blob.upload_from_string(file_content, content_type=content_type)
+        
+        # Calculate file size
+        file_size = len(file_content)
+        
+        # Save metadata in Firestore documents collection
+        document_ref = db.collection("documents").document()
+        document_data = {
+            "caseId": case_id,
+            "filename": filename,
+            "originalFilename": original_filename,
+            "fileType": content_type,
+            "fileSize": file_size,
+            "storagePath": storage_path,
+            "uploadDate": firestore.SERVER_TIMESTAMP,
+            "uploadedBy": "test-user"  # Placeholder until auth is implemented
+        }
+        
+        document_ref.set(document_data)
+        document_id = document_ref.id
+        
+        # Return success response
+        logging.info(f"File uploaded successfully for case {case_id} with document ID {document_id}")
+        return ({
+            "documentId": document_id,
+            "filename": filename,
+            "originalFilename": original_filename,
+            "storagePath": storage_path,
+            "message": "File uploaded successfully"
+        }, 201)
+    except Exception as e:
+        logging.error(f"Error uploading file: {str(e)}")
+        return ({"error": "Internal Server Error", "message": f"Failed to upload file: {str(e)}"}, 500)
 
+@functions_framework.http
 def download_file(request):
-    """Download a file from a case."""
-    pass
+    """Generate a signed URL for downloading a file.
+    
+    Args:
+        request (flask.Request): HTTP request object.
+        
+    Returns:
+        tuple: (response, status_code)
+    """
+    logging.info("Received request to download a file")
+    
+    try:
+        # Extract document ID from the request path
+        path_parts = request.path.split('/')
+        document_id = path_parts[-1] if len(path_parts) > 0 else None
+        
+        # Validate document ID
+        if not document_id or document_id == "":
+            logging.error("Bad Request: Missing document ID")
+            return ({"error": "Bad Request", "message": "Document ID is required"}, 400)
+        
+        # Initialize Firestore client
+        db = firestore.client()
+        
+        # Get the document metadata
+        document_doc = db.collection("documents").document(document_id).get()
+        
+        # Check if the document exists
+        if not document_doc.exists:
+            logging.error(f"Not Found: Document with ID {document_id} not found")
+            return ({"error": "Not Found", "message": "Document not found"}, 404)
+        
+        # Get document data
+        document_data = document_doc.to_dict()
+        storage_path = document_data.get("storagePath")
+        original_filename = document_data.get("originalFilename")
+        
+        # Validate storage path
+        if not storage_path:
+            logging.error(f"Error: Missing storage path for document {document_id}")
+            return ({"error": "Internal Server Error", "message": "Document storage path not found"}, 500)
+        
+        # Initialize Cloud Storage bucket
+        bucket = storage.bucket("relex-files")
+        blob = bucket.blob(storage_path)
+        
+        # Check if the file exists in Cloud Storage
+        if not blob.exists():
+            logging.error(f"Not Found: File for document {document_id} not found in Cloud Storage")
+            return ({"error": "Not Found", "message": "File not found in storage"}, 404)
+        
+        # Generate signed URL (valid for 15 minutes)
+        expiration = datetime.timedelta(minutes=15)
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=expiration,
+            method="GET"
+        )
+        
+        # Return the signed URL
+        logging.info(f"Generated signed URL for document {document_id}")
+        return ({
+            "downloadUrl": signed_url,
+            "filename": original_filename,
+            "documentId": document_id,
+            "message": "Download URL generated successfully"
+        }, 200)
+    except Exception as e:
+        logging.error(f"Error generating download URL: {str(e)}")
+        return ({"error": "Internal Server Error", "message": f"Failed to generate download URL: {str(e)}"}, 500)
