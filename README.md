@@ -60,6 +60,16 @@ pip install -r requirements.txt
 functions-framework --target=cases_create_case
 ```
 
+### Environment Variables
+
+The Cloud Functions use the following environment variables:
+
+- `GOOGLE_CLOUD_PROJECT`: The Google Cloud project ID (default: "relexro")
+- `GOOGLE_CLOUD_REGION`: The Google Cloud region (default: "europe-west3")
+- `STRIPE_SECRET_KEY`: The Stripe secret key (used in payment functions)
+
+These environment variables are set in the Terraform configuration (`terraform/main.tf`) and passed to each function.
+
 ## Deployment
 
 ### Using Terraform
@@ -118,6 +128,19 @@ We've included a simple HTML utility for testing Firebase Authentication:
    - Example URL to test: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user`
 
 6. The API response will be displayed, showing your authenticated user information
+
+### CORS Support
+
+The authentication API endpoints include CORS (Cross-Origin Resource Sharing) support to enable web applications to call them from different domains:
+
+- The `validate_user` function handles OPTIONS preflight requests
+- CORS headers are included in responses:
+  - `Access-Control-Allow-Origin: *`
+  - `Access-Control-Allow-Methods: GET, POST, OPTIONS`
+  - `Access-Control-Allow-Headers: Content-Type, Authorization` 
+  - `Access-Control-Max-Age: 3600`
+
+This enables web applications to authenticate users and make API calls from browsers, even when hosted on different domains.
 
 ### Manual Authentication Testing with gcloud
 

@@ -32,7 +32,7 @@
 - ✅ Implemented enrich_prompt function
 
 ### Module: auth.py  
-- ✅ Implemented validate_user function
+- ✅ Implemented validate_user function with CORS support
 - ✅ Implemented check_permissions function
 - ✅ Implemented get_user_role function
 - ✅ Created get_authenticated_user helper
@@ -51,12 +51,13 @@
 All implemented functions have been successfully deployed to Google Cloud Functions and are active.
 
 ### Working Features
-- ✅ **Authentication Integration**: Token validation and user verification is working. All endpoints now have proper authentication with the reusable `get_authenticated_user` helper.
+- ✅ **Authentication Integration**: Token validation and user verification is working. All endpoints now have proper authentication with the reusable `get_authenticated_user` helper. The validate_user function now supports CORS for cross-origin requests.
 - ✅ **Business Management**: Functions for creating, updating, and managing business accounts and their users are complete and deployed.
 - ✅ **Case Management**: Full lifecycle management of cases (create, read, update, archive, delete) is implemented and active.
 - ✅ **Enhanced Chat**: Enriched context for chat via the new `enrich_prompt` function which adds case context to prompts.
 - ✅ **File Handling**: Uploading and downloading files is functional.
 - ✅ **Payment Processing**: Core payment functions using Stripe (create_payment_intent and create_checkout_session) are deployed.
+- ✅ **Environment Variables**: All Cloud Functions now use environment variables for region configuration instead of hardcoded values, improving maintainability and flexibility.
 
 ## Firebase Authentication Setup
 
@@ -113,6 +114,7 @@ To complete the Firebase Authentication setup (this requires manual steps in the
      curl -X GET "https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user" \
        -H "Authorization: Bearer YOUR_TOKEN_HERE"
      ```
+   - For testing from a web application, use the test-auth.html utility which handles CORS preflight requests properly
 
 > **Note**: The current authentication setup requires manual configuration in the Firebase console. Terraform has set up the necessary infrastructure, but the OAuth credentials and provider-specific configuration must be completed in the console.
 
@@ -121,6 +123,8 @@ To complete the Firebase Authentication setup (this requires manual steps in the
 - Authentication and validation is handled for all endpoints
 - Error handling and input validation is implemented for all functions
 - Firestore is used for data storage with appropriate collection structures
+- Environment variables used for configuration instead of hardcoded values
+- CORS support added for web application integration
 
 ## Pending Tasks
 - ⬜ Implement Stripe webhook handler to process payment events
@@ -135,6 +139,7 @@ To complete the Firebase Authentication setup (this requires manual steps in the
 - Manual testing confirms all deployed functions are working properly
 - Authentication is correctly integrated with endpoints and has been successfully tested with Firebase
 - The `test-auth.html` utility successfully authenticates users via Google Sign-in and validates tokens with the backend
+- CORS support has been verified with preflight requests
 - The business module functions are correctly handling CRUD operations
 - Chat enhancement with enriched context is functioning as expected
 - Payment processing integration with Stripe is working as expected

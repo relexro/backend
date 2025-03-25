@@ -14,13 +14,20 @@ You can test authentication using the `test-auth.html` utility which provides a 
 2. Obtaining an ID token
 3. Testing API endpoints with the token
 
+### CORS Support
+The authentication endpoints support CORS (Cross-Origin Resource Sharing), allowing them to be called from web applications on different domains. The `validate_user` function specifically handles OPTIONS preflight requests and includes the appropriate CORS headers:
+- `Access-Control-Allow-Origin: *`
+- `Access-Control-Allow-Methods: GET, POST, OPTIONS`
+- `Access-Control-Allow-Headers: Content-Type, Authorization`
+- `Access-Control-Max-Age: 3600`
+
 ---
 
 ## Authentication Functions
 
 ### Validate User
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user`
-- **Method**: GET
+- **Method**: GET, OPTIONS (for CORS preflight)
 - **Description**: Validates a user's authentication token
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
@@ -31,6 +38,7 @@ You can test authentication using the `test-auth.html` utility which provides a 
     "email": "user@example.com"
   }
   ```
+- **CORS Support**: This endpoint includes CORS headers and supports preflight requests
 - **Errors**:
   - 401: Unauthorized (invalid/expired token)
   - 500: Internal server error
