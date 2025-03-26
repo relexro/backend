@@ -670,73 +670,110 @@ Expected response (HTTP 401):
 
 #### Testing the check_permissions Function
 
-You can test the `check_permissions` function using curl or a tool like Postman:
+You can test the `check_permissions` function using curl or a tool like Postman to verify the role-based access control:
 
+#### 1. Case Owner Access
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"resourceType": "case", "resourceId": "<CASE_ID>", "action": "read"}' \
-  <FUNCTION_URL>
+  -d '{"userId": "user123", "resourceId": "case456", "action": "read", "resourceType": "case"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
 ```
 
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<CASE_ID>` with an actual case ID.
-
-Expected response (HTTP 200):
+Expected response (if user123 owns case456):
 ```json
 {
-  "hasPermission": true
+  "allowed": true
 }
 ```
 
-#### Missing Parameters
+#### 2. Organization Administrator Access
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"resourceType": "case"}' \
-  <FUNCTION_URL>
+  -d '{"userId": "admin123", "resourceId": "case456", "action": "delete", "resourceType": "case"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
 ```
 
-Expected response (HTTP 400):
+Expected response (if admin123's role is "administrator" in the organization that owns case456):
 ```json
 {
-  "error": "Bad Request",
-  "message": "resourceId and action are required"
+  "allowed": true
 }
 ```
 
-#### Testing the get_user_role Function
-
+#### 3. Organization Staff Access - Allowed Action
 ```bash
-curl -X GET \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/<ORGANIZATION_ID>
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "staff123", "resourceId": "case456", "action": "upload_file", "resourceType": "case"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
 ```
 
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<ORGANIZATION_ID>` with an actual organization ID.
-
-Expected response (HTTP 200):
+Expected response (if staff123's role is "staff" in the organization that owns case456):
 ```json
 {
-  "userId": "<user-id>",
-  "organizationId": "<organization-id>",
-  "role": "admin"
+  "allowed": true
 }
 ```
 
-#### User Not in Organization
+#### 4. Organization Staff Access - Restricted Action
 ```bash
-curl -X GET \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/<ORGANIZATION_ID>
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "staff123", "resourceId": "case456", "action": "delete", "resourceType": "case"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
 ```
 
-Expected response (HTTP 404):
+Expected response (staff cannot delete cases):
 ```json
 {
-  "error": "Not Found",
-  "message": "User not found in organization"
+  "allowed": false
+}
+```
+
+#### 5. Organization Resource Access
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "admin123", "resourceId": "org456", "action": "update", "resourceType": "organization"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
+```
+
+Expected response (if admin123's role is "administrator" in org456):
+```json
+{
+  "allowed": true
+}
+```
+
+#### 6. No Access
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "random_user", "resourceId": "case456", "action": "read", "resourceType": "case"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
+```
+
+Expected response (user has no relationship to the case):
+```json
+{
+  "allowed": false
+}
+```
+
+#### 7. Specifying Organization ID Explicitly
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "staff123", "resourceId": "case456", "action": "read", "resourceType": "case", "organizationId": "org456"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
+```
+
+Expected response (if staff123's role is "staff" in org456):
+```json
+{
+  "allowed": true
 }
 ```
 

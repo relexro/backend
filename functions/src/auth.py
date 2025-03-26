@@ -127,9 +127,11 @@ def check_permissions(request):
         user_id = data["userId"]
         resource_id = data["resourceId"]
         action = data["action"]
+        resource_type = data.get("resourceType", "case")
+        organization_id = data.get("organizationId")
         
         # Validate action is supported
-        valid_actions = ["read", "write", "delete"]
+        valid_actions = ["read", "update", "delete", "upload_file", "manage_access"]
         if action not in valid_actions:
             logging.error(f"Bad Request: Invalid action: {action}")
             return ({"error": "Bad Request", "message": f"Invalid action. Supported actions: {', '.join(valid_actions)}"}, 400)
@@ -137,27 +139,11 @@ def check_permissions(request):
         # Initialize Firestore client
         db = firestore.client()
         
-        # Get the resource type from request if provided, default to "case"
-        resource_type = data.get("resourceType", "case")
-        
         # Simple permission check implementation
         allowed = False
         
-        # For simplicity - check if the user is an admin
-        try:
-            # Get user role from user profile
-            user_doc = db.collection("users").document(user_id).get()
-            if user_doc.exists:
-                user_data = user_doc.to_dict()
-                # Admins have full access to all resources
-                if user_data.get("role") == "admin":
-                    allowed = True
-        except Exception as e:
-            logging.error(f"Error checking admin status: {str(e)}")
-            # Continue with normal permission check
-        
-        # If not already allowed as admin, check direct ownership
-        if not allowed and resource_type == "case":
+        # For case resources
+        if resource_type == "case":
             try:
                 # Get the case document
                 case_doc = db.collection("cases").document(resource_id).get()
@@ -165,26 +151,79 @@ def check_permissions(request):
                 # Check if the case exists
                 if case_doc.exists:
                     case_data = case_doc.to_dict()
-                    # Check if the user owns the case
+                    
+                    # If user is the case owner, they have full access
                     if case_data.get("userId") == user_id:
                         allowed = True
-                    # Check organization membership for organization cases
+                        logging.info(f"User {user_id} is the owner of case {resource_id}. Access granted.")
+                    # If case is associated with an organization, check organization membership
                     elif case_data.get("organizationId"):
-                        organization_id = case_data.get("organizationId")
-                        user_role_doc = db.collection("organizations").document(organization_id).collection("users").document(user_id).get()
-                        if user_role_doc.exists:
-                            user_role_data = user_role_doc.to_dict()
-                            # Organization admins have full access, members have read access only
-                            if user_role_data.get("role") == "admin":
+                        case_org_id = case_data.get("organizationId")
+                        
+                        # Query the organization_memberships collection
+                        query = db.collection("organization_memberships").where("organizationId", "==", case_org_id).where("userId", "==", user_id).limit(1)
+                        memberships = list(query.stream())
+                        
+                        if memberships:
+                            membership_data = memberships[0].to_dict()
+                            user_role = membership_data.get("role")
+                            
+                            # Administrator role has full access to case
+                            if user_role == "administrator":
                                 allowed = True
-                            elif user_role_data.get("role") == "member" and action == "read":
-                                allowed = True
+                                logging.info(f"User {user_id} is an administrator in organization {case_org_id}. Access granted for action {action} on case {resource_id}.")
+                            # Staff role has limited access
+                            elif user_role == "staff":
+                                # Staff can read, update, and upload files, but cannot delete or manage access
+                                if action in ["read", "update", "upload_file"]:
+                                    allowed = True
+                                    logging.info(f"User {user_id} is staff in organization {case_org_id}. Access granted for action {action} on case {resource_id}.")
+                                else:
+                                    logging.info(f"User {user_id} is staff in organization {case_org_id} but does not have permission for action {action} on case {resource_id}.")
+                            else:
+                                logging.info(f"User {user_id} has role {user_role} in organization {case_org_id} but does not have permission for action {action} on case {resource_id}.")
+                        else:
+                            logging.info(f"User {user_id} is not a member of organization {case_org_id}. Access denied.")
+                else:
+                    logging.error(f"Resource not found: Case with ID {resource_id} does not exist")
             except Exception as e:
-                logging.error(f"Error checking resource ownership: {str(e)}")
-                # Continue with default (not allowed)
+                logging.error(f"Error checking case permissions: {str(e)}")
+        
+        # For organization resources
+        elif resource_type == "organization":
+            # For organization resources, resourceId is the organizationId
+            organization_id = resource_id
+            
+            try:
+                # Query the organization_memberships collection
+                query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", user_id).limit(1)
+                memberships = list(query.stream())
+                
+                if memberships:
+                    membership_data = memberships[0].to_dict()
+                    user_role = membership_data.get("role")
+                    
+                    # Administrator role has full access to the organization
+                    if user_role == "administrator":
+                        allowed = True
+                        logging.info(f"User {user_id} is an administrator in organization {organization_id}. Access granted for action {action}.")
+                    # Staff role has limited access to the organization
+                    elif user_role == "staff":
+                        # Staff can only read organization information
+                        if action == "read":
+                            allowed = True
+                            logging.info(f"User {user_id} is staff in organization {organization_id}. Access granted for action {action}.")
+                        else:
+                            logging.info(f"User {user_id} is staff in organization {organization_id} but does not have permission for action {action}.")
+                    else:
+                        logging.info(f"User {user_id} has role {user_role} in organization {organization_id} but does not have permission for action {action}.")
+                else:
+                    logging.info(f"User {user_id} is not a member of organization {organization_id}. Access denied.")
+            except Exception as e:
+                logging.error(f"Error checking organization permissions: {str(e)}")
         
         # Return the permission check result
-        logging.info(f"Permission check: userId={user_id}, resourceId={resource_id}, action={action}, allowed={allowed}")
+        logging.info(f"Permission check: userId={user_id}, resourceId={resource_id}, resourceType={resource_type}, action={action}, allowed={allowed}")
         return ({"allowed": allowed}, 200)
     except Exception as e:
         logging.error(f"Error checking permissions: {str(e)}")

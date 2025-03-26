@@ -43,6 +43,12 @@
 *   Immutable Audit Trail (to be implemented) for sensitive data access.
 *   Encryption at rest (Firebase default) and encryption in transit (HTTPS).
 *   Rate limiting (if needed) for Firebase Functions.
+*   Role-based access control (RBAC) for organization resources:
+    *   Case owners have full access to their cases.
+    *   Organization administrators have full access to all cases within their organization.
+    *   Organization staff members have limited permissions based on their role.
+    *   Permissions are verified through the `check_permissions` function.
+    *   Fine-grained control over actions like reading, updating, deleting, and uploading files.
 
 **Deployment:**
 

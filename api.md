@@ -53,7 +53,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "userId": "user123",
     "resourceId": "case456",
     "action": "read",
-    "resourceType": "case" 
+    "resourceType": "case",
+    "organizationId": "organization789" 
   }
   ```
 - **Response**:
@@ -62,6 +63,27 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "allowed": true
   }
   ```
+- **Valid Actions**:
+  - `read`: View the resource
+  - `update`: Edit the resource
+  - `delete`: Delete or archive the resource
+  - `upload_file`: Upload files to the resource
+  - `manage_access`: Manage who has access to the resource
+- **Permission Rules**:
+  - **For Case Resources**:
+    - Case owners have full access to all actions
+    - Organization administrators have full access to cases in their organization
+    - Organization staff members can `read`, `update`, and `upload_file` to cases in their organization
+    - Staff members cannot `delete` or `manage_access` to cases
+  - **For Organization Resources** (where `resourceId` is the `organizationId`):
+    - Organization administrators have full access to organization resources
+    - Organization staff members can only `read` organization information
+- **Parameters**:
+  - `userId` (required): The ID of the user requesting access
+  - `resourceId` (required): The ID of the resource being accessed
+  - `action` (required): The action being performed on the resource
+  - `resourceType` (optional, default: "case"): The type of resource being accessed
+  - `organizationId` (optional): The ID of the organization the resource belongs to (for cases)
 - **Errors**:
   - 400: Bad Request (missing parameters)
   - 500: Internal server error

@@ -43,6 +43,7 @@
 - ✅ Implemented check_permissions function
 - ✅ Implemented get_user_role function
 - ✅ Created get_authenticated_user helper
+- ✅ Updated check_permissions function to work with the new Organization and Role model
 
 ### Module: file.py
 - ✅ Implemented upload_file function
@@ -66,6 +67,7 @@ All implemented functions have been successfully deployed to Google Cloud Functi
 - ✅ **File Handling**: Uploading and downloading files is functional.
 - ✅ **Payment Processing**: Core payment functions using Stripe (create_payment_intent and create_checkout_session) are deployed.
 - ✅ **Environment Variables**: All Cloud Functions now use environment variables for region configuration instead of hardcoded values, improving maintainability and flexibility.
+- ✅ **Role-Based Access Control**: The `check_permissions` function now properly integrates with the Organization Membership model to enforce role-based access controls for organization resources and cases.
 
 ## Firebase Authentication Setup
 
@@ -133,6 +135,7 @@ To complete the Firebase Authentication setup (this requires manual steps in the
 - Firestore is used for data storage with appropriate collection structures
 - Environment variables used for configuration instead of hardcoded values
 - CORS support added for web application integration
+- Role-based access control implemented for organization resources and cases
 
 ## Pending Tasks
 - ⬜ Implement Stripe webhook handler to process payment events
@@ -151,6 +154,7 @@ To complete the Firebase Authentication setup (this requires manual steps in the
 - The business module functions are correctly handling CRUD operations
 - Chat enhancement with enriched context is functioning as expected
 - Payment processing integration with Stripe is working as expected
+- The updated `check_permissions` function correctly evaluates permissions based on user roles in organizations
 
 ## Next Steps
 1. Complete the payment processing module by adding the webhook handler

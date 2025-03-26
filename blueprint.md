@@ -258,3 +258,71 @@ All cloud infrastructure is managed through Terraform, including:
 ### Payment Endpoints
 - `create_payment_intent`: Creates a Stripe Payment Intent
 - `create_checkout_session`: Creates a Stripe Checkout Session
+
+## Permission Model
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                    PERMISSION MODEL                             │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌───────────────────────────────────┐                          │
+│  │           RESOURCE OWNER          │                          │
+│  │                                   │                          │
+│  │  - Full access to owned resources │                          │
+│  │  - All actions permitted          │                          │
+│  └───────────────────────────────────┘                          │
+│                                                                 │
+│  ┌───────────────────────────────────┐                          │
+│  │      ORGANIZATION ADMINISTRATOR   │                          │
+│  │                                   │                          │
+│  │  - Full access to organization    │                          │
+│  │  - Full access to all cases in    │                          │
+│  │    the organization               │                          │
+│  │  - Can manage organization users  │                          │
+│  └───────────────────────────────────┘                          │
+│                                                                 │
+│  ┌───────────────────────────────────┐                          │
+│  │        ORGANIZATION STAFF         │                          │
+│  │                                   │                          │
+│  │  - Read access to organization    │                          │
+│  │  - Read, update, upload to cases  │                          │
+│  │    in the organization            │                          │
+│  │  - Cannot delete cases or manage  │                          │
+│  │    access to them                 │                          │
+│  └───────────────────────────────────┘                          │
+│                                                                 │
+│  ┌───────────────────────────────────┐                          │
+│  │          RESOURCE ACTIONS         │                          │
+│  │                                   │                          │
+│  │  - read: View resource            │                          │
+│  │  - update: Modify resource        │                          │
+│  │  - delete: Remove resource        │                          │
+│  │  - upload_file: Add files         │                          │
+│  │  - manage_access: Control access  │                          │
+│  └───────────────────────────────────┘                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The permission model is implemented in the `check_permissions` function, which verifies whether a user has permission to perform a specific action on a resource. The function handles two main resource types:
+
+1. **Case Resources**:
+   - Case owners have full access to all actions on their cases
+   - Organization administrators have full access to all cases within their organization
+   - Organization staff members can read, update, and upload files to cases in their organization
+   - Staff members cannot delete cases or manage access to them
+
+2. **Organization Resources**:
+   - Organization administrators have full access to update the organization
+   - Organization staff members can only read organization information
+   - Only administrators can add members, remove members, or change roles
+
+The permissions are determined by examining:
+- Direct ownership of resources
+- User's role in the organization that owns the resource
+- The specific action being performed
+
+This role-based access control system ensures appropriate security boundaries while allowing organization members to collaborate effectively.
