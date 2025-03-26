@@ -69,12 +69,12 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 ### Get User Role
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-user-role`
 - **Method**: POST
-- **Description**: Gets a user's role in a business
+- **Description**: Gets a user's role in an organization
 - **Request Body**:
   ```json
   {
     "userId": "user123",
-    "businessId": "business456"
+    "organizationId": "organization456"
   }
   ```
 - **Response**:
@@ -85,38 +85,38 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   ```
 - **Errors**:
   - 400: Bad Request (missing parameters)
-  - 404: Not Found (user not in business)
+  - 404: Not Found (user not in organization)
   - 500: Internal server error
 
 ---
 
-## Business Functions
+## Organization Functions
 
-### Create Business
-- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-business`
+### Create Organization
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-organization`
 - **Method**: POST
-- **Description**: Creates a new business account
+- **Description**: Creates a new organization account
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
   ```json
   {
-    "name": "Business Name",
+    "name": "Organization Name",
     "type": "law_firm",
-    "address": "123 Business St",
+    "address": "123 Organization St",
     "phone": "+40721234567",
-    "email": "business@example.com"
+    "email": "organization@example.com"
   }
   ```
 - **Response**:
   ```json
   {
-    "businessId": "business123",
-    "name": "Business Name",
+    "organizationId": "organization123",
+    "name": "Organization Name",
     "type": "law_firm",
-    "address": "123 Business St",
+    "address": "123 Organization St",
     "phone": "+40721234567",
-    "email": "business@example.com",
+    "email": "organization@example.com",
     "createdAt": "2023-10-15T10:30:00Z",
     "ownerId": "user123"
   }
@@ -126,40 +126,40 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - 401: Unauthorized
   - 500: Internal server error
 
-### Get Business
-- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-business`
+### Get Organization
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-organization`
 - **Method**: GET
-- **Description**: Retrieves a business by ID
+- **Description**: Retrieves an organization by ID
 - **Query Parameters**:
-  - `businessId`: ID of the business to retrieve
+  - `organizationId`: ID of the organization to retrieve
 - **Response**:
   ```json
   {
-    "businessId": "business123",
-    "name": "Business Name",
+    "organizationId": "organization123",
+    "name": "Organization Name",
     "type": "law_firm",
-    "address": "123 Business St",
+    "address": "123 Organization St",
     "phone": "+40721234567",
-    "email": "business@example.com",
+    "email": "organization@example.com",
     "createdAt": "2023-10-15T10:30:00Z",
     "ownerId": "user123"
   }
   ```
 - **Errors**:
-  - 400: Bad Request (missing businessId)
+  - 400: Bad Request (missing organizationId)
   - 404: Not Found
   - 500: Internal server error
 
-### Add Business User
-- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-business-user`
+### Add Organization User
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-user`
 - **Method**: POST
-- **Description**: Adds a user to a business
+- **Description**: Adds a user to an organization
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
   ```json
   {
-    "businessId": "business123",
+    "organizationId": "organization123",
     "userId": "user456",
     "role": "member"
   }
@@ -169,7 +169,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   {
     "success": true,
     "userId": "user456",
-    "businessId": "business123",
+    "organizationId": "organization123",
     "role": "member"
   }
   ```
@@ -182,13 +182,13 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 ### Set User Role
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-set-user-role`
 - **Method**: POST
-- **Description**: Updates a user's role in a business
+- **Description**: Updates a user's role in an organization
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
   ```json
   {
-    "businessId": "business123",
+    "organizationId": "organization123",
     "userId": "user456",
     "role": "admin"
   }
@@ -198,7 +198,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   {
     "success": true,
     "userId": "user456",
-    "businessId": "business123",
+    "organizationId": "organization123",
     "role": "admin"
   }
   ```
@@ -208,17 +208,17 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - 403: Forbidden (no permissions)
   - 500: Internal server error
 
-### Update Business
-- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-update-business`
+### Update Organization
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-update-organization`
 - **Method**: POST
-- **Description**: Updates a business account
+- **Description**: Updates an organization account
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
   ```json
   {
-    "businessId": "business123",
-    "name": "Updated Business Name",
+    "organizationId": "organization123",
+    "name": "Updated Organization Name",
     "address": "456 New Address Ave",
     "phone": "+40723456789"
   }
@@ -226,12 +226,12 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 - **Response**:
   ```json
   {
-    "businessId": "business123",
-    "name": "Updated Business Name",
+    "organizationId": "organization123",
+    "name": "Updated Organization Name",
     "type": "law_firm",
     "address": "456 New Address Ave",
     "phone": "+40723456789",
-    "email": "business@example.com",
+    "email": "organization@example.com",
     "updatedAt": "2023-10-16T14:45:00Z"
   }
   ```
@@ -241,14 +241,14 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - 403: Forbidden (no permissions)
   - 500: Internal server error
 
-### List Business Users
-- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-business-users`
+### List Organization Users
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-organization-users`
 - **Method**: GET
-- **Description**: Lists users in a business
+- **Description**: Lists users in an organization
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Query Parameters**:
-  - `businessId`: ID of the business
+  - `organizationId`: ID of the organization
 - **Response**:
   ```json
   {
@@ -267,21 +267,21 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   }
   ```
 - **Errors**:
-  - 400: Bad Request (missing businessId)
+  - 400: Bad Request (missing organizationId)
   - 401: Unauthorized
   - 403: Forbidden (no permissions)
   - 500: Internal server error
 
-### Remove Business User
-- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-business-user`
+### Remove Organization User
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-organization-user`
 - **Method**: POST
-- **Description**: Removes a user from a business
+- **Description**: Removes a user from an organization
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
   ```json
   {
-    "businessId": "business123",
+    "organizationId": "organization123",
     "userId": "user456"
   }
   ```
@@ -290,13 +290,173 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   {
     "success": true,
     "userId": "user456",
-    "businessId": "business123"
+    "organizationId": "organization123"
   }
   ```
 - **Errors**:
   - 400: Bad Request (missing parameters)
   - 401: Unauthorized
   - 403: Forbidden (no permissions)
+  - 500: Internal server error
+
+---
+
+## Organization Membership Functions
+
+### Add Organization Member
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member`
+- **Method**: POST
+- **Description**: Adds a member to an organization
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Request Body**:
+  ```json
+  {
+    "organizationId": "organization123",
+    "userId": "user456",
+    "role": "staff"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "membershipId": "membership789",
+    "userId": "user456",
+    "organizationId": "organization123",
+    "role": "staff",
+    "email": "user@example.com",
+    "displayName": "User Name"
+  }
+  ```
+- **Errors**:
+  - 400: Bad Request (missing parameters)
+  - 401: Unauthorized
+  - 403: Forbidden (no permissions)
+  - 404: Not Found (organization not found)
+  - 409: Conflict (user already a member)
+  - 500: Internal server error
+
+### Set Organization Member Role
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-set-organization-member-role`
+- **Method**: POST
+- **Description**: Updates a member's role in an organization
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Request Body**:
+  ```json
+  {
+    "organizationId": "organization123",
+    "userId": "user456",
+    "newRole": "administrator"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "membershipId": "membership789",
+    "userId": "user456",
+    "organizationId": "organization123",
+    "role": "administrator",
+    "email": "user@example.com",
+    "displayName": "User Name"
+  }
+  ```
+- **Errors**:
+  - 400: Bad Request (missing parameters)
+  - 401: Unauthorized
+  - 403: Forbidden (no permissions or attempting to change last administrator)
+  - 404: Not Found (organization or membership not found)
+  - 500: Internal server error
+
+### List Organization Members
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-organization-members`
+- **Method**: GET
+- **Description**: Lists all members of an organization
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Query Parameters**:
+  - `organizationId`: ID of the organization
+- **Response**:
+  ```json
+  {
+    "members": [
+      {
+        "userId": "user123",
+        "role": "administrator",
+        "addedAt": "2023-10-15T10:30:00Z",
+        "email": "admin@example.com",
+        "displayName": "Admin User"
+      },
+      {
+        "userId": "user456",
+        "role": "staff",
+        "addedAt": "2023-10-16T11:45:00Z",
+        "email": "staff@example.com",
+        "displayName": "Staff User"
+      }
+    ]
+  }
+  ```
+- **Errors**:
+  - 400: Bad Request (missing organizationId)
+  - 401: Unauthorized
+  - 403: Forbidden (not a member of organization)
+  - 404: Not Found (organization not found)
+  - 500: Internal server error
+
+### Remove Organization Member
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-organization-member`
+- **Method**: POST
+- **Description**: Removes a member from an organization
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Request Body**:
+  ```json
+  {
+    "organizationId": "organization123",
+    "userId": "user456"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "userId": "user456",
+    "organizationId": "organization123"
+  }
+  ```
+- **Errors**:
+  - 400: Bad Request (missing parameters or attempting to remove self)
+  - 401: Unauthorized
+  - 403: Forbidden (no administrator permissions or attempting to remove last administrator)
+  - 404: Not Found (organization or membership not found)
+  - 500: Internal server error
+
+### Get User Organization Role
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-user-organization-role`
+- **Method**: POST
+- **Description**: Gets a user's role in a specific organization
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Request Body**:
+  ```json
+  {
+    "userId": "user456",
+    "organizationId": "organization123"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "role": "staff"
+  }
+  ```
+- **Errors**:
+  - 400: Bad Request (missing parameters)
+  - 401: Unauthorized
+  - 404: Not Found (organization not found or user not a member)
   - 500: Internal server error
 
 ---
@@ -315,7 +475,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "title": "Case Title",
     "description": "Case description",
     "caseType": "legal_advice",
-    "businessId": "business123" 
+    "organizationId": "organization123" 
   }
   ```
 - **Response**:
@@ -326,7 +486,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "description": "Case description",
     "caseType": "legal_advice",
     "userId": "user123",
-    "businessId": "business123",
+    "organizationId": "organization123",
     "status": "active",
     "createdAt": "2023-10-16T15:30:00Z"
   }
@@ -350,7 +510,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "description": "Case description",
     "caseType": "legal_advice",
     "userId": "user123",
-    "businessId": "business123",
+    "organizationId": "organization123",
     "status": "active",
     "createdAt": "2023-10-16T15:30:00Z"
   }
@@ -366,7 +526,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 - **Description**: Lists cases
 - **Query Parameters**:
   - `userId`: (optional) Filter by user ID
-  - `businessId`: (optional) Filter by business ID
+  - `organizationId`: (optional) Filter by organization ID
   - `status`: (optional) Filter by status
   - `limit`: (optional) Maximum number of cases to return
 - **Response**:
@@ -379,7 +539,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
         "description": "Case description",
         "caseType": "legal_advice",
         "userId": "user123",
-        "businessId": "business123",
+        "organizationId": "organization123",
         "status": "active",
         "createdAt": "2023-10-16T15:30:00Z"
       }

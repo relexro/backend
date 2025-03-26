@@ -168,13 +168,13 @@ def check_permissions(request):
                     # Check if the user owns the case
                     if case_data.get("userId") == user_id:
                         allowed = True
-                    # Check business membership for business cases
-                    elif case_data.get("businessId"):
-                        business_id = case_data.get("businessId")
-                        user_role_doc = db.collection("businesses").document(business_id).collection("users").document(user_id).get()
+                    # Check organization membership for organization cases
+                    elif case_data.get("organizationId"):
+                        organization_id = case_data.get("organizationId")
+                        user_role_doc = db.collection("organizations").document(organization_id).collection("users").document(user_id).get()
                         if user_role_doc.exists:
                             user_role_data = user_role_doc.to_dict()
-                            # Business admins have full access, members have read access only
+                            # Organization admins have full access, members have read access only
                             if user_role_data.get("role") == "admin":
                                 allowed = True
                             elif user_role_data.get("role") == "member" and action == "read":
@@ -192,7 +192,7 @@ def check_permissions(request):
 
 @functions_framework.http
 def get_user_role(request):
-    """Retrieve a user's role in a business.
+    """Retrieve a user's role in an organization.
     
     Args:
         request (flask.Request): HTTP request object.
@@ -214,29 +214,29 @@ def get_user_role(request):
             logging.error("Bad Request: Missing userId")
             return ({"error": "Bad Request", "message": "userId is required"}, 400)
         
-        if "businessId" not in data:
-            logging.error("Bad Request: Missing businessId")
-            return ({"error": "Bad Request", "message": "businessId is required"}, 400)
+        if "organizationId" not in data:
+            logging.error("Bad Request: Missing organizationId")
+            return ({"error": "Bad Request", "message": "organizationId is required"}, 400)
         
         # Extract fields
         user_id = data["userId"]
-        business_id = data["businessId"]
+        organization_id = data["organizationId"]
         
         # Initialize Firestore client
         db = firestore.client()
         
-        # Check if the business exists
-        business_doc = db.collection("businesses").document(business_id).get()
-        if not business_doc.exists:
-            logging.error(f"Not Found: Business with ID {business_id} not found")
-            return ({"error": "Not Found", "message": "Business not found"}, 404)
+        # Check if the organization exists
+        organization_doc = db.collection("organizations").document(organization_id).get()
+        if not organization_doc.exists:
+            logging.error(f"Not Found: Organization with ID {organization_id} not found")
+            return ({"error": "Not Found", "message": "Organization not found"}, 404)
         
-        # Get the user's role in the business
-        user_role_doc = db.collection("businesses").document(business_id).collection("users").document(user_id).get()
+        # Get the user's role in the organization
+        user_role_doc = db.collection("organizations").document(organization_id).collection("users").document(user_id).get()
         
-        # If user is not in the business, return null role
+        # If user is not in the organization, return null role
         if not user_role_doc.exists:
-            logging.info(f"User {user_id} has no role in business {business_id}")
+            logging.info(f"User {user_id} has no role in organization {organization_id}")
             return ({"role": None}, 200)
         
         # Get the user's role
@@ -244,7 +244,7 @@ def get_user_role(request):
         role = user_role_data.get("role", None)
         
         # Return the user's role
-        logging.info(f"Successfully retrieved role for user {user_id} in business {business_id}: {role}")
+        logging.info(f"Successfully retrieved role for user {user_id} in organization {organization_id}: {role}")
         return ({"role": role}, 200)
     except Exception as e:
         logging.error(f"Error getting user role: {str(e)}")

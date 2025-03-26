@@ -1,12 +1,15 @@
 import functions_framework
-from cases import create_case, get_case, list_cases, archive_case, delete_case, upload_file, download_file
-from auth import validate_user, check_permissions, get_user_role, get_authenticated_user
-from business import create_business, get_business, add_business_user, set_user_role, update_business, list_business_users, remove_business_user
-from chat import receive_prompt, send_to_vertex_ai, store_conversation, enrich_prompt
-from payments import create_payment_intent, create_checkout_session
-import flask
 import json
+import flask
 import logging
+
+# Import function modules
+from auth import validate_user, check_permissions, get_user_role, get_authenticated_user
+from cases import create_case, get_case, list_cases, archive_case, delete_case, upload_file, download_file
+from organization import create_organization, get_organization, add_organization_user, set_user_role, update_organization, list_organization_users, remove_organization_user
+from chat import receive_prompt, send_to_vertex_ai, store_conversation, enrich_prompt
+from payments import create_payment_intent, create_checkout_session, handle_stripe_webhook
+from organization_membership import add_organization_member, set_organization_member_role, list_organization_members, remove_organization_member, get_user_organization_role
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -107,48 +110,48 @@ def auth_check_permissions(request):
 
 @functions_framework.http
 def auth_get_user_role(request):
-    """HTTP Cloud Function for retrieving a user's role in a business."""
+    """HTTP Cloud Function for retrieving a user's role in an organization."""
     try:
         return get_user_role(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
-# Business Functions
+# Organization Functions (renamed from Business Functions)
 @functions_framework.http
-def business_create_business(request):
-    """HTTP Cloud Function for creating a new business account."""
+def organization_create_organization(request):
+    """HTTP Cloud Function for creating a new organization account."""
     try:
-        return create_business(request)
+        return create_organization(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def business_get_business(request):
-    """HTTP Cloud Function for retrieving a business account by ID."""
+def organization_get_organization(request):
+    """HTTP Cloud Function for retrieving an organization account by ID."""
     try:
-        return get_business(request)
+        return get_organization(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def business_add_business_user(request):
-    """HTTP Cloud Function for adding a user to a business account."""
+def organization_add_organization_user(request):
+    """HTTP Cloud Function for adding a user to an organization account."""
     try:
-        return add_business_user(request)
+        return add_organization_user(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def business_set_user_role(request):
-    """HTTP Cloud Function for updating a user's role in a business."""
+def organization_set_user_role(request):
+    """HTTP Cloud Function for updating a user's role in an organization."""
     try:
         return set_user_role(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def business_update_business(request):
-    """HTTP Cloud Function for updating a business account."""
+def organization_update_organization(request):
+    """HTTP Cloud Function for updating an organization account."""
     try:
         # Authenticate the user
         user_data, status_code, error_message = get_authenticated_user(request)
@@ -159,13 +162,13 @@ def business_update_business(request):
         modified_request = request.environ.get('werkzeug.request', request)
         modified_request.user_id = user_data.get('userId')
         
-        return update_business(modified_request)
+        return update_organization(modified_request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def business_list_business_users(request):
-    """HTTP Cloud Function for listing users in a business account."""
+def organization_list_organization_users(request):
+    """HTTP Cloud Function for listing users in an organization account."""
     try:
         # Authenticate the user
         user_data, status_code, error_message = get_authenticated_user(request)
@@ -176,13 +179,13 @@ def business_list_business_users(request):
         modified_request = request.environ.get('werkzeug.request', request)
         modified_request.user_id = user_data.get('userId')
         
-        return list_business_users(modified_request)
+        return list_organization_users(modified_request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def business_remove_business_user(request):
-    """HTTP Cloud Function for removing a user from a business account."""
+def organization_remove_organization_user(request):
+    """HTTP Cloud Function for removing a user from an organization account."""
     try:
         # Authenticate the user
         user_data, status_code, error_message = get_authenticated_user(request)
@@ -193,7 +196,7 @@ def business_remove_business_user(request):
         modified_request = request.environ.get('werkzeug.request', request)
         modified_request.user_id = user_data.get('userId')
         
-        return remove_business_user(modified_request)
+        return remove_organization_user(modified_request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
@@ -271,5 +274,82 @@ def payments_create_checkout_session(request):
         modified_request.user_id = user_data.get('userId')
         
         return create_checkout_session(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+# New Organization Membership Functions
+@functions_framework.http
+def organization_membership_add_organization_member(request):
+    """HTTP Cloud Function for adding a member to an organization."""
+    try:
+        # Authenticate the user
+        user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            
+        # Add the authenticated user ID to the request
+        modified_request = request.environ.get('werkzeug.request', request)
+        modified_request.user_id = user_data.get('userId')
+        
+        return add_organization_member(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def organization_membership_set_organization_member_role(request):
+    """HTTP Cloud Function for setting a member's role in an organization."""
+    try:
+        # Authenticate the user
+        user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            
+        # Add the authenticated user ID to the request
+        modified_request = request.environ.get('werkzeug.request', request)
+        modified_request.user_id = user_data.get('userId')
+        
+        return set_organization_member_role(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def organization_membership_list_organization_members(request):
+    """HTTP Cloud Function for listing members of an organization."""
+    try:
+        # Authenticate the user
+        user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            
+        # Add the authenticated user ID to the request
+        modified_request = request.environ.get('werkzeug.request', request)
+        modified_request.user_id = user_data.get('userId')
+        
+        return list_organization_members(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def organization_membership_remove_organization_member(request):
+    """HTTP Cloud Function for removing a member from an organization."""
+    try:
+        # Authenticate the user
+        user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            
+        # Add the authenticated user ID to the request
+        modified_request = request.environ.get('werkzeug.request', request)
+        modified_request.user_id = user_data.get('userId')
+        
+        return remove_organization_member(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def organization_membership_get_user_organization_role(request):
+    """HTTP Cloud Function for getting a user's role in an organization."""
+    try:
+        return get_user_organization_role(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500

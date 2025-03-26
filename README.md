@@ -9,7 +9,8 @@ Backend for Relex, an AI-powered legal chat application built using Firebase Fun
   - `chat.py`: Chat and AI interaction functions
   - `auth.py`: Authentication functions
   - `payments.py`: Payment processing functions
-  - `business.py`: Business account management functions
+  - `organization.py`: Organization account management functions
+  - `organization_membership.py`: Organization membership management functions
   - `main.py`: Main entry point that imports and exports all functions
 
 - `terraform/`: Contains Terraform configuration files
@@ -223,11 +224,11 @@ Expected response (HTTP 201):
 }
 ```
 
-#### With Business ID
+#### With Organization ID
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"title": "Business Case", "description": "Business Description", "businessId": "test-business-id"}' \
+  -d '{"title": "Organization Case", "description": "Organization Description", "organizationId": "test-organization-id"}' \
   <FUNCTION_URL>
 ```
 
@@ -710,46 +711,46 @@ Expected response (HTTP 400):
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/<BUSINESS_ID>
+  <FUNCTION_URL>/<ORGANIZATION_ID>
 ```
 
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<BUSINESS_ID>` with an actual business ID.
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<ORGANIZATION_ID>` with an actual organization ID.
 
 Expected response (HTTP 200):
 ```json
 {
   "userId": "<user-id>",
-  "businessId": "<business-id>",
+  "organizationId": "<organization-id>",
   "role": "admin"
 }
 ```
 
-#### User Not in Business
+#### User Not in Organization
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/<BUSINESS_ID>
+  <FUNCTION_URL>/<ORGANIZATION_ID>
 ```
 
 Expected response (HTTP 404):
 ```json
 {
   "error": "Not Found",
-  "message": "User not found in business"
+  "message": "User not found in organization"
 }
 ```
 
-### Testing Business Account Management Functions
+### Testing Organization Account Management Functions
 
-#### Testing the create_business Function
+#### Testing the create_organization Function
 
-You can test the `create_business` function using curl or a tool like Postman:
+You can test the `create_organization` function using curl or a tool like Postman:
 
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"name": "Test Business", "industry": "Legal", "size": "small"}' \
+  -d '{"name": "Test Organization", "industry": "Legal", "size": "small"}' \
   <FUNCTION_URL>
 ```
 
@@ -758,8 +759,8 @@ Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token.
 Expected response (HTTP 201):
 ```json
 {
-  "businessId": "<generated-id>",
-  "message": "Business created successfully"
+  "organizationId": "<generated-id>",
+  "message": "Organization created successfully"
 }
 ```
 
@@ -776,62 +777,62 @@ Expected response (HTTP 400):
 ```json
 {
   "error": "Bad Request",
-  "message": "Business name is required"
+  "message": "Organization name is required"
 }
 ```
 
-#### Testing the get_business Function
+#### Testing the get_organization Function
 
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/<BUSINESS_ID>
+  <FUNCTION_URL>/<ORGANIZATION_ID>
 ```
 
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<BUSINESS_ID>` with an actual business ID.
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<ORGANIZATION_ID>` with an actual organization ID.
 
 Expected response (HTTP 200):
 ```json
 {
-  "businessId": "<business-id>",
-  "name": "Test Business",
+  "organizationId": "<organization-id>",
+  "name": "Test Organization",
   "industry": "Legal",
   "size": "small",
   "creationDate": { ... }
 }
 ```
 
-#### Not Found Business
+#### Not Found Organization
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/nonexistent-business-id
+  <FUNCTION_URL>/nonexistent-organization-id
 ```
 
 Expected response (HTTP 404):
 ```json
 {
   "error": "Not Found",
-  "message": "Business not found"
+  "message": "Organization not found"
 }
 ```
 
-#### Testing the add_business_user Function
+#### Testing the add_organization_user Function
 
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ID_TOKEN>" \
   -d '{"userId": "<USER_ID>", "role": "member"}' \
-  <FUNCTION_URL>/<BUSINESS_ID>
+  <FUNCTION_URL>/<ORGANIZATION_ID>
 ```
 
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<BUSINESS_ID>` with an actual business ID, and `<USER_ID>` with the ID of the user to add.
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<ORGANIZATION_ID>` with an actual organization ID, and `<USER_ID>` with the ID of the user to add.
 
 Expected response (HTTP 200):
 ```json
 {
-  "message": "User added to business successfully"
+  "message": "User added to organization successfully"
 }
 ```
 
@@ -842,10 +843,10 @@ curl -X PUT \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ID_TOKEN>" \
   -d '{"userId": "<USER_ID>", "role": "admin"}' \
-  <FUNCTION_URL>/<BUSINESS_ID>
+  <FUNCTION_URL>/<ORGANIZATION_ID>
 ```
 
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<BUSINESS_ID>` with an actual business ID, and `<USER_ID>` with the ID of the user whose role should be updated.
+Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<ORGANIZATION_ID>` with an actual organization ID, and `<USER_ID>` with the ID of the user whose role should be updated.
 
 Expected response (HTTP 200):
 ```json
@@ -922,6 +923,133 @@ Expected response (HTTP 200):
 ```
 
 Tests will be added in future updates.
+
+## Testing the organization membership functions
+
+### Testing the add_organization_member Function
+
+You can test the `add_organization_member` function using curl or a tool like Postman:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"organizationId": "org123", "userId": "user456", "role": "staff"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+```
+
+Expected response (HTTP 200):
+```json
+{
+  "success": true,
+  "membershipId": "membership789",
+  "userId": "user456",
+  "organizationId": "org123",
+  "role": "staff",
+  "email": "user@example.com",
+  "displayName": "User Name"
+}
+```
+
+### Testing the set_organization_member_role Function
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"organizationId": "org123", "userId": "user456", "newRole": "administrator"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-set-organization-member-role
+```
+
+Expected response (HTTP 200):
+```json
+{
+  "success": true,
+  "membershipId": "membership789",
+  "userId": "user456",
+  "organizationId": "org123",
+  "role": "administrator",
+  "email": "user@example.com",
+  "displayName": "User Name"
+}
+```
+
+### Testing the list_organization_members Function
+
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-organization-members?organizationId=org123"
+```
+
+Expected response (HTTP 200):
+```json
+{
+  "members": [
+    {
+      "userId": "user123",
+      "role": "administrator",
+      "addedAt": "2023-10-15T10:30:00Z",
+      "email": "admin@example.com",
+      "displayName": "Admin User"
+    },
+    {
+      "userId": "user456",
+      "role": "staff",
+      "addedAt": "2023-10-16T11:45:00Z",
+      "email": "staff@example.com",
+      "displayName": "Staff User"
+    }
+  ]
+}
+```
+
+### Testing the remove_organization_member Function
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"organizationId": "org123", "userId": "user456"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-organization-member
+```
+
+Expected response (HTTP 200):
+```json
+{
+  "success": true,
+  "userId": "user456",
+  "organizationId": "org123"
+}
+```
+
+### Testing the get_user_organization_role Function
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"userId": "user456", "organizationId": "org123"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-user-organization-role
+```
+
+Expected response (HTTP 200):
+```json
+{
+  "role": "staff"
+}
+```
+
+### Verifying Organization Membership Operations
+After performing organization membership operations, you can verify they were successful by:
+1. Using the `list_organization_members` function to check all members of an organization
+2. Using the `get_user_organization_role` function to check a specific user's role
+3. Checking the Firebase Console:
+   - Go to the Firebase Console (https://console.firebase.google.com/)
+   - Select your project (`relexro`)
+   - Navigate to Firestore Database
+   - Look for the `organization_memberships` collection
+   - Verify the membership data has been updated correctly
 
 ## Authentication Testing
 

@@ -62,11 +62,11 @@ def create_case(request):
             logging.error("Bad Request: Description cannot be empty")
             return ({"error": "Bad Request", "message": "Description cannot be empty"}, 400)
         
-        # Validate businessId if provided
-        business_id = data.get("businessId")
-        if business_id is not None and (not isinstance(business_id, str) or not business_id.strip()):
-            logging.error("Bad Request: Invalid businessId")
-            return ({"error": "Bad Request", "message": "Business ID must be a non-empty string"}, 400)
+        # Validate organizationId if provided
+        organization_id = data.get("organizationId")
+        if organization_id is not None and (not isinstance(organization_id, str) or not organization_id.strip()):
+            logging.error("Bad Request: Invalid organizationId")
+            return ({"error": "Bad Request", "message": "Organization ID must be a non-empty string"}, 400)
         
         # Get the authenticated user ID
         user_id = getattr(request, 'user_id', 'test-user')
@@ -83,7 +83,7 @@ def create_case(request):
         # Prepare case data
         case_data = {
             "userId": user_id,
-            "businessId": business_id,
+            "organizationId": organization_id,
             "title": title,
             "description": description,
             "status": "open",
@@ -144,7 +144,7 @@ def get_case(request):
 
 @functions_framework.http
 def list_cases(request):
-    """List cases for a user or business.
+    """List cases for a user or organization.
     
     Args:
         request (flask.Request): HTTP request object.

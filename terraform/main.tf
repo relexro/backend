@@ -617,15 +617,15 @@ resource "google_cloud_run_service_iam_member" "get_user_role_function_invoker" 
 
 # Business Functions
 
-# Cloud Function for create_business
-resource "google_cloudfunctions2_function" "create_business_function" {
-  name        = "relex-backend-create-business"
-  description = "Create a new business account"
+# Create Organization Function (renamed from create_business_function)
+resource "google_cloudfunctions2_function" "create_organization_function" {
+  name        = "relex-backend-create-organization"
+  description = "Create a new organization account"
   location    = var.region
   
   build_config {
     runtime     = "python310"
-    entry_point = "business_create_business"
+    entry_point = "organization_create_organization"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -653,24 +653,24 @@ resource "google_cloudfunctions2_function" "create_business_function" {
   ]
 }
 
-# Allow unauthenticated invocation of the create_business function
-resource "google_cloud_run_service_iam_member" "create_business_function_invoker" {
+# Allow unauthenticated invocation of the create_organization function
+resource "google_cloud_run_service_iam_member" "create_organization_function_invoker" {
   project  = var.project_id
   location = var.region
-  service  = google_cloudfunctions2_function.create_business_function.name
+  service  = google_cloudfunctions2_function.create_organization_function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
-# Cloud Function for get_business
-resource "google_cloudfunctions2_function" "get_business_function" {
-  name        = "relex-backend-get-business"
-  description = "Retrieve a business account by ID"
+# Get Organization Function (renamed from get_business_function)
+resource "google_cloudfunctions2_function" "get_organization_function" {
+  name        = "relex-backend-get-organization"
+  description = "Get an organization account by ID"
   location    = var.region
   
   build_config {
     runtime     = "python310"
-    entry_point = "business_get_business"
+    entry_point = "organization_get_organization"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -698,24 +698,24 @@ resource "google_cloudfunctions2_function" "get_business_function" {
   ]
 }
 
-# Allow unauthenticated invocation of the get_business function
-resource "google_cloud_run_service_iam_member" "get_business_function_invoker" {
+# Allow unauthenticated invocation of the get_organization function
+resource "google_cloud_run_service_iam_member" "get_organization_function_invoker" {
   project  = var.project_id
   location = var.region
-  service  = google_cloudfunctions2_function.get_business_function.name
+  service  = google_cloudfunctions2_function.get_organization_function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
-# Cloud Function for add_business_user
-resource "google_cloudfunctions2_function" "add_business_user_function" {
-  name        = "relex-backend-add-business-user"
-  description = "Add a user to a business account"
+# Add Organization User Function (renamed from add_business_user_function)
+resource "google_cloudfunctions2_function" "add_organization_user_function" {
+  name        = "relex-backend-add-organization-user"
+  description = "Add a user to an organization account"
   location    = var.region
   
   build_config {
     runtime     = "python310"
-    entry_point = "business_add_business_user"
+    entry_point = "organization_add_organization_user"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -743,24 +743,24 @@ resource "google_cloudfunctions2_function" "add_business_user_function" {
   ]
 }
 
-# Allow unauthenticated invocation of the add_business_user function
-resource "google_cloud_run_service_iam_member" "add_business_user_function_invoker" {
+# Allow unauthenticated invocation of the add_organization_user function
+resource "google_cloud_run_service_iam_member" "add_organization_user_function_invoker" {
   project  = var.project_id
   location = var.region
-  service  = google_cloudfunctions2_function.add_business_user_function.name
+  service  = google_cloudfunctions2_function.add_organization_user_function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
-# Cloud Function for set_user_role
+# Set User Role Function (renamed from set_user_role_function)
 resource "google_cloudfunctions2_function" "set_user_role_function" {
   name        = "relex-backend-set-user-role"
-  description = "Update a user's role in a business"
+  description = "Update a user's role in an organization"
   location    = var.region
   
   build_config {
     runtime     = "python310"
-    entry_point = "business_set_user_role"
+    entry_point = "organization_set_user_role"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -793,6 +793,141 @@ resource "google_cloud_run_service_iam_member" "set_user_role_function_invoker" 
   project  = var.project_id
   location = var.region
   service  = google_cloudfunctions2_function.set_user_role_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Update Organization Function (renamed from update_business_function)
+resource "google_cloudfunctions2_function" "update_organization_function" {
+  name        = "relex-backend-update-organization"
+  description = "Update an organization account"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_update_organization"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the update_organization function
+resource "google_cloud_run_service_iam_member" "update_organization_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.update_organization_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# List Organization Users Function (renamed from list_business_users_function)
+resource "google_cloudfunctions2_function" "list_organization_users_function" {
+  name        = "relex-backend-list-organization-users"
+  description = "List users in an organization"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_list_organization_users"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the list_organization_users function
+resource "google_cloud_run_service_iam_member" "list_organization_users_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.list_organization_users_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Remove Organization User Function (renamed from remove_business_user_function)
+resource "google_cloudfunctions2_function" "remove_organization_user_function" {
+  name        = "relex-backend-remove-organization-user"
+  description = "Remove a user from an organization"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_remove_organization_user"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the remove_organization_user function
+resource "google_cloud_run_service_iam_member" "remove_organization_user_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.remove_organization_user_function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
@@ -979,141 +1114,6 @@ resource "google_cloud_run_service_iam_member" "enrich_prompt_function_invoker" 
   member   = "allUsers"
 }
 
-# Cloud Function for update_business
-resource "google_cloudfunctions2_function" "update_business_function" {
-  name        = "relex-backend-update-business"
-  description = "Update a business account"
-  location    = var.region
-  
-  build_config {
-    runtime     = "python310"
-    entry_point = "business_update_business"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.functions_source_zip.name
-      }
-    }
-  }
-  
-  service_config {
-    max_instance_count = 10
-    available_memory   = "256Mi"
-    timeout_seconds    = 60
-    environment_variables = {
-      GOOGLE_CLOUD_PROJECT = var.project_id
-      GOOGLE_CLOUD_REGION  = var.region
-    }
-    # Use default service account
-    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
-  }
-  
-  depends_on = [
-    google_project_service.cloudfunctions,
-    google_project_service.run,
-    google_project_service.artifactregistry
-  ]
-}
-
-# Allow unauthenticated invocation of the update_business function
-resource "google_cloud_run_service_iam_member" "update_business_function_invoker" {
-  project  = var.project_id
-  location = var.region
-  service  = google_cloudfunctions2_function.update_business_function.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
-
-# Cloud Function for list_business_users
-resource "google_cloudfunctions2_function" "list_business_users_function" {
-  name        = "relex-backend-list-business-users"
-  description = "List users in a business account"
-  location    = var.region
-  
-  build_config {
-    runtime     = "python310"
-    entry_point = "business_list_business_users"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.functions_source_zip.name
-      }
-    }
-  }
-  
-  service_config {
-    max_instance_count = 10
-    available_memory   = "256Mi"
-    timeout_seconds    = 60
-    environment_variables = {
-      GOOGLE_CLOUD_PROJECT = var.project_id
-      GOOGLE_CLOUD_REGION  = var.region
-    }
-    # Use default service account
-    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
-  }
-  
-  depends_on = [
-    google_project_service.cloudfunctions,
-    google_project_service.run,
-    google_project_service.artifactregistry
-  ]
-}
-
-# Allow unauthenticated invocation of the list_business_users function
-resource "google_cloud_run_service_iam_member" "list_business_users_function_invoker" {
-  project  = var.project_id
-  location = var.region
-  service  = google_cloudfunctions2_function.list_business_users_function.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
-
-# Cloud Function for remove_business_user
-resource "google_cloudfunctions2_function" "remove_business_user_function" {
-  name        = "relex-backend-remove-business-user"
-  description = "Remove a user from a business account"
-  location    = var.region
-  
-  build_config {
-    runtime     = "python310"
-    entry_point = "business_remove_business_user"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.functions_source_zip.name
-      }
-    }
-  }
-  
-  service_config {
-    max_instance_count = 10
-    available_memory   = "256Mi"
-    timeout_seconds    = 60
-    environment_variables = {
-      GOOGLE_CLOUD_PROJECT = var.project_id
-      GOOGLE_CLOUD_REGION  = var.region
-    }
-    # Use default service account
-    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
-  }
-  
-  depends_on = [
-    google_project_service.cloudfunctions,
-    google_project_service.run,
-    google_project_service.artifactregistry
-  ]
-}
-
-# Allow unauthenticated invocation of the remove_business_user function
-resource "google_cloud_run_service_iam_member" "remove_business_user_function_invoker" {
-  project  = var.project_id
-  location = var.region
-  service  = google_cloudfunctions2_function.remove_business_user_function.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
-
 # Cloud Function for create_payment_intent
 resource "google_cloudfunctions2_function" "create_payment_intent_function" {
   name        = "relex-backend-create-payment-intent"
@@ -1231,4 +1231,225 @@ resource "google_project_service" "identity_platform" {
 # We can't fully automate the OAuth setup with Terraform
 # Instructions are documented in status.md
 
-# Output variables to access deployed resources are in outputs.tf 
+# Output variables to access deployed resources are in outputs.tf
+
+# Organization Membership Functions
+resource "google_cloudfunctions2_function" "add_organization_member_function" {
+  name        = "relex-backend-add-organization-member"
+  description = "Add a member to an organization"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_membership_add_organization_member"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the add_organization_member function
+resource "google_cloud_run_service_iam_member" "add_organization_member_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.add_organization_member_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloudfunctions2_function" "set_organization_member_role_function" {
+  name        = "relex-backend-set-organization-member-role"
+  description = "Set a member's role in an organization"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_membership_set_organization_member_role"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the set_organization_member_role function
+resource "google_cloud_run_service_iam_member" "set_organization_member_role_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.set_organization_member_role_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloudfunctions2_function" "list_organization_members_function" {
+  name        = "relex-backend-list-organization-members"
+  description = "List members of an organization"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_membership_list_organization_members"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the list_organization_members function
+resource "google_cloud_run_service_iam_member" "list_organization_members_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.list_organization_members_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloudfunctions2_function" "remove_organization_member_function" {
+  name        = "relex-backend-remove-organization-member"
+  description = "Remove a member from an organization"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_membership_remove_organization_member"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the remove_organization_member function
+resource "google_cloud_run_service_iam_member" "remove_organization_member_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.remove_organization_member_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloudfunctions2_function" "get_user_organization_role_function" {
+  name        = "relex-backend-get-user-organization-role"
+  description = "Get a user's role in an organization"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_membership_get_user_organization_role"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the get_user_organization_role function
+resource "google_cloud_run_service_iam_member" "get_user_organization_role_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.get_user_organization_role_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+} 

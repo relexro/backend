@@ -52,17 +52,17 @@ output "get_user_role_function_url" {
   value = google_cloudfunctions2_function.get_user_role_function.url
 }
 
-# Business Functions URLs
-output "create_business_function_url" {
-  value = google_cloudfunctions2_function.create_business_function.url
+# Organization Functions URLs
+output "create_organization_function_url" {
+  value = google_cloudfunctions2_function.create_organization_function.url
 }
 
-output "get_business_function_url" {
-  value = google_cloudfunctions2_function.get_business_function.url
+output "get_organization_function_url" {
+  value = google_cloudfunctions2_function.get_organization_function.url
 }
 
-output "add_business_user_function_url" {
-  value = google_cloudfunctions2_function.add_business_user_function.url
+output "add_organization_user_function_url" {
+  value = google_cloudfunctions2_function.add_organization_user_function.url
 }
 
 output "set_user_role_function_url" {
@@ -88,16 +88,16 @@ output "test_function_url" {
   value = google_cloudfunctions2_function.test_function.url
 }
 
-output "update_business_function_url" {
-  value = google_cloudfunctions2_function.update_business_function.url
+output "update_organization_function_url" {
+  value = google_cloudfunctions2_function.update_organization_function.url
 }
 
-output "list_business_users_function_url" {
-  value = google_cloudfunctions2_function.list_business_users_function.url
+output "list_organization_users_function_url" {
+  value = google_cloudfunctions2_function.list_organization_users_function.url
 }
 
-output "remove_business_user_function_url" {
-  value = google_cloudfunctions2_function.remove_business_user_function.url
+output "remove_organization_user_function_url" {
+  value = google_cloudfunctions2_function.remove_organization_user_function.url
 }
 
 output "enrich_prompt_function_url" {

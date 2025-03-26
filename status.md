@@ -16,14 +16,21 @@
 - ✅ Implemented archive_case function
 - ✅ Implemented delete_case function
 
-### Module: business.py
-- ✅ Implemented create_business function
-- ✅ Implemented get_business function
-- ✅ Implemented add_business_user function
+### Module: organization.py
+- ✅ Implemented create_organization function
+- ✅ Implemented get_organization function
+- ✅ Implemented add_organization_user function
 - ✅ Implemented set_user_role function
-- ✅ Implemented update_business function
-- ✅ Implemented list_business_users function
-- ✅ Implemented remove_business_user function
+- ✅ Implemented update_organization function
+- ✅ Implemented list_organization_users function
+- ✅ Implemented remove_organization_user function
+
+### Module: organization_membership.py
+- ✅ Implemented add_organization_member function
+- ✅ Implemented set_organization_member_role function
+- ✅ Implemented list_organization_members function
+- ✅ Implemented remove_organization_member function
+- ✅ Implemented get_user_organization_role function
 
 ### Module: chat.py
 - ✅ Implemented receive_prompt function
@@ -52,7 +59,8 @@ All implemented functions have been successfully deployed to Google Cloud Functi
 
 ### Working Features
 - ✅ **Authentication Integration**: Token validation and user verification is working. All endpoints now have proper authentication with the reusable `get_authenticated_user` helper. The validate_user function now supports CORS for cross-origin requests.
-- ✅ **Business Management**: Functions for creating, updating, and managing business accounts and their users are complete and deployed.
+- ✅ **Organization Management**: Functions for creating, updating, and managing organization accounts and their users are complete and deployed.
+- ✅ **Organization Membership**: Comprehensive membership management with functions for adding members, setting roles, listing members, removing members, and checking user roles within organizations.
 - ✅ **Case Management**: Full lifecycle management of cases (create, read, update, archive, delete) is implemented and active.
 - ✅ **Enhanced Chat**: Enriched context for chat via the new `enrich_prompt` function which adds case context to prompts.
 - ✅ **File Handling**: Uploading and downloading files is functional.
