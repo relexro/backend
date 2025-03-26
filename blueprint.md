@@ -1,328 +1,281 @@
 # Relex Backend Blueprint
 
-## System Architecture
+This document outlines the architecture, design decisions, and roadmap for the Relex backend.
 
-```
-┌───────────────────────────────────────────────────────────────────┐
-│                                                                   │
-│                        CLIENT APPLICATIONS                        │
-│    (Web, Mobile - React/React Native/Flutter Applications)        │
-│                                                                   │
-└───────────────────────┬───────────────────────┬──────────────────┘
-                        │                       │
-                        ▼                       ▼
-┌───────────────────────────────┐   ┌─────────────────────────────┐
-│                               │   │                             │
-│  FIREBASE AUTHENTICATION      │   │  CLOUD STORAGE              │
-│  - User Sign-up/Sign-in       │   │  - Document Storage         │
-│  - JWT Token Generation       │   │  - File Upload/Download     │
-│  - User Management            │   │                             │
-│                               │   │                             │
-└─────────────┬─────────────────┘   └───────────────┬─────────────┘
-              │                                     │
-              ▼                                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                    GOOGLE CLOUD FUNCTIONS                       │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌───────────────┐  ┌────────────────┐  ┌───────────────────┐  │
-│  │               │  │                │  │                   │  │
-│  │  Auth Module  │  │  Organization  │  │  Cases Module     │  │
-│  │               │  │  Module        │  │                   │  │
-│  └───────────────┘  └────────────────┘  └───────────────────┘  │
-│                                                                 │
-│  ┌───────────────┐  ┌────────────────┐  ┌───────────────────┐  │
-│  │               │  │                │  │                   │  │
-│  │  Chat Module  │  │  Payments      │  │  Files Module     │  │
-│  │               │  │  Module        │  │                   │  │
-│  └───────────────┘  └────────────────┘  └───────────────────┘  │
-│                                                                 │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                      FIRESTORE DATABASE                         │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌───────────────┐  ┌────────────────┐  ┌───────────────────┐  │
-│  │ organizations │  │     cases      │  │    documents      │  │
-│  │ collection    │  │   collection   │  │    collection     │  │
-│  └───────┬───────┘  └────────┬───────┘  └────────┬──────────┘  │
-│          │                   │                    │             │
-│          ▼                   ▼                    ▼             │
-│  ┌───────────────┐  ┌────────────────┐  ┌───────────────────┐  │
-│  │ users         │  │  conversations │  │  payments         │  │
-│  │ subcollection │  │  subcollection │  │  collection       │  │
-│  └───────────────┘  └────────────────┘  └───────────────────┘  │
-│                                                                 │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                          VERTEX AI                              │
-│                   (For AI Chat Capabilities)                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+## Architecture Overview
 
-## Component Interactions
+The Relex backend is built as a set of serverless Firebase Cloud Functions. Each function corresponds to a specific API endpoint and performs a discrete task.
 
-### Authentication Flow
+### Core Components
 
-1. Client application initiates authentication with Firebase Auth
-2. Firebase Auth issues JWT token to authenticated user
-3. Client includes token in Authorization header for API requests
-4. Cloud Functions verify token and extract user information
-5. Permission checks are performed based on user roles stored in Firestore
+1. **Authentication System**
+   - Firebase Authentication for user identity
+   - Custom role-based permission system
+   - Organization membership management
 
-### Organization Management Flow
+2. **Case Management**
+   - Create, read, update, delete (CRUD) operations for legal cases
+   - File upload and management
+   - Case status tracking (open, archived, deleted)
+   - Organization-based access control
 
-1. Admin user creates an organization via `create_organization` endpoint
-2. Organization details stored in `organizations` collection in Firestore
-3. Admin is automatically added to organization's users subcollection with admin role
-4. Admin can add additional users via `add_organization_user` endpoint
-5. User roles can be modified using `set_user_role` endpoint
-6. Organization info can be updated via `update_organization` endpoint
+3. **AI Integration**
+   - Integration with Vertex AI for legal analysis
+   - Conversation history management
+   - Document analysis capabilities
 
-### Case Management Flow
+4. **Organization Management**
+   - Organization creation and configuration
+   - User role management within organizations
+   - Billing and subscription management
 
-1. User creates a case via `create_case` endpoint, optionally linked to an organization
-2. Case details stored in `cases` collection in Firestore
-3. Users can view cases they own or cases belonging to organizations they're members of
-4. Case status can be updated via `archive_case` or `delete_case` endpoints
+5. **Infrastructure**
+   - Terraform-managed Google Cloud resources
+   - Firebase Firestore for data storage
+   - Firebase Storage for file storage
+   - Serverless architecture for scalability
 
-### Document Management Flow
+## Development and Testing Workflow
 
-1. User uploads files to a case via `upload_file` endpoint
-2. Files stored in Cloud Storage with unique filenames
-3. Metadata stored in `documents` collection in Firestore
-4. Files can be downloaded via `download_file` endpoint which generates signed URLs
+### Project Structure and Workflow
 
-### Chat Interaction Flow
+The project follows a specific structure for development and deployment:
 
-1. User sends a prompt via `receive_prompt` endpoint
-2. Prompt is enriched with case context via `enrich_prompt` endpoint
-3. Enriched prompt is sent to Vertex AI via `send_to_vertex_ai` endpoint
-4. Response is received from Vertex AI and returned to client
-5. Conversation is stored in Firestore via `store_conversation` endpoint
+1. **Terraform Folder**: Contains all infrastructure configuration
+   - The `/terraform` folder is the ONLY place for deployment configuration
+   - All infrastructure changes must be defined here
+   - ALWAYS use this folder for deploying any backend functions
 
-### Payment Processing Flow
+2. **Tests Folder**: Contains all test scripts and configurations
+   - The `/tests` folder is the ONLY place for test code
+   - All new features must have corresponding tests
+   - ALWAYS write tests for new functionality before deployment
 
-1. User initiates payment via `create_payment_intent` or `create_checkout_session` endpoint
-2. Stripe payment intent or checkout session is created
-3. Client secret or checkout URL is returned to client
-4. Client completes payment on frontend using Stripe.js or Checkout
-5. Payment status is updated via webhook (not yet implemented)
+3. **Development Workflow**:
+   - Develop new features in the source code
+   - Write tests in the tests folder
+   - Run tests locally to validate
+   - Use Terraform to deploy to the cloud environment
+   - NEVER create ad-hoc or standalone deployment scripts
 
-## Data Models
-
-### Organization Collection (formerly Business)
-
-```
-organizations/{organizationId}
-├── name: string
-├── type: string
-├── address: string
-├── phone: string
-├── email: string
-├── ownerId: string (user ID of organization owner)
-├── createdAt: timestamp
-├── updatedAt: timestamp (optional)
-├── status: string ("active", "inactive", "suspended")
-└── users/{userId} (subcollection)
-    ├── role: string ("admin", "member") 
-    ├── addedDate: timestamp
-    └── updatedAt: timestamp (optional)
-```
-
-### Cases Collection
-
-```
-cases/{caseId}
-├── title: string
-├── description: string
-├── userId: string (owner user ID)
-├── organizationId: string (optional, if associated with an organization)
-├── status: string ("open", "closed", "archived", "deleted")
-├── creationDate: timestamp
-├── archiveDate: timestamp (if archived)
-└── deletionDate: timestamp (if deleted)
-```
-
-### Documents Collection
-
-```
-documents/{documentId}
-├── caseId: string
-├── filename: string (generated unique filename)
-├── originalFilename: string
-├── fileType: string (MIME type)
-├── fileSize: number
-├── storagePath: string (path in Cloud Storage)
-├── uploadDate: timestamp
-└── uploadedBy: string (user ID)
-```
-
-### Conversations Collection
-
-```
-conversations/{conversationId}
-├── userId: string
-├── caseId: string (optional)
-└── messages/{messageId} (subcollection)
-    ├── prompt: string
-    ├── response: string
-    ├── timestamp: timestamp
-    └── enrichedContext: string (optional)
-```
-
-## Deployment Architecture
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                                                                │
-│                  TERRAFORM CONFIGURATION                       │
-│                                                                │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│  ┌─────────────────────┐  ┌─────────────────────────────────┐ │
-│  │                     │  │                                 │ │
-│  │  Google Project     │  │  Firebase Project               │ │
-│  │  Configuration      │  │  Configuration                  │ │
-│  │                     │  │                                 │ │
-│  └─────────────────────┘  └─────────────────────────────────┘ │
-│                                                                │
-│  ┌─────────────────────┐  ┌─────────────────────────────────┐ │
-│  │                     │  │                                 │ │
-│  │  Cloud Functions    │  │  Storage Bucket                 │ │
-│  │  Configuration      │  │  Configuration                  │ │
-│  │                     │  │                                 │ │
-│  └─────────────────────┘  └─────────────────────────────────┘ │
-│                                                                │
-│  ┌─────────────────────┐  ┌─────────────────────────────────┐ │
-│  │                     │  │                                 │ │
-│  │  IAM Permissions    │  │  API Enablement                 │ │
-│  │  Configuration      │  │  Configuration                  │ │
-│  │                     │  │                                 │ │
-│  └─────────────────────┘  └─────────────────────────────────┘ │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
-```
-
-All cloud infrastructure is managed through Terraform, including:
-1. Google Cloud Project setup
-2. Firebase project configuration
-3. Cloud Functions deployment
-4. Storage bucket creation
-5. IAM permissions
-6. API enablement
-
-## API Endpoints Map
-
-### Authentication Endpoints
-- `validate_user`: Validates JWT token and returns user info
-- `check_permissions`: Checks if user has permission for a specific action
-- `get_user_role`: Gets a user's role in an organization
-
-### Organization Endpoints (formerly Business)
-- `create_organization`: Creates a new organization account
-- `get_organization`: Retrieves organization details by ID
-- `add_organization_user`: Adds a user to an organization
-- `set_user_role`: Sets a user's role in an organization
-- `update_organization`: Updates organization details
-- `list_organization_users`: Lists users in an organization
-- `remove_organization_user`: Removes a user from an organization
-
-### Case Management Endpoints
-- `create_case`: Creates a new case
-- `get_case`: Retrieves case details by ID
-- `list_cases`: Lists cases with optional filters
-- `archive_case`: Archives a case
-- `delete_case`: Marks a case as deleted
-
-### File Management Endpoints
-- `upload_file`: Uploads a file to a case
-- `download_file`: Generates a signed URL for downloading a file
-
-### Chat Endpoints
-- `receive_prompt`: Receives a prompt from a user
-- `send_to_vertex_ai`: Sends a prompt to Vertex AI
-- `store_conversation`: Stores a conversation
-- `enrich_prompt`: Enriches a prompt with case context
-
-### Payment Endpoints
-- `create_payment_intent`: Creates a Stripe Payment Intent
-- `create_checkout_session`: Creates a Stripe Checkout Session
+IMPORTANT: This workflow must be strictly adhered to for all development. Custom deployment scripts, manual deployments, or testing approaches outside this structure are NOT permitted. This ensures consistency, reliability, and maintainability of the codebase.
 
 ## Permission Model
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                    PERMISSION MODEL                             │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌───────────────────────────────────┐                          │
-│  │           RESOURCE OWNER          │                          │
-│  │                                   │                          │
-│  │  - Full access to owned resources │                          │
-│  │  - All actions permitted          │                          │
-│  └───────────────────────────────────┘                          │
-│                                                                 │
-│  ┌───────────────────────────────────┐                          │
-│  │      ORGANIZATION ADMINISTRATOR   │                          │
-│  │                                   │                          │
-│  │  - Full access to organization    │                          │
-│  │  - Full access to all cases in    │                          │
-│  │    the organization               │                          │
-│  │  - Can manage organization users  │                          │
-│  └───────────────────────────────────┘                          │
-│                                                                 │
-│  ┌───────────────────────────────────┐                          │
-│  │        ORGANIZATION STAFF         │                          │
-│  │                                   │                          │
-│  │  - Read access to organization    │                          │
-│  │  - Read, update, upload to cases  │                          │
-│  │    in the organization            │                          │
-│  │  - Cannot delete cases or manage  │                          │
-│  │    access to them                 │                          │
-│  └───────────────────────────────────┘                          │
-│                                                                 │
-│  ┌───────────────────────────────────┐                          │
-│  │          RESOURCE ACTIONS         │                          │
-│  │                                   │                          │
-│  │  - read: View resource            │                          │
-│  │  - update: Modify resource        │                          │
-│  │  - delete: Remove resource        │                          │
-│  │  - upload_file: Add files         │                          │
-│  │  - manage_access: Control access  │                          │
-│  └───────────────────────────────────┘                          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+The Relex backend implements a comprehensive role-based permission system that controls access to resources based on user roles within organizations.
 
-The permission model is implemented in the `check_permissions` function, which verifies whether a user has permission to perform a specific action on a resource. The function handles two main resource types:
+### Core Principles
 
-1. **Case Resources**:
-   - Case owners have full access to all actions on their cases
-   - Organization administrators have full access to all cases within their organization
-   - Organization staff members can read, update, and upload files to cases in their organization
-   - Staff members cannot delete cases or manage access to them
+1. **Organization Ownership**: All cases and documents belong to organizations, not individual users
+2. **Role-Based Access Control**: Access to resources is determined by a user's role within an organization
+3. **Least Privilege**: Users are granted only the permissions necessary for their role
+4. **Hierarchical Permissions**: Higher-level roles inherit permissions from lower-level roles
 
-2. **Organization Resources**:
-   - Organization administrators have full access to update the organization
-   - Organization staff members can only read organization information
-   - Only administrators can add members, remove members, or change roles
+### User Roles
 
-The permissions are determined by examining:
-- Direct ownership of resources
-- User's role in the organization that owns the resource
-- The specific action being performed
+The system defines the following roles within organizations:
 
-This role-based access control system ensures appropriate security boundaries while allowing organization members to collaborate effectively.
+1. **Administrator**
+   - Can manage organization settings
+   - Can manage all cases and documents within the organization
+   - Can add and remove users from the organization
+   - Can assign roles to users
+   - Has full permissions for all actions
+
+2. **Staff**
+   - Can create cases for the organization
+   - Can view all cases within the organization
+   - Can upload files to cases
+   - Cannot archive or delete cases (unless they are the case owner)
+   - Cannot manage organization settings or users
+
+3. **Case Owner**
+   - Special designation for the user who created a case
+   - Has additional permissions for their own cases
+   - Can archive or delete their own cases regardless of their organization role
+
+### Permission Implementation
+
+The permission model is implemented through the `check_permissions` function in the `auth.py` module. This function is called by all case and file management functions to verify that the authenticated user has the necessary permissions to perform the requested action.
+
+The permission checks follow this process:
+
+1. Authenticate the user making the request
+2. Determine the resource type (case, file, organization)
+3. Identify the organization that owns the resource
+4. Check the user's role within that organization
+5. Verify if the action is permitted based on the role and resource
+6. Allow or deny the request accordingly
+
+For cases and files, the following permissions apply:
+
+| Action | Administrator | Staff | Case Owner | Non-Member |
+|--------|---------------|-------|------------|------------|
+| Create case | ✅ | ✅ | N/A | ❌ |
+| View case | ✅ | ✅ | ✅ | ❌ |
+| Archive case | ✅ | ❌ | ✅ | ❌ |
+| Delete case | ✅ | ❌ | ✅ | ❌ |
+| Upload file | ✅ | ✅ | ✅ | ❌ |
+| Download file | ✅ | ✅ | ✅ | ❌ |
+| List cases | ✅ | ✅ | ✅ | ❌ |
+
+## Data Model
+
+### Collections
+
+1. **users**
+   - User profile information
+   - Authentication details
+   - Preferences
+
+2. **organizations**
+   - Organization details (name, type, etc.)
+   - Billing information
+   - Configuration settings
+
+3. **organization_memberships**
+   - Maps users to organizations
+   - Stores user roles within organizations
+   - Manages access control
+
+4. **cases**
+   - Case metadata (title, description, status)
+   - Created by user reference
+   - Organization reference
+   - Creation and modification timestamps
+   - Status tracking (open, archived, deleted)
+
+5. **documents**
+   - Document metadata
+   - File storage references
+   - Case and organization references
+   - Upload information
+
+6. **conversations**
+   - AI conversation history
+   - Prompts and responses
+   - User and case references
+
+7. **messages**
+   - Individual messages within conversations
+   - Timestamps and metadata
+   - References to AI model used
+
+## API Design
+
+The API is designed around RESTful principles, with each endpoint corresponding to a specific function:
+
+### Authentication Endpoints
+
+- `validate_user`: Validates the user's authentication token and returns user information
+- `check_permissions`: Checks if a user has permission to perform a specific action on a resource
+
+### Case Management Endpoints
+
+- `create_case`: Creates a new case, requiring organization ID and checking permissions
+- `get_case`: Retrieves a case by ID, checking if the user has access to the case's organization
+- `list_cases`: Lists cases, filtered by organization ID with permission checks
+- `archive_case`: Archives a case, requiring administrator or case owner permissions
+- `delete_case`: Marks a case as deleted, requiring administrator or case owner permissions
+
+### File Management Endpoints
+
+- `upload_file`: Uploads a file to a case, checking if the user has access to the case's organization
+- `download_file`: Generates a download URL for a file, checking if the user has access to the case's organization
+
+### Organization Management Endpoints
+
+- `create_organization`: Creates a new organization
+- `get_organization`: Retrieves organization details
+- `update_organization`: Updates organization details
+- `add_organization_member`: Adds a user to an organization with a specific role
+- `remove_organization_member`: Removes a user from an organization
+- `set_organization_member_role`: Updates a user's role within an organization
+- `list_organization_members`: Lists all members of an organization
+- `list_user_organizations`: Lists all organizations a user belongs to
+
+### AI Integration Endpoints
+
+- `receive_prompt`: Receives a user prompt for AI processing
+- `send_to_vertex_ai`: Sends a prepared prompt to Vertex AI and returns the response
+- `store_conversation`: Stores conversation history for future reference
+
+## Development Roadmap
+
+### Phase 1: Core Infrastructure (Completed)
+
+- Set up Firebase project and Firestore database
+- Configure Firebase Authentication
+- Create Terraform configuration for resource management
+- Implement basic user management
+
+### Phase 2: Case Management (Completed)
+
+- Implement case CRUD operations
+- Develop file upload and storage functionality
+- Create case status management
+
+### Phase 3: Organization Management (Completed)
+
+- Implement organization creation and management
+- Develop user role management within organizations
+- Create organization membership functionality
+
+### Phase 4: Permission System (Current Phase)
+
+- Implement role-based access control
+- Develop the `check_permissions` function
+- Update all case and file functions to use permission checks
+- Ensure proper organization ownership of resources
+
+### Phase 5: AI Integration (Planned)
+
+- Integrate with Vertex AI
+- Implement conversation management
+- Develop document analysis capabilities
+
+### Phase 6: Advanced Features (Future)
+
+- Implement billing and subscription management
+- Develop analytics and reporting
+- Create notification system
+- Implement document versioning
+
+## Testing Strategy
+
+The testing strategy includes:
+
+1. **Unit Tests**: Testing individual functions for correct behavior
+2. **Integration Tests**: Testing interactions between functions and external systems
+3. **Permission Tests**: Verifying that the permission system correctly enforces access control
+4. **End-to-End Tests**: Testing complete user workflows
+
+### Testing Methods
+
+- Automated tests using pytest in the `/tests` folder
+- Manual testing with curl and Postman
+- Log analysis for verification
+- Firestore document inspection
+
+## Deployment Process
+
+The deployment process is automated using Terraform and follows these steps:
+
+1. Code changes are committed to the repository
+2. Terraform scripts in the `/terraform` folder are executed to provision or update resources
+3. Firebase Functions are deployed with the new code
+4. Verification tests are run to ensure correct deployment
+
+## Security Considerations
+
+The system implements several security measures:
+
+1. **Authentication**: All API endpoints require valid authentication
+2. **Authorization**: Role-based access control for all operations
+3. **Data Validation**: Input validation for all API calls
+4. **Secure Storage**: Encrypted storage for files and sensitive data
+5. **Logging**: Comprehensive logging for security audits
+
+## Conclusion
+
+This blueprint serves as a guide for the development and maintenance of the Relex backend. It will be updated as the system evolves and new features are implemented.

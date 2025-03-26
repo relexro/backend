@@ -69,6 +69,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - `delete`: Delete or archive the resource
   - `upload_file`: Upload files to the resource
   - `manage_access`: Manage who has access to the resource
+  - `create_case`: Create a new case within an organization
 - **Permission Rules**:
   - **For Case Resources**:
     - Case owners have full access to all actions
@@ -77,7 +78,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     - Staff members cannot `delete` or `manage_access` to cases
   - **For Organization Resources** (where `resourceId` is the `organizationId`):
     - Organization administrators have full access to organization resources
-    - Organization staff members can only `read` organization information
+    - Organization staff members can `read` organization information and `create_case` for their organization
+    - Staff members cannot `update`, `delete`, or `manage_access` to organization settings
 - **Parameters**:
   - `userId` (required): The ID of the user requesting access
   - `resourceId` (required): The ID of the resource being accessed
@@ -532,6 +534,13 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "organizationId": "organization123" 
   }
   ```
+- **Required Fields**:
+  - `title`: Title of the case
+  - `description`: Detailed description of the case
+  - `organizationId`: ID of the organization this case belongs to
+- **Permission Requirements**:
+  - User must be a member of the specified organization
+  - Both administrators and staff members can create cases
 - **Response**:
   ```json
   {
@@ -548,6 +557,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 - **Errors**:
   - 400: Bad Request (missing parameters)
   - 401: Unauthorized
+  - 403: Forbidden (not a member of the organization)
   - 500: Internal server error
 
 ### Get Case
@@ -577,12 +587,16 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 ### List Cases
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases`
 - **Method**: GET
-- **Description**: Lists cases
+- **Description**: Lists cases for an organization
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
 - **Query Parameters**:
-  - `userId`: (optional) Filter by user ID
-  - `organizationId`: (optional) Filter by organization ID
+  - `organizationId`: (required) ID of the organization to list cases for
   - `status`: (optional) Filter by status
   - `limit`: (optional) Maximum number of cases to return
+- **Permission Requirements**:
+  - User must be a member of the specified organization
+  - Both administrators and staff members can list cases
 - **Response**:
   ```json
   {
@@ -601,18 +615,26 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   }
   ```
 - **Errors**:
+  - 400: Bad Request (missing organizationId)
+  - 401: Unauthorized
+  - 403: Forbidden (not a member of the organization)
   - 500: Internal server error
 
 ### Archive Case
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case`
 - **Method**: POST
 - **Description**: Archives a case
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
   ```json
   {
     "caseId": "case789"
   }
   ```
+- **Permission Requirements**:
+  - User must be the case owner or an administrator of the organization
+  - Staff members cannot archive cases
 - **Response**:
   ```json
   {
@@ -624,6 +646,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   ```
 - **Errors**:
   - 400: Bad Request (missing caseId)
+  - 401: Unauthorized
+  - 403: Forbidden (insufficient permissions)
   - 404: Not Found
   - 500: Internal server error
 
@@ -631,12 +655,17 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case`
 - **Method**: POST
 - **Description**: Marks a case as deleted
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
   ```json
   {
     "caseId": "case789"
   }
   ```
+- **Permission Requirements**:
+  - User must be the case owner or an administrator of the organization
+  - Staff members cannot delete cases
 - **Response**:
   ```json
   {
@@ -648,6 +677,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   ```
 - **Errors**:
   - 400: Bad Request (missing caseId)
+  - 401: Unauthorized
+  - 403: Forbidden (insufficient permissions)
   - 404: Not Found
   - 500: Internal server error
 
@@ -666,6 +697,9 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - `file`: The file to upload
   - `caseId`: ID of the case
   - `fileName`: (optional) Custom file name
+- **Permission Requirements**:
+  - User must be the case owner, an administrator, or a staff member of the organization
+  - All organization members can upload files to cases
 - **Response**:
   ```json
   {
@@ -680,6 +714,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 - **Errors**:
   - 400: Bad Request (missing file or caseId)
   - 401: Unauthorized
+  - 403: Forbidden (insufficient permissions)
+  - 404: Not Found (case not found)
   - 500: Internal server error
 
 ### Download File

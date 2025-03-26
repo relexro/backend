@@ -131,7 +131,7 @@ def check_permissions(request):
         organization_id = data.get("organizationId")
         
         # Validate action is supported
-        valid_actions = ["read", "update", "delete", "upload_file", "manage_access"]
+        valid_actions = ["read", "update", "delete", "upload_file", "manage_access", "create_case"]
         if action not in valid_actions:
             logging.error(f"Bad Request: Invalid action: {action}")
             return ({"error": "Bad Request", "message": f"Invalid action. Supported actions: {', '.join(valid_actions)}"}, 400)
@@ -209,8 +209,8 @@ def check_permissions(request):
                         logging.info(f"User {user_id} is an administrator in organization {organization_id}. Access granted for action {action}.")
                     # Staff role has limited access to the organization
                     elif user_role == "staff":
-                        # Staff can only read organization information
-                        if action == "read":
+                        # Staff can read organization information and create cases
+                        if action in ["read", "create_case"]:
                             allowed = True
                             logging.info(f"User {user_id} is staff in organization {organization_id}. Access granted for action {action}.")
                         else:

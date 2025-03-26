@@ -7,6 +7,7 @@ import json
 import os
 import uuid
 import datetime
+from auth import get_authenticated_user
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -62,22 +63,47 @@ def create_case(request):
             logging.error("Bad Request: Description cannot be empty")
             return ({"error": "Bad Request", "message": "Description cannot be empty"}, 400)
         
-        # Validate organizationId if provided
-        organization_id = data.get("organizationId")
-        if organization_id is not None and (not isinstance(organization_id, str) or not organization_id.strip()):
+        # Validate organizationId is provided and valid
+        if "organizationId" not in data or not data["organizationId"]:
+            logging.error("Bad Request: Missing organizationId")
+            return ({"error": "Bad Request", "message": "Organization ID is required"}, 400)
+            
+        organization_id = data["organizationId"]
+        if not isinstance(organization_id, str) or not organization_id.strip():
             logging.error("Bad Request: Invalid organizationId")
             return ({"error": "Bad Request", "message": "Organization ID must be a non-empty string"}, 400)
         
-        # Get the authenticated user ID
-        user_id = getattr(request, 'user_id', 'test-user')
-        logging.info(f"Creating case for user: {user_id}")
+        # Get the authenticated user
+        user_info, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            logging.error(f"Unauthorized: {error_message}")
+            return ({"error": "Unauthorized", "message": error_message}, status_code)
+        
+        user_id = user_info["userId"]
+        logging.info(f"Authenticated user: {user_id}")
+        
+        # Check if user has permission to create a case for this organization
+        db = firestore.client()
+        permission_check = {
+            "userId": user_id,
+            "resourceId": organization_id,
+            "action": "create_case",
+            "resourceType": "organization"
+        }
+        
+        # Call check_permissions function
+        from auth import check_permissions as check_permissions_func
+        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
+        
+        if permission_status != 200 or not permission_response.get("allowed", False):
+            logging.error(f"Forbidden: User {user_id} does not have permission to create a case for organization {organization_id}")
+            return ({"error": "Forbidden", "message": "You do not have permission to create a case for this organization"}, 403)
         
         # Extract fields
         title = data["title"].strip()
         description = data["description"].strip()
         
         # Initialize Firestore client
-        db = firestore.client()
         case_ref = db.collection("cases").document()
         
         # Prepare case data
@@ -144,7 +170,7 @@ def get_case(request):
 
 @functions_framework.http
 def list_cases(request):
-    """List cases for a user or organization.
+    """List cases for an organization.
     
     Args:
         request (flask.Request): HTTP request object.
@@ -155,6 +181,14 @@ def list_cases(request):
     logging.info("Received request to list cases")
     
     try:
+        # Extract organization ID from query parameters (required)
+        organization_id = request.args.get("organizationId")
+        
+        # Validate organization ID
+        if not organization_id:
+            logging.error("Bad Request: Missing organizationId")
+            return ({"error": "Bad Request", "message": "Organization ID is required"}, 400)
+        
         # Extract status filter from query parameters if provided
         status = request.args.get("status")
         
@@ -164,11 +198,36 @@ def list_cases(request):
             logging.warning(f"Invalid status filter: {status}, ignoring filter")
             status = None
         
+        # Get the authenticated user
+        user_info, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            logging.error(f"Unauthorized: {error_message}")
+            return ({"error": "Unauthorized", "message": error_message}, status_code)
+        
+        user_id = user_info["userId"]
+        logging.info(f"Authenticated user: {user_id}")
+        
+        # Check if user has permission to list cases for this organization
+        permission_check = {
+            "userId": user_id,
+            "resourceId": organization_id,
+            "action": "read",
+            "resourceType": "organization"
+        }
+        
+        # Call check_permissions function
+        from auth import check_permissions as check_permissions_func
+        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
+        
+        if permission_status != 200 or not permission_response.get("allowed", False):
+            logging.error(f"Forbidden: User {user_id} does not have permission to list cases for organization {organization_id}")
+            return ({"error": "Forbidden", "message": "You do not have permission to list cases for this organization"}, 403)
+        
         # Initialize Firestore client
         db = firestore.client()
         
-        # Create query
-        query = db.collection("cases")
+        # Create query that filters by organization ID
+        query = db.collection("cases").where("organizationId", "==", organization_id)
         
         # Apply status filter if provided
         if status:
@@ -185,7 +244,7 @@ def list_cases(request):
             cases.append(case_data)
         
         # Return the list of cases
-        logging.info(f"Successfully retrieved {len(cases)} cases")
+        logging.info(f"Successfully retrieved {len(cases)} cases for organization {organization_id}")
         return ({"cases": cases}, 200)
     except Exception as e:
         logging.error(f"Error listing cases: {str(e)}")
@@ -213,6 +272,15 @@ def archive_case(request):
             logging.error("Bad Request: Missing case ID")
             return ({"error": "Bad Request", "message": "Case ID is required"}, 400)
         
+        # Get the authenticated user
+        user_info, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            logging.error(f"Unauthorized: {error_message}")
+            return ({"error": "Unauthorized", "message": error_message}, status_code)
+        
+        user_id = user_info["userId"]
+        logging.info(f"Authenticated user: {user_id}")
+        
         # Initialize Firestore client
         db = firestore.client()
         
@@ -224,6 +292,31 @@ def archive_case(request):
         if not case_doc.exists:
             logging.error(f"Not Found: Case with ID {case_id} not found")
             return ({"error": "Not Found", "message": "Case not found"}, 404)
+        
+        # Get the case data to retrieve organizationId
+        case_data = case_doc.to_dict()
+        organization_id = case_data.get("organizationId")
+        
+        if not organization_id:
+            logging.error(f"Error: Case {case_id} does not have an associated organization")
+            return ({"error": "Bad Request", "message": "Case does not have an associated organization"}, 400)
+        
+        # Check if user has permission to archive this case
+        permission_check = {
+            "userId": user_id,
+            "resourceId": case_id,
+            "action": "delete",  # archive is considered a delete action for permissions
+            "resourceType": "case",
+            "organizationId": organization_id
+        }
+        
+        # Call check_permissions function
+        from auth import check_permissions as check_permissions_func
+        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
+        
+        if permission_status != 200 or not permission_response.get("allowed", False):
+            logging.error(f"Forbidden: User {user_id} does not have permission to archive case {case_id}")
+            return ({"error": "Forbidden", "message": "You do not have permission to archive this case"}, 403)
         
         # Update the case status to archived
         case_ref.update({
@@ -260,6 +353,15 @@ def delete_case(request):
             logging.error("Bad Request: Missing case ID")
             return ({"error": "Bad Request", "message": "Case ID is required"}, 400)
         
+        # Get the authenticated user
+        user_info, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            logging.error(f"Unauthorized: {error_message}")
+            return ({"error": "Unauthorized", "message": error_message}, status_code)
+        
+        user_id = user_info["userId"]
+        logging.info(f"Authenticated user: {user_id}")
+        
         # Initialize Firestore client
         db = firestore.client()
         
@@ -271,6 +373,31 @@ def delete_case(request):
         if not case_doc.exists:
             logging.error(f"Not Found: Case with ID {case_id} not found")
             return ({"error": "Not Found", "message": "Case not found"}, 404)
+        
+        # Get the case data to retrieve organizationId
+        case_data = case_doc.to_dict()
+        organization_id = case_data.get("organizationId")
+        
+        if not organization_id:
+            logging.error(f"Error: Case {case_id} does not have an associated organization")
+            return ({"error": "Bad Request", "message": "Case does not have an associated organization"}, 400)
+        
+        # Check if user has permission to delete this case
+        permission_check = {
+            "userId": user_id,
+            "resourceId": case_id,
+            "action": "delete",
+            "resourceType": "case",
+            "organizationId": organization_id
+        }
+        
+        # Call check_permissions function
+        from auth import check_permissions as check_permissions_func
+        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
+        
+        if permission_status != 200 or not permission_response.get("allowed", False):
+            logging.error(f"Forbidden: User {user_id} does not have permission to delete case {case_id}")
+            return ({"error": "Forbidden", "message": "You do not have permission to delete this case"}, 403)
         
         # Update the case status to deleted (soft delete)
         case_ref.update({
@@ -319,14 +446,48 @@ def upload_file(request):
             logging.error("Bad Request: Empty filename")
             return ({"error": "Bad Request", "message": "Filename cannot be empty"}, 400)
         
+        # Get the authenticated user
+        user_info, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            logging.error(f"Unauthorized: {error_message}")
+            return ({"error": "Unauthorized", "message": error_message}, status_code)
+        
+        user_id = user_info["userId"]
+        logging.info(f"Authenticated user: {user_id}")
+        
         # Initialize Firestore client
         db = firestore.client()
         
-        # Verify the case exists
+        # Verify the case exists and get its data
         case_doc = db.collection("cases").document(case_id).get()
         if not case_doc.exists:
             logging.error(f"Not Found: Case with ID {case_id} not found")
             return ({"error": "Not Found", "message": "Case not found"}, 404)
+        
+        # Get the case data to retrieve organizationId
+        case_data = case_doc.to_dict()
+        organization_id = case_data.get("organizationId")
+        
+        if not organization_id:
+            logging.error(f"Error: Case {case_id} does not have an associated organization")
+            return ({"error": "Bad Request", "message": "Case does not have an associated organization"}, 400)
+        
+        # Check if user has permission to upload files to this case
+        permission_check = {
+            "userId": user_id,
+            "resourceId": case_id,
+            "action": "upload_file",
+            "resourceType": "case",
+            "organizationId": organization_id
+        }
+        
+        # Call check_permissions function
+        from auth import check_permissions as check_permissions_func
+        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
+        
+        if permission_status != 200 or not permission_response.get("allowed", False):
+            logging.error(f"Forbidden: User {user_id} does not have permission to upload files to case {case_id}")
+            return ({"error": "Forbidden", "message": "You do not have permission to upload files to this case"}, 403)
         
         # Generate a unique filename
         unique_id = uuid.uuid4().hex
@@ -361,7 +522,7 @@ def upload_file(request):
             "fileSize": file_size,
             "storagePath": storage_path,
             "uploadDate": firestore.SERVER_TIMESTAMP,
-            "uploadedBy": "test-user"  # Placeholder until auth is implemented
+            "uploadedBy": user_id  # Now using the authenticated user ID
         }
         
         document_ref.set(document_data)

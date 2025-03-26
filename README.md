@@ -123,7 +123,7 @@ We've included a simple HTML utility for testing Firebase Authentication:
 
 3. Click "Sign in with Google" and complete the authentication flow
 
-4. Once authenticated, you'll see your user ID and can view your ID token
+4. Once authenticated, you'll see your user ID and can access your ID token
 
 5. Test API endpoints by entering the function URL in the input field and clicking "Test API with Token"
    - Example URL to test: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user`
@@ -204,6 +204,147 @@ See [api.md](api.md) for complete documentation of all API endpoints.
 
 ## Testing
 
+### Testing the Permission Model
+
+The case and file management functions now implement permission checks based on the organization roles. Here's how to test these permissions:
+
+#### 1. Setup Required Data
+
+First, set up test data with different user roles:
+
+1. Create an organization:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"name": "Test Organization", "type": "law_firm", "email": "test@example.com"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-organization
+```
+
+2. Add members with different roles:
+```bash
+# Add staff member
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"organizationId": "ORGANIZATION_ID", "userId": "STAFF_USER_ID", "role": "staff"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+
+# Add administrator
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"organizationId": "ORGANIZATION_ID", "userId": "ADMIN_USER_ID", "role": "administrator"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+```
+
+#### 2. Test Case Creation
+
+Test case creation with different user roles:
+
+1. Using administrator account:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"title": "Admin Test Case", "description": "Case created by admin", "organizationId": "ORGANIZATION_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+```
+
+2. Using staff member account:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"title": "Staff Test Case", "description": "Case created by staff", "organizationId": "ORGANIZATION_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+```
+
+3. Using non-member account (should fail with 403 Forbidden):
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"title": "Unauthorized Case", "description": "Should fail", "organizationId": "ORGANIZATION_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+```
+
+#### 3. Test Case Operations with Different Roles
+
+1. List cases for an organization:
+```bash
+curl -X GET \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "<FUNCTION_URL>?organizationId=org123"
+```
+
+2. Archive a case (administrator privilege):
+```bash
+# As administrator (should succeed)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"caseId": "CASE_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+
+# As staff member (should fail with 403 Forbidden)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"caseId": "CASE_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+```
+
+3. Delete a case (administrator privilege):
+```bash
+# As administrator (should succeed)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"caseId": "CASE_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
+
+# As staff member (should fail with 403 Forbidden)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"caseId": "CASE_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
+```
+
+#### 4. Test File Operations
+
+1. Upload file to a case (both administrator and staff permitted):
+```bash
+# Using multipart/form-data to upload a file
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -F "file=@/path/to/file.pdf" \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file/CASE_ID
+```
+
+2. Test file upload as non-member (should fail with 403 Forbidden):
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -F "file=@/path/to/file.pdf" \
+  <FUNCTION_URL>/case123
+```
+
+#### 5. Verify Permission Checks
+
+To verify that the permission checks are working correctly, you can:
+
+1. Create cases with different user accounts
+2. Try to archive or delete cases with staff accounts (should be forbidden)
+3. Try to upload files with both administrator and staff accounts (should be allowed)
+4. Test all operations with non-member accounts (should be forbidden)
+
+The permission model ensures:
+- Users can only access and modify resources within organizations they belong to
+- Different actions are restricted based on the user's role in the organization
+- All case and file operations now properly respect the role-based permission model
+
 ### Testing the create_case Function
 
 You can test the `create_case` function using curl or a tool like Postman:
@@ -212,7 +353,8 @@ You can test the `create_case` function using curl or a tool like Postman:
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"title": "Test Case", "description": "Test Description"}' \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"title": "Test Case", "description": "Test Description", "organizationId": "org123"}' \
   <FUNCTION_URL>
 ```
 
@@ -224,19 +366,12 @@ Expected response (HTTP 201):
 }
 ```
 
-#### With Organization ID
+#### Validation Failure: Missing organizationId
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"title": "Organization Case", "description": "Organization Description", "organizationId": "test-organization-id"}' \
-  <FUNCTION_URL>
-```
-
-#### Validation Failure: Missing Title
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"description": "No title"}' \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"title": "Test Case", "description": "Test Description"}' \
   <FUNCTION_URL>
 ```
 
@@ -244,141 +379,24 @@ Expected response (HTTP 400):
 ```json
 {
   "error": "Bad Request",
-  "message": "Title is required"
+  "message": "Organization ID is required"
 }
 ```
 
-#### Validation Failure: Empty Fields
+#### Permission Failure: Not a member of the organization
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"title": "", "description": ""}' \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"title": "Test Case", "description": "Test Description", "organizationId": "org456"}' \
   <FUNCTION_URL>
 ```
 
-Expected response (HTTP 400):
+Expected response (HTTP 403):
 ```json
 {
-  "error": "Bad Request",
-  "message": "Title cannot be empty"
-}
-```
-
-**Note**: The function currently uses a placeholder user ID (`"test-user"`) since authentication has not yet been implemented.
-
-### Verifying Data
-After creating a case, you can verify it was created successfully by checking the Firebase Console:
-1. Go to the Firebase Console (https://console.firebase.google.com/)
-2. Select your project (`relexro`)
-3. Navigate to Firestore Database
-4. Look for the `cases` collection
-5. Find the document with the matching `caseId` returned in the API response
-
-### Testing the get_case Function
-
-You can test the `get_case` function using curl or a tool like Postman:
-
-#### Success Case
-```bash
-curl -X GET \
-  <FUNCTION_URL>/<CASE_ID>
-```
-
-Replace `<CASE_ID>` with an actual case ID from a previously created case.
-
-Expected response (HTTP 200):
-```json
-{
-  "caseId": "<case-id>",
-  "title": "Test Case",
-  "description": "Test Description",
-  "status": "open",
-  "userId": "test-user",
-  "creationDate": { ... }
-}
-```
-
-#### Not Found Case
-```bash
-curl -X GET \
-  <FUNCTION_URL>/nonexistent-case-id
-```
-
-Expected response (HTTP 404):
-```json
-{
-  "error": "Not Found",
-  "message": "Case not found"
-}
-```
-
-#### Missing Case ID
-```bash
-curl -X GET \
-  <FUNCTION_URL>/
-```
-
-Expected response (HTTP 400):
-```json
-{
-  "error": "Bad Request",
-  "message": "Case ID is required"
-}
-```
-
-### Testing the list_cases Function
-
-You can test the `list_cases` function using curl or a tool like Postman:
-
-#### List All Cases
-```bash
-curl -X GET \
-  <FUNCTION_URL>
-```
-
-Expected response (HTTP 200):
-```json
-{
-  "cases": [
-    {
-      "caseId": "<case-id-1>",
-      "title": "Test Case 1",
-      "description": "Test Description 1",
-      "status": "open",
-      "userId": "test-user",
-      "creationDate": { ... }
-    },
-    {
-      "caseId": "<case-id-2>",
-      "title": "Test Case 2",
-      "description": "Test Description 2",
-      "status": "closed",
-      "userId": "test-user",
-      "creationDate": { ... }
-    }
-  ]
-}
-```
-
-#### Filter Cases by Status
-```bash
-curl -X GET \
-  <FUNCTION_URL>?status=open
-```
-
-Expected response (HTTP 200, only includes cases with "open" status):
-```json
-{
-  "cases": [
-    {
-      "caseId": "<case-id-1>",
-      "title": "Test Case 1",
-      "description": "Test Description 1",
-      "status": "open",
-      "userId": "test-user",
-      "creationDate": { ... }
-    }
-  ]
+  "error": "Forbidden",
+  "message": "You do not have permission to create a case for this organization"
 }
 ```
 
@@ -386,13 +404,14 @@ Expected response (HTTP 200, only includes cases with "open" status):
 
 You can test the `archive_case` function using curl or a tool like Postman:
 
-#### Success Case
+#### Success Case (Administrator)
 ```bash
 curl -X POST \
-  <FUNCTION_URL>/<CASE_ID>
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"caseId": "case123"}' \
+  <FUNCTION_URL>
 ```
-
-Replace `<CASE_ID>` with an actual case ID from a previously created case.
 
 Expected response (HTTP 200):
 ```json
@@ -401,569 +420,134 @@ Expected response (HTTP 200):
 }
 ```
 
-#### Not Found Case
+#### Permission Failure (Staff Member)
 ```bash
 curl -X POST \
-  <FUNCTION_URL>/nonexistent-case-id
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"caseId": "case123"}' \
+  <FUNCTION_URL>
 ```
 
-Expected response (HTTP 404):
+Expected response (HTTP 403):
 ```json
 {
-  "error": "Not Found",
-  "message": "Case not found"
+  "error": "Forbidden",
+  "message": "You do not have permission to archive this case"
 }
 ```
 
-#### Missing Case ID
+### Testing the list_cases Function
+
+You can test the `list_cases` function using curl or a tool like Postman:
+
+#### List Cases for an Organization (Member)
 ```bash
-curl -X POST \
-  <FUNCTION_URL>/
+curl -X GET \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "<FUNCTION_URL>?organizationId=org123"
 ```
-
-Expected response (HTTP 400):
-```json
-{
-  "error": "Bad Request",
-  "message": "Case ID is required"
-}
-```
-
-### Testing the delete_case Function
-
-You can test the `delete_case` function using curl or a tool like Postman:
-
-#### Success Case
-```bash
-curl -X DELETE \
-  <FUNCTION_URL>/<CASE_ID>
-```
-
-Replace `<CASE_ID>` with an actual case ID from a previously created case.
 
 Expected response (HTTP 200):
 ```json
 {
-  "message": "Case marked as deleted successfully"
+  "cases": [
+    {
+      "caseId": "<case-id-1>",
+      "title": "Test Case 1",
+      "description": "Test Description 1",
+      "status": "open",
+      "userId": "user123",
+      "organizationId": "org123",
+      "creationDate": { ... }
+    },
+    {
+      "caseId": "<case-id-2>",
+      "title": "Test Case 2",
+      "description": "Test Description 2",
+      "status": "open",
+      "userId": "user456",
+      "organizationId": "org123",
+      "creationDate": { ... }
+    }
+  ]
 }
 ```
 
-#### Not Found Case
+#### Permission Failure (Non-Member)
 ```bash
-curl -X DELETE \
-  <FUNCTION_URL>/nonexistent-case-id
+curl -X GET \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "<FUNCTION_URL>?organizationId=org456"
 ```
 
-Expected response (HTTP 404):
+Expected response (HTTP 403):
 ```json
 {
-  "error": "Not Found",
-  "message": "Case not found"
+  "error": "Forbidden",
+  "message": "You do not have permission to list cases for this organization"
 }
 ```
-
-#### Missing Case ID
-```bash
-curl -X DELETE \
-  <FUNCTION_URL>/
-```
-
-Expected response (HTTP 400):
-```json
-{
-  "error": "Bad Request",
-  "message": "Case ID is required"
-}
-```
-
-### Verifying Archive and Delete Operations
-After archiving or deleting a case, you can verify it was updated successfully by:
-1. Using the `get_case` function to check the updated status
-2. Checking the Firebase Console:
-   - Go to the Firebase Console (https://console.firebase.google.com/)
-   - Select your project (`relexro`)
-   - Navigate to Firestore Database
-   - Look for the `cases` collection
-   - Find the document with the matching `caseId`
-   - Verify the `status` field is set to either `"archived"` or `"deleted"`
-   - Verify the `archiveDate` or `deletionDate` field is set
 
 ### Testing the upload_file Function
 
 You can test the `upload_file` function using curl or a tool like Postman:
 
-#### Success Case
+#### Success Case (Administrator or Staff)
 ```bash
 curl -X POST \
-  -F "file=@/path/to/your/file.pdf" \
-  <FUNCTION_URL>/<CASE_ID>
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -F "file=@/path/to/file.pdf" \
+  <FUNCTION_URL>/case123
 ```
-
-Replace `<CASE_ID>` with an actual case ID from a previously created case. Replace `/path/to/your/file.pdf` with the path to the file you want to upload.
 
 Expected response (HTTP 201):
 ```json
 {
-  "documentId": "<generated-document-id>",
+  "documentId": "<generated-id>",
   "filename": "<generated-filename>",
   "originalFilename": "file.pdf",
-  "storagePath": "cases/<case-id>/documents/<generated-filename>",
+  "storagePath": "cases/case123/documents/<generated-filename>",
   "message": "File uploaded successfully"
 }
 ```
 
-#### Not Found Case
+#### Permission Failure (Non-Member)
 ```bash
 curl -X POST \
-  -F "file=@/path/to/your/file.pdf" \
-  <FUNCTION_URL>/nonexistent-case-id
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -F "file=@/path/to/file.pdf" \
+  <FUNCTION_URL>/case123
 ```
 
-Expected response (HTTP 404):
+Expected response (HTTP 403):
 ```json
 {
-  "error": "Not Found",
-  "message": "Case not found"
+  "error": "Forbidden",
+  "message": "You do not have permission to upload files to this case"
 }
 ```
 
-#### Missing File
-```bash
-curl -X POST \
-  <FUNCTION_URL>/<CASE_ID>
-```
-
-Expected response (HTTP 400):
-```json
-{
-  "error": "Bad Request",
-  "message": "No file uploaded"
-}
-```
-
-#### Using Postman
-For testing with Postman:
-1. Set the method to POST
-2. Enter the function URL with the case ID
-3. Go to the "Body" tab
-4. Select "form-data"
-5. Add a key named "file" and select "File" from the dropdown
-6. Click "Select Files" and choose the file to upload
-7. Click Send
-
-### Testing the download_file Function
-
-You can test the `download_file` function using curl or a browser:
-
-#### Success Case
-```bash
-curl -X GET \
-  <FUNCTION_URL>/<DOCUMENT_ID>
-```
-
-Replace `<DOCUMENT_ID>` with a document ID returned from a successful file upload.
-
-Expected response (HTTP 200):
-```json
-{
-  "downloadUrl": "<signed-url>",
-  "filename": "original-filename.pdf",
-  "documentId": "<document-id>",
-  "message": "Download URL generated successfully"
-}
-```
-
-You can then use the `downloadUrl` in a browser to download the file.
-
-#### Not Found Document
-```bash
-curl -X GET \
-  <FUNCTION_URL>/nonexistent-document-id
-```
-
-Expected response (HTTP 404):
-```json
-{
-  "error": "Not Found",
-  "message": "Document not found"
-}
-```
-
-#### Missing Document ID
-```bash
-curl -X GET \
-  <FUNCTION_URL>/
-```
-
-Expected response (HTTP 400):
-```json
-{
-  "error": "Bad Request",
-  "message": "Document ID is required"
-}
-```
-
-### Verifying File Upload and Download Operations
-After uploading a file, you can verify it was stored correctly by:
-1. Using the `download_file` function to generate a signed URL and download the file
-2. Checking the Firebase Console:
-   - Go to the Firebase Console (https://console.firebase.google.com/)
-   - Select your project (`relexro`)
-   - Navigate to Storage
-   - Look for the file at path `cases/<case-id>/documents/<generated-filename>`
-   - Verify the file metadata in Firestore's `documents` collection
-
-### Testing Authentication Functions
-
-#### Testing the validate_user Function
-
-You can test the `validate_user` function using curl or a tool like Postman:
-
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token.
-
-Expected response (HTTP 200):
-```json
-{
-  "userId": "<user-id>",
-  "email": "user@example.com",
-  "isValid": true
-}
-```
-
-#### Without Authentication Token
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  <FUNCTION_URL>
-```
-
-Expected response (HTTP 401):
-```json
-{
-  "error": "Unauthorized",
-  "message": "No authentication token provided"
-}
-```
-
-#### With Invalid Token
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer invalid-token" \
-  <FUNCTION_URL>
-```
-
-Expected response (HTTP 401):
-```json
-{
-  "error": "Unauthorized",
-  "message": "Invalid authentication token"
-}
-```
-
-#### Testing the check_permissions Function
-
-You can test the `check_permissions` function using curl or a tool like Postman to verify the role-based access control:
-
-#### 1. Case Owner Access
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "user123", "resourceId": "case456", "action": "read", "resourceType": "case"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
-```
-
-Expected response (if user123 owns case456):
-```json
-{
-  "allowed": true
-}
-```
-
-#### 2. Organization Administrator Access
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "admin123", "resourceId": "case456", "action": "delete", "resourceType": "case"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
-```
-
-Expected response (if admin123's role is "administrator" in the organization that owns case456):
-```json
-{
-  "allowed": true
-}
-```
-
-#### 3. Organization Staff Access - Allowed Action
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "staff123", "resourceId": "case456", "action": "upload_file", "resourceType": "case"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
-```
-
-Expected response (if staff123's role is "staff" in the organization that owns case456):
-```json
-{
-  "allowed": true
-}
-```
-
-#### 4. Organization Staff Access - Restricted Action
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "staff123", "resourceId": "case456", "action": "delete", "resourceType": "case"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
-```
-
-Expected response (staff cannot delete cases):
-```json
-{
-  "allowed": false
-}
-```
-
-#### 5. Organization Resource Access
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "admin123", "resourceId": "org456", "action": "update", "resourceType": "organization"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
-```
-
-Expected response (if admin123's role is "administrator" in org456):
-```json
-{
-  "allowed": true
-}
-```
-
-#### 6. No Access
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "random_user", "resourceId": "case456", "action": "read", "resourceType": "case"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
-```
-
-Expected response (user has no relationship to the case):
-```json
-{
-  "allowed": false
-}
-```
-
-#### 7. Specifying Organization ID Explicitly
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "staff123", "resourceId": "case456", "action": "read", "resourceType": "case", "organizationId": "org456"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-check-permissions
-```
-
-Expected response (if staff123's role is "staff" in org456):
-```json
-{
-  "allowed": true
-}
-```
-
-### Testing Organization Account Management Functions
-
-#### Testing the create_organization Function
-
-You can test the `create_organization` function using curl or a tool like Postman:
-
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"name": "Test Organization", "industry": "Legal", "size": "small"}' \
-  <FUNCTION_URL>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token.
-
-Expected response (HTTP 201):
-```json
-{
-  "organizationId": "<generated-id>",
-  "message": "Organization created successfully"
-}
-```
-
-#### Validation Failure
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"industry": "Legal"}' \
-  <FUNCTION_URL>
-```
-
-Expected response (HTTP 400):
-```json
-{
-  "error": "Bad Request",
-  "message": "Organization name is required"
-}
-```
-
-#### Testing the get_organization Function
-
-```bash
-curl -X GET \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/<ORGANIZATION_ID>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<ORGANIZATION_ID>` with an actual organization ID.
-
-Expected response (HTTP 200):
-```json
-{
-  "organizationId": "<organization-id>",
-  "name": "Test Organization",
-  "industry": "Legal",
-  "size": "small",
-  "creationDate": { ... }
-}
-```
-
-#### Not Found Organization
-```bash
-curl -X GET \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  <FUNCTION_URL>/nonexistent-organization-id
-```
-
-Expected response (HTTP 404):
-```json
-{
-  "error": "Not Found",
-  "message": "Organization not found"
-}
-```
-
-#### Testing the add_organization_user Function
-
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"userId": "<USER_ID>", "role": "member"}' \
-  <FUNCTION_URL>/<ORGANIZATION_ID>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<ORGANIZATION_ID>` with an actual organization ID, and `<USER_ID>` with the ID of the user to add.
-
-Expected response (HTTP 200):
-```json
-{
-  "message": "User added to organization successfully"
-}
-```
-
-#### Testing the set_user_role Function
-
-```bash
-curl -X PUT \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"userId": "<USER_ID>", "role": "admin"}' \
-  <FUNCTION_URL>/<ORGANIZATION_ID>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token, `<ORGANIZATION_ID>` with an actual organization ID, and `<USER_ID>` with the ID of the user whose role should be updated.
-
-Expected response (HTTP 200):
-```json
-{
-  "message": "User role updated successfully"
-}
-```
-
-### Testing Chat Functions
-
-#### Testing the receive_prompt Function
-
-You can test the `receive_prompt` function using curl or a tool like Postman:
-
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"message": "What is the statute of limitations for personal injury in California?", "conversationId": "<CONVERSATION_ID>"}' \
-  <FUNCTION_URL>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token. The `conversationId` is optional and can be omitted for a new conversation.
-
-Expected response (HTTP 200):
-```json
-{
-  "promptId": "<generated-id>",
-  "conversationId": "<conversation-id>",
-  "message": "Prompt received successfully"
-}
-```
-
-#### Testing the send_to_vertex_ai Function
-
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"prompt": "What is the statute of limitations for personal injury in California?", "conversationId": "<CONVERSATION_ID>"}' \
-  <FUNCTION_URL>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<CONVERSATION_ID>` with an actual conversation ID.
-
-Expected response (HTTP 200):
-```json
-{
-  "responseId": "<generated-id>",
-  "response": "In California, the statute of limitations for personal injury claims is generally two years from the date of the injury...",
-  "conversationId": "<conversation-id>"
-}
-```
-
-#### Testing the store_conversation Function
-
-```bash
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ID_TOKEN>" \
-  -d '{"conversationId": "<CONVERSATION_ID>", "prompt": "What is the statute of limitations for personal injury in California?", "response": "In California, the statute of limitations for personal injury claims is generally two years from the date of the injury..."}' \
-  <FUNCTION_URL>
-```
-
-Replace `<ID_TOKEN>` with a valid Firebase Authentication ID token and `<CONVERSATION_ID>` with an actual conversation ID.
-
-Expected response (HTTP 200):
-```json
-{
-  "messageId": "<generated-id>",
-  "conversationId": "<conversation-id>",
-  "message": "Conversation stored successfully"
-}
-```
-
-Tests will be added in future updates.
-
-## Testing the organization membership functions
-
-### Testing the add_organization_member Function
+### Verifying Permission Checks
+
+After performing these operations, you can verify the permission checks by:
+
+1. Using the Firebase Console to check the documents in Firestore
+2. Examining the logs of the Cloud Functions:
+   ```bash
+   gcloud functions logs read relex-backend-create-case --gen2 --region=europe-west3
+   gcloud functions logs read relex-backend-archive-case --gen2 --region=europe-west3
+   gcloud functions logs read relex-backend-delete-case --gen2 --region=europe-west3
+   gcloud functions logs read relex-backend-upload-file --gen2 --region=europe-west3
+   gcloud functions logs read relex-backend-list-cases --gen2 --region=europe-west3
+   ```
+
+The permission model ensures that:
+- Users can only access and modify resources within organizations they belong to
+- Different actions are restricted based on the user's role in the organization
+- All case and file operations now properly respect the role-based permission model
+
+### Testing the organization membership functions
 
 You can test the `add_organization_member` function using curl or a tool like Postman:
 
