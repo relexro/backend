@@ -264,6 +264,35 @@ Organizations represent law firms, legal departments, or other entities. Key fea
 - **Access Control**: Organization membership determines access to resources
 - **Hierarchical Permissions**: Administrators have more permissions than staff members
 
+## Case Ownership Model
+
+Cases in Relex can be owned in two ways:
+
+1.  **Individual Cases**:
+    * Created by any authenticated user without associating an organization.
+    * Linked directly to the creator's `userId`.
+    * `organizationId` field in the case document is `null` or absent.
+    * Requires per-case payment (managed via Stripe Payment Intents).
+    * Only the owner (`userId`) has access, besides system administrators.
+2.  **Organization Cases**:
+    * Created by a member (administrator or staff) of an organization, explicitly associating the case with that organization.
+    * Linked to both the creator's `userId` and the `organizationId`.
+    * Access permissions are governed by the user's role (`administrator`, `staff`) within the organization, checked via `check_permissions`.
+    * May be covered by the organization's subscription plan.
+
+## Firestore Schema (`cases` collection update)
+
+```text
+cases/{caseId}
+├── title: string
+├── description: string
+├── userId: string (**Creator/Owner User ID**)
+├── organizationId: string (**Optional** - ID of the organization this case belongs to, null if individual case)
+├── status: string ("open", "archived", "deleted")
+├── creationDate: timestamp
+├── paymentStatus: string ("paid", "pending") # Relevant for individual cases
+# ... other fields
+
 ## Known Limitations
 
 - **Invite System**: The system doesn't yet have an invite mechanism for organizations

@@ -1,0 +1,830 @@
+openapi: 3.0.0
+info:
+  title: Relex API
+  description: RESTful API for Relex Backend
+  version: 1.0.0
+servers:
+  - url: https://relex-gateway-a12b3c4.uc.gateway.dev/v1
+    description: API Gateway
+paths:
+  # Organization endpoints
+  /organizations:
+    post:
+      summary: Create a new organization
+      operationId: createOrganization
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-organization
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - type
+              properties:
+                name:
+                  type: string
+                  description: Name of the organization
+                type:
+                  type: string
+                  description: Type of organization (e.g., law_firm)
+                address:
+                  type: string
+                  description: Address of the organization
+                phone:
+                  type: string
+                  description: Phone number of the organization
+                email:
+                  type: string
+                  description: Email of the organization
+      responses:
+        '201':
+          description: Organization created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: List user's organizations
+      operationId: listUserOrganizations
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: userId
+          in: query
+          description: Optional user ID (defaults to authenticated user)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of organizations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganizationSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /organizations/{organizationId}:
+    get:
+      summary: Get organization by ID
+      operationId: getOrganization
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-organization
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      summary: Update organization
+      operationId: updateOrganization
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-update-organization
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Organization updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Organization members endpoints
+  /organizations/{organizationId}/members:
+    get:
+      summary: List organization members
+      operationId: listOrganizationMembers
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-organization-members
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of organization members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganizationMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Add member to organization
+      operationId: addOrganizationMember
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - role
+              properties:
+                userId:
+                  type: string
+                  description: ID of user to add
+                role:
+                  type: string
+                  description: Role for the user (staff or administrator)
+                  enum: [staff, administrator]
+      responses:
+        '200':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /organizations/{organizationId}/members/{userId}:
+    put:
+      summary: Update member role
+      operationId: setOrganizationMemberRole
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-set-organization-member-role
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newRole
+              properties:
+                newRole:
+                  type: string
+                  enum: [staff, administrator]
+      responses:
+        '200':
+          description: Member role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Remove member from organization
+      operationId: removeOrganizationMember
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-organization-member
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Member removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  userId:
+                    type: string
+                  organizationId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Case endpoints
+  /organizations/{organizationId}/cases:
+    post:
+      summary: Create a new case
+      operationId: createCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+              properties:
+                title:
+                  type: string
+                  description: Title of the case
+                description:
+                  type: string
+                  description: Description of the case
+                caseType:
+                  type: string
+                  description: Type of the case
+      responses:
+        '201':
+          description: Case created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: List cases for an organization
+      operationId: listCases
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of cases
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cases:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Case'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /cases/{caseId}:
+    get:
+      summary: Get case by ID
+      operationId: getCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Case details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Archive a case
+      operationId: archiveCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Case archived successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  caseId:
+                    type: string
+                  status:
+                    type: string
+                  archivedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete a case
+      operationId: deleteCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Case deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  caseId:
+                    type: string
+                  status:
+                    type: string
+                  deletedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # File endpoints
+  /cases/{caseId}/files:
+    post:
+      summary: Upload file to a case
+      operationId: uploadFile
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file
+        path_translation: CONSTANT_ADDRESS
+        deadline: 60.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                fileName:
+                  type: string
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /files/{fileId}:
+    get:
+      summary: Download a file
+      operationId: downloadFile
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-download-file
+        path_translation: CONSTANT_ADDRESS
+        deadline: 60.0
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Organization:
+      type: object
+      properties:
+        organizationId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        ownerId:
+          type: string
+    
+    OrganizationSummary:
+      type: object
+      properties:
+        organizationId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        role:
+          type: string
+    
+    OrganizationMember:
+      type: object
+      properties:
+        userId:
+          type: string
+        role:
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+        email:
+          type: string
+        displayName:
+          type: string
+    
+    MembershipResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        membershipId:
+          type: string
+        userId:
+          type: string
+        organizationId:
+          type: string
+        role:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+    
+    Case:
+      type: object
+      properties:
+        caseId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        caseType:
+          type: string
+        userId:
+          type: string
+        organizationId:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    
+    FileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        fileId:
+          type: string
+        fileName:
+          type: string
+        fileUrl:
+          type: string
+        caseId:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+    
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+    
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+    
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+    
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+  securitySchemes:
+    firebase:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-google-issuer: "https://securetoken.google.com/relexro"
+      x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+      x-google-audiences: "relexro" 
