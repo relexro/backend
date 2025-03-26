@@ -58,21 +58,30 @@
 - ✅ Implemented create_checkout_session function
 - ⬜ Implement webhook function (pending)
 
+### Module: user.py
+- ✅ Implemented create_user_profile function (Firebase Auth trigger)
+- ✅ Implemented get_user_profile function
+- ✅ Implemented update_user_profile function
+- ✅ Added user profile management documentation
+
 ## Current Status
 
 All implemented functions have been successfully deployed to Google Cloud Functions and are active.
 
 ### Working Features
 - ✅ **Authentication Integration**: Token validation and user verification is working. All endpoints now have proper authentication with the reusable `get_authenticated_user` helper. The validate_user function now supports CORS for cross-origin requests.
+- ✅ **User Profile Management**: Automatic profile creation using Firebase Auth triggers and API endpoints for retrieving and updating user profiles.
 - ✅ **Organization Management**: Functions for creating, updating, and managing organization accounts and their users are complete and deployed.
 - ✅ **Organization Membership**: Comprehensive membership management with functions for adding members, setting roles, listing members, removing members, and checking user roles within organizations.
 - ✅ **Case Management**: Full lifecycle management of cases (create, read, update, archive, delete) is implemented and active.
-- ✅ **Permission-based Access Control**: All case and file management functions now implement permission checks based on organization roles.
+- ✅ **Dual Case Ownership Model**: Support for both individual user cases (with payment integration) and organization cases (with role-based permissions).
+- ✅ **Permission-based Access Control**: All case and file management functions now implement permission checks based on organization roles or individual ownership.
 - ✅ **Enhanced Chat**: Enriched context for chat via the new `enrich_prompt` function which adds case context to prompts.
 - ✅ **File Handling**: Uploading and downloading files is functional with appropriate permission checks.
-- ✅ **Payment Processing**: Core payment functions using Stripe (create_payment_intent and create_checkout_session) are deployed.
+- ✅ **Payment Processing**: Core payment functions using Stripe (create_payment_intent and create_checkout_session) are deployed and integrated with individual case creation.
 - ✅ **Environment Variables**: All Cloud Functions now use environment variables for region configuration instead of hardcoded values, improving maintainability and flexibility.
 - ✅ **Role-Based Access Control**: The `check_permissions` function now properly integrates with the Organization Membership model to enforce role-based access controls for organization resources and cases.
+- ✅ **Individual Case Access Control**: Permission system updated to handle cases without an organization, restricting access to case owners only.
 
 ## Firebase Authentication Setup
 

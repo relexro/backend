@@ -206,7 +206,7 @@ See [api.md](api.md) for complete documentation of all API endpoints.
 
 ### Testing the Permission Model
 
-The case and file management functions now implement permission checks based on the organization roles. Here's how to test these permissions:
+The case and file management functions now implement permission checks based on the organization roles and individual case ownership. Here's how to test these permissions:
 
 #### 1. Setup Required Data
 
@@ -242,7 +242,7 @@ curl -X POST \
 
 Test case creation with different user roles:
 
-1. Using administrator account:
+1. Create organization case as administrator:
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
@@ -251,7 +251,7 @@ curl -X POST \
   https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
 ```
 
-2. Using staff member account:
+2. Create organization case as staff member:
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
@@ -260,7 +260,24 @@ curl -X POST \
   https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
 ```
 
-3. Using non-member account (should fail with 403 Forbidden):
+3. Create individual case (requires payment):
+```bash
+# First, create a payment intent
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"amount": 5000, "currency": "usd", "caseTitle": "Individual Test Case", "caseDescription": "Test case with payment"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-payment-intent-for-case
+
+# Then create the case with the payment intent ID
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"title": "Individual Test Case", "description": "Test case with payment", "paymentIntentId": "PAYMENT_INTENT_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+```
+
+4. Test creating a case with non-member account (should fail with 403 Forbidden):
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
@@ -269,16 +286,25 @@ curl -X POST \
   https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
 ```
 
-#### 3. Test Case Operations with Different Roles
+#### 3. Test Listing Cases
 
-1. List cases for an organization:
+1. List organization cases:
 ```bash
 curl -X GET \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-  "<FUNCTION_URL>?organizationId=org123"
+  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases?organizationId=ORGANIZATION_ID"
 ```
 
-2. Archive a case (administrator privilege):
+2. List individual cases for the authenticated user:
+```bash
+curl -X GET \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases"
+```
+
+#### 4. Test Case Operations with Different Roles
+
+1. Archive an organization case:
 ```bash
 # As administrator (should succeed)
 curl -X POST \
@@ -295,16 +321,26 @@ curl -X POST \
   https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
 ```
 
-3. Delete a case (administrator privilege):
+2. Archive an individual case:
 ```bash
-# As administrator (should succeed)
+# As case owner (should succeed)
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-  -d '{"caseId": "CASE_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
+  -d '{"caseId": "INDIVIDUAL_CASE_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
 
-# As staff member (should fail with 403 Forbidden)
+# As different user (should fail with 403 Forbidden)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -d '{"caseId": "INDIVIDUAL_CASE_ID"}' \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+```
+
+3. Delete a case:
+```bash
+# As administrator or case owner (should succeed)
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
@@ -312,38 +348,45 @@ curl -X POST \
   https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
 ```
 
-#### 4. Test File Operations
+#### 5. Test File Operations
 
-1. Upload file to a case (both administrator and staff permitted):
+1. Upload file to an organization case:
 ```bash
 # Using multipart/form-data to upload a file
 curl -X POST \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -F "file=@/path/to/file.pdf" \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file/CASE_ID
+  -F "caseId=CASE_ID" \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file
 ```
 
-2. Test file upload as non-member (should fail with 403 Forbidden):
+2. Upload file to an individual case:
 ```bash
+# Using multipart/form-data to upload a file (as case owner)
 curl -X POST \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -F "file=@/path/to/file.pdf" \
-  <FUNCTION_URL>/case123
+  -F "caseId=INDIVIDUAL_CASE_ID" \
+  https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file
 ```
 
-#### 5. Verify Permission Checks
+#### 6. Verifying the Dual Case Ownership Model
 
-To verify that the permission checks are working correctly, you can:
+To verify that the dual case ownership model is working correctly, you can:
 
-1. Create cases with different user accounts
-2. Try to archive or delete cases with staff accounts (should be forbidden)
-3. Try to upload files with both administrator and staff accounts (should be allowed)
-4. Test all operations with non-member accounts (should be forbidden)
+1. Create both organization cases and individual cases
+2. Verify that organization cases can be accessed by organization members according to their roles
+3. Verify that individual cases can only be accessed by their owners
+4. Test all operations with different user accounts to ensure permissions are enforced correctly
+5. Examine Firestore to verify that:
+   - Organization cases have a valid `organizationId` and `paymentStatus: "covered_by_subscription"`
+   - Individual cases have `organizationId: null` and `paymentStatus: "paid"` with a `paymentIntentId`
 
 The permission model ensures:
-- Users can only access and modify resources within organizations they belong to
-- Different actions are restricted based on the user's role in the organization
-- All case and file operations now properly respect the role-based permission model
+- Individual cases are only accessible to their owners
+- Organization cases follow the role-based permission model
+- Payment is required for individual cases
+- All case and file operations properly respect both ownership models
 
 ### Testing the create_case Function
 

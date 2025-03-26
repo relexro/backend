@@ -63,19 +63,15 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "allowed": true
   }
   ```
-- **Valid Actions**:
-  - `read`: View the resource
-  - `update`: Edit the resource
-  - `delete`: Delete or archive the resource
-  - `upload_file`: Upload files to the resource
-  - `manage_access`: Manage who has access to the resource
-  - `create_case`: Create a new case within an organization
 - **Permission Rules**:
-  - **For Case Resources**:
+  - **For Organization Case Resources**:
     - Case owners have full access to all actions
     - Organization administrators have full access to cases in their organization
     - Organization staff members can `read`, `update`, and `upload_file` to cases in their organization
     - Staff members cannot `delete` or `manage_access` to cases
+  - **For Individual Case Resources** (where the case has no `organizationId`):
+    - Only the case owner (`userId`) can perform any action on the case
+    - No other users (except system administrators) can access individual cases
   - **For Organization Resources** (where `resourceId` is the `organizationId`):
     - Organization administrators have full access to organization resources
     - Organization staff members can `read` organization information and `create_case` for their organization
@@ -522,7 +518,7 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 ### Create Case
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case`
 - **Method**: POST
-- **Description**: Creates a new case
+- **Description**: Creates a new case (either individual or organization-owned)
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Request Body**:
@@ -531,27 +527,33 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
     "title": "Case Title",
     "description": "Case description",
     "caseType": "legal_advice",
-    "organizationId": "organization123" 
+    "organizationId": "organization123" // Optional - if omitted, creates an individual case
+  }
+  ```
+- **For Individual Cases (no organizationId):**
+  ```json
+  {
+    "title": "Individual Case Title",
+    "description": "Case description",
+    "caseType": "legal_advice",
+    "paymentIntentId": "pi_12345" // Required for individual cases
   }
   ```
 - **Required Fields**:
   - `title`: Title of the case
   - `description`: Detailed description of the case
-  - `organizationId`: ID of the organization this case belongs to
+  - `organizationId`: (Optional) ID of the organization this case belongs to
+  - `paymentIntentId`: (Required for individual cases) ID of the successful Stripe payment intent
 - **Permission Requirements**:
-  - User must be a member of the specified organization
-  - Both administrators and staff members can create cases
+  - **For organization cases**: User must be a member of the specified organization. Both administrators and staff members can create cases.
+  - **For individual cases**: Any authenticated user can create an individual case with a valid payment.
 - **Response**:
   ```json
   {
     "caseId": "case789",
-    "title": "Case Title",
-    "description": "Case description",
-    "caseType": "legal_advice",
     "userId": "user123",
-    "organizationId": "organization123",
-    "status": "active",
-    "createdAt": "2023-10-16T15:30:00Z"
+    "message": "Case created successfully",
+    "organizationId": "organization123" // Only present for organization cases
   }
   ```
 - **Errors**:
@@ -587,16 +589,17 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 ### List Cases
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases`
 - **Method**: GET
-- **Description**: Lists cases for an organization
+- **Description**: Lists cases for an organization OR individual cases for the authenticated user
 - **Headers**: 
   - `Authorization: Bearer <firebase_id_token>`
 - **Query Parameters**:
-  - `organizationId`: (required) ID of the organization to list cases for
-  - `status`: (optional) Filter by status
-  - `limit`: (optional) Maximum number of cases to return
+  - `organizationId`: (Optional) ID of the organization to list cases for. If not provided, lists individual cases for the authenticated user.
+  - `status`: (Optional) Filter by status
+  - `limit`: (Optional) Maximum number of cases to return (default: 50, max: 100)
+  - `offset`: (Optional) Number of cases to skip (for pagination)
 - **Permission Requirements**:
-  - User must be a member of the specified organization
-  - Both administrators and staff members can list cases
+  - **For organization cases**: User must be a member of the specified organization. Both administrators and staff members can list cases.
+  - **For individual cases**: Users can only list their own individual cases.
 - **Response**:
   ```json
   {
@@ -607,15 +610,22 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
         "description": "Case description",
         "caseType": "legal_advice",
         "userId": "user123",
-        "organizationId": "organization123",
+        "organizationId": "organization123", // will be null for individual cases
         "status": "active",
-        "createdAt": "2023-10-16T15:30:00Z"
+        "createdAt": "2023-10-16T15:30:00Z",
+        "paymentStatus": "covered_by_subscription" // or "paid" for individual cases
       }
-    ]
+    ],
+    "pagination": {
+      "total": 45,
+      "limit": 50,
+      "offset": 0,
+      "hasMore": false
+    },
+    "organizationId": "organization123" // Only present when querying organization cases
   }
   ```
 - **Errors**:
-  - 400: Bad Request (missing organizationId)
   - 401: Unauthorized
   - 403: Forbidden (not a member of the organization)
   - 500: Internal server error
@@ -633,8 +643,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   }
   ```
 - **Permission Requirements**:
-  - User must be the case owner or an administrator of the organization
-  - Staff members cannot archive cases
+  - **For organization cases**: User must be the case owner or an administrator of the organization. Staff members cannot archive cases.
+  - **For individual cases**: Only the case owner can archive their individual cases.
 - **Response**:
   ```json
   {
@@ -664,8 +674,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   }
   ```
 - **Permission Requirements**:
-  - User must be the case owner or an administrator of the organization
-  - Staff members cannot delete cases
+  - **For organization cases**: User must be the case owner or an administrator of the organization. Staff members cannot delete cases.
+  - **For individual cases**: Only the case owner can delete their individual cases.
 - **Response**:
   ```json
   {
@@ -698,8 +708,8 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - `caseId`: ID of the case
   - `fileName`: (optional) Custom file name
 - **Permission Requirements**:
-  - User must be the case owner, an administrator, or a staff member of the organization
-  - All organization members can upload files to cases
+  - **For organization cases**: User must be the case owner, an administrator, or a staff member of the organization. All organization members can upload files to cases.
+  - **For individual cases**: Only the case owner can upload files to their individual cases.
 - **Response**:
   ```json
   {
@@ -722,11 +732,26 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-download-file`
 - **Method**: GET
 - **Description**: Downloads a file
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
 - **Query Parameters**:
   - `fileId`: ID of the file to download
+- **Permission Requirements**:
+  - **For organization cases**: User must be a member of the organization that owns the case containing the file.
+  - **For individual cases**: Only the case owner can download files from their individual cases.
 - **Response**: The file content with appropriate Content-Type header
+  ```json
+  {
+    "downloadUrl": "https://storage.googleapis.com/signed-url/...",
+    "filename": "document.pdf",
+    "documentId": "doc123",
+    "message": "Download URL generated successfully"
+  }
+  ```
 - **Errors**:
   - 400: Bad Request (missing fileId)
+  - 401: Unauthorized
+  - 403: Forbidden (insufficient permissions)
   - 404: Not Found
   - 500: Internal server error
 
@@ -907,6 +932,42 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - 401: Unauthorized
   - 500: Internal server error
 
+### Create Payment Intent for Case
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-payment-intent-for-case`
+- **Method**: POST
+- **Description**: Creates a Stripe Payment Intent specifically for individual case creation
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Request Body**:
+  ```json
+  {
+    "amount": 5000,
+    "currency": "usd",
+    "caseTitle": "Case Title",
+    "caseDescription": "Case description",
+    "caseType": "legal_advice"
+  }
+  ```
+- **Process**:
+  1. Creates a payment intent with Stripe
+  2. Returns the payment intent ID and client secret
+  3. Frontend collects payment using Stripe Elements
+  4. After successful payment, frontend calls create_case with the payment intent ID
+- **Response**:
+  ```json
+  {
+    "clientSecret": "pi_1234_secret_5678",
+    "paymentIntentId": "pi_1234",
+    "amount": 5000,
+    "currency": "usd",
+    "createdAt": "2023-10-17T14:30:00Z"
+  }
+  ```
+- **Errors**:
+  - 400: Bad Request (missing parameters)
+  - 401: Unauthorized
+  - 500: Internal server error
+
 ---
 
 ## Test Function
@@ -942,4 +1003,68 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
 
 5. Enter any API endpoint URL in the test section and click "Test API with Token" to make an authenticated request
 
-6. The API response will be displayed in the response section 
+6. The API response will be displayed in the response section
+
+## User Profile Management
+
+### Get User Profile
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-user-profile`
+- **Method**: GET
+- **Description**: Retrieves the profile data for the authenticated user
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Response**:
+  ```json
+  {
+    "userId": "user123",
+    "email": "user@example.com",
+    "displayName": "User Name", 
+    "photoURL": "https://example.com/photo.jpg",
+    "role": "user",
+    "subscriptionStatus": null,
+    "languagePreference": "en",
+    "createdAt": "2023-10-20T14:30:00Z"
+  }
+  ```
+- **Errors**:
+  - 401: Unauthorized (invalid/expired token)
+  - 404: Not Found (user profile doesn't exist)
+  - 500: Internal server error
+
+### Update User Profile
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-update-user-profile`
+- **Method**: PUT
+- **Description**: Updates the profile data for the authenticated user
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Request Body**:
+  ```json
+  {
+    "displayName": "Updated Name",
+    "photoURL": "https://example.com/new-photo.jpg",
+    "languagePreference": "ro"
+  }
+  ```
+- **Updatable Fields**:
+  - `displayName`: User's display name
+  - `photoURL`: URL to user's profile photo
+  - `languagePreference`: User's preferred language (supported: "en", "ro", "fr", "de", "es")
+- **Response**: 
+  ```json
+  {
+    "userId": "user123",
+    "email": "user@example.com",
+    "displayName": "Updated Name",
+    "photoURL": "https://example.com/new-photo.jpg",
+    "role": "user",
+    "subscriptionStatus": null,
+    "languagePreference": "ro",
+    "createdAt": "2023-10-20T14:30:00Z",
+    "updatedAt": "2023-10-21T09:45:00Z"
+  }
+  ```
+- **Errors**:
+  - 400: Bad Request (invalid fields or validation failure)
+  - 401: Unauthorized (invalid/expired token)
+  - 404: Not Found (user profile doesn't exist)
+  - 500: Internal server error

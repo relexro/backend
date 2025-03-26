@@ -156,6 +156,13 @@ def check_permissions(request):
                     if case_data.get("userId") == user_id:
                         allowed = True
                         logging.info(f"User {user_id} is the owner of case {resource_id}. Access granted.")
+                    # Check if this is an individual case (no organizationId)
+                    elif case_data.get("organizationId") is None:
+                        # For individual cases, only the owner has access
+                        # This is a redundant check since we already checked if user is owner above,
+                        # but it's explicit for clarity and future modifications
+                        allowed = False
+                        logging.info(f"Case {resource_id} is an individual case and user {user_id} is not the owner. Access denied.")
                     # If case is associated with an organization, check organization membership
                     elif case_data.get("organizationId"):
                         case_org_id = case_data.get("organizationId")

@@ -94,20 +94,23 @@ user = get_authenticated_user()
 if not user:
     return {"error": "Unauthorized", "message": "Authentication required"}, 401
 
-# Get organization ID (from request or from the resource)
+# For organization cases - check permissions against the organization
 organization_id = request.json.get("organizationId") or get_organization_id_from_resource()
-
-# Check permissions
-allowed = check_permissions(
-    user["userId"], 
-    resource_id=resource_id,
-    organization_id=organization_id,
-    action="action_name", 
-    resource_type="resource_type"
-)
-
-if not allowed:
-    return {"error": "Forbidden", "message": "You do not have permission..."}, 403
+if organization_id:
+    allowed = check_permissions(
+        user["userId"], 
+        resource_id=resource_id,
+        organization_id=organization_id,
+        action="action_name", 
+        resource_type="resource_type"
+    )
+    
+    if not allowed:
+        return {"error": "Forbidden", "message": "You do not have permission..."}, 403
+# For individual cases - check if user is the owner
+else:
+    if case_data["userId"] != user["userId"]:
+        return {"error": "Forbidden", "message": "You do not have permission..."}, 403
 
 # Proceed with the function logic
 ```
@@ -291,7 +294,8 @@ cases/{caseId}
 ├── status: string ("open", "archived", "deleted")
 ├── creationDate: timestamp
 ├── paymentStatus: string ("paid", "pending") # Relevant for individual cases
-# ... other fields
+└── paymentIntentId: string (**Optional** - Only for individual cases)
+```
 
 ## Known Limitations
 
@@ -309,3 +313,68 @@ cases/{caseId}
 - Support for sharing cases across organizations
 - Implement Firestore security rules
 - Add comprehensive logging and monitoring
+
+## User Profile Management
+
+The Relex backend implements a comprehensive user profile management system that integrates Firebase Authentication with Firestore to store and manage application-specific user data.
+
+### User Authentication and Profile Creation Flow
+
+1. **Firebase Authentication**: Users sign up/in via Firebase Authentication, which handles:
+   - User identity verification (email/password, Google OAuth, etc.)
+   - Authentication token issuance and verification
+   - Basic user identity attributes (uid, email, display name, photo URL)
+
+2. **Automatic Profile Creation**: When a new user signs up via Firebase Authentication:
+   - A Firebase Auth `onCreate` trigger function (`create_user_profile`) is executed automatically
+   - This function creates a corresponding document in the Firestore `users` collection
+   - The Firestore document contains application-specific data not available in the Auth record
+
+3. **Profile Data Access and Management**:
+   - The `get_user_profile` function (`GET /v1/users/me` endpoint) allows users to retrieve their profile data
+   - The `update_user_profile` function (`PUT /v1/users/me` endpoint) allows users to update allowed fields in their profile
+
+### User Profile Schema
+
+The `users` collection in Firestore stores application-specific data for each authenticated user:
+
+```text
+users/{userId}
+├── userId: string (matches Firebase Auth UID)
+├── email: string (from Firebase Auth)
+├── displayName: string (from Firebase Auth or user-provided)
+├── photoURL: string (from Firebase Auth or user-provided)
+├── role: string ("user", "admin") - default "user"
+├── subscriptionStatus: string ("active", "inactive", null)
+├── languagePreference: string ("en", "ro", etc.) - default "en"
+├── createdAt: timestamp
+└── updatedAt: timestamp (when profile is modified)
+```
+
+### Permission Model for Profile Management
+
+- Only the authenticated user can access or modify their own profile
+- Users can only update certain fields (displayName, photoURL, languagePreference)
+- Critical fields like role, userId, and subscriptionStatus can only be modified by system administrators
+- Firebase Authentication tokens are used to verify identity for all profile operations
+
+### API Endpoints
+
+1. **GET /v1/users/me**
+   - Returns the complete profile data for the authenticated user
+   - Requires Firebase Auth token in the Authorization header
+   - 404 response if profile doesn't exist (should not happen with proper trigger setup)
+
+2. **PUT /v1/users/me**
+   - Updates allowed fields in the user's profile
+   - Validates input data (e.g., language codes must be from supported list)
+   - Returns the updated profile data
+   - Requires Firebase Auth token in the Authorization header
+
+### Integration with Organization Membership
+
+The user profile system integrates with the organization membership model:
+- The basic user profile contains user identity and preferences
+- Organization memberships are stored in a separate collection (`organization_memberships`)
+- This allows users to have different roles in different organizations
+- The `role` field in the user profile is separate from organization-specific roles

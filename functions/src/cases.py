@@ -63,16 +63,6 @@ def create_case(request):
             logging.error("Bad Request: Description cannot be empty")
             return ({"error": "Bad Request", "message": "Description cannot be empty"}, 400)
         
-        # Validate organizationId is provided and valid
-        if "organizationId" not in data or not data["organizationId"]:
-            logging.error("Bad Request: Missing organizationId")
-            return ({"error": "Bad Request", "message": "Organization ID is required"}, 400)
-            
-        organization_id = data["organizationId"]
-        if not isinstance(organization_id, str) or not organization_id.strip():
-            logging.error("Bad Request: Invalid organizationId")
-            return ({"error": "Bad Request", "message": "Organization ID must be a non-empty string"}, 400)
-        
         # Get the authenticated user
         user_info, status_code, error_message = get_authenticated_user(request)
         if status_code != 200:
@@ -82,44 +72,88 @@ def create_case(request):
         user_id = user_info["userId"]
         logging.info(f"Authenticated user: {user_id}")
         
-        # Check if user has permission to create a case for this organization
-        db = firestore.client()
-        permission_check = {
-            "userId": user_id,
-            "resourceId": organization_id,
-            "action": "create_case",
-            "resourceType": "organization"
-        }
-        
-        # Call check_permissions function
-        from auth import check_permissions as check_permissions_func
-        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-        
-        if permission_status != 200 or not permission_response.get("allowed", False):
-            logging.error(f"Forbidden: User {user_id} does not have permission to create a case for organization {organization_id}")
-            return ({"error": "Forbidden", "message": "You do not have permission to create a case for this organization"}, 403)
-        
-        # Extract fields
-        title = data["title"].strip()
-        description = data["description"].strip()
-        
         # Initialize Firestore client
-        case_ref = db.collection("cases").document()
+        db = firestore.client()
+        
+        # Extract organization ID if provided
+        organization_id = data.get("organizationId")
         
         # Prepare case data
         case_data = {
             "userId": user_id,
-            "organizationId": organization_id,
-            "title": title,
-            "description": description,
+            "title": data["title"].strip(),
+            "description": data["description"].strip(),
             "status": "open",
             "creationDate": firestore.SERVER_TIMESTAMP
         }
         
-        # Write to Firestore
+        # HANDLE ORGANIZATION CASE
+        if organization_id:
+            logging.info(f"Creating organization case for organization: {organization_id}")
+            
+            if not isinstance(organization_id, str) or not organization_id.strip():
+                logging.error("Bad Request: Invalid organizationId")
+                return ({"error": "Bad Request", "message": "Organization ID must be a non-empty string"}, 400)
+            
+            # Check if user has permission to create a case for this organization
+            permission_check = {
+                "userId": user_id,
+                "resourceId": organization_id,
+                "action": "create_case",
+                "resourceType": "organization"
+            }
+            
+            # Call check_permissions function
+            from auth import check_permissions as check_permissions_func
+            permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
+            
+            if permission_status != 200 or not permission_response.get("allowed", False):
+                logging.error(f"Forbidden: User {user_id} does not have permission to create a case for organization {organization_id}")
+                return ({"error": "Forbidden", "message": "You do not have permission to create a case for this organization"}, 403)
+            
+            # TODO: Check organization subscription status
+            # This would verify the organization's subscription allows for more cases
+            # For now, we'll just add the organization ID to the case
+            
+            case_data["organizationId"] = organization_id
+            case_data["paymentStatus"] = "covered_by_subscription"
+            
+        # HANDLE INDIVIDUAL CASE
+        else:
+            logging.info(f"Creating individual case for user: {user_id}")
+            
+            # Check payment intent if provided
+            payment_intent_id = data.get("paymentIntentId")
+            if not payment_intent_id:
+                logging.error("Bad Request: Missing paymentIntentId for individual case")
+                return ({"error": "Bad Request", "message": "Payment Intent ID is required for individual cases"}, 400)
+            
+            # TODO: Verify payment intent with Stripe
+            # For now, we'll assume the payment intent is valid if it's provided
+            # In a real implementation, you would verify the payment intent with Stripe
+            
+            case_data["paymentStatus"] = "paid"
+            case_data["paymentIntentId"] = payment_intent_id
+            # Explicitly set organizationId to null for individual cases
+            case_data["organizationId"] = None
+        
+        # Create case in Firestore
+        case_ref = db.collection("cases").document()
         case_ref.set(case_data)
+        
+        # Add case ID to response data
+        response_data = {
+            "caseId": case_ref.id,
+            "userId": user_id,
+            "message": "Case created successfully"
+        }
+        
+        # Add organization ID to response if it exists
+        if organization_id:
+            response_data["organizationId"] = organization_id
+        
         logging.info(f"Case created with ID: {case_ref.id}")
-        return ({"caseId": case_ref.id, "message": "Case created successfully"}, 201)
+        return (response_data, 201)
     except Exception as e:
         logging.error(f"Error creating case: {str(e)}")
         return ({"error": "Internal Server Error", "message": "Failed to create case"}, 500)
@@ -170,7 +204,7 @@ def get_case(request):
 
 @functions_framework.http
 def list_cases(request):
-    """List cases for an organization.
+    """List cases for an organization or for an individual user.
     
     Args:
         request (flask.Request): HTTP request object.
@@ -181,13 +215,17 @@ def list_cases(request):
     logging.info("Received request to list cases")
     
     try:
-        # Extract organization ID from query parameters (required)
-        organization_id = request.args.get("organizationId")
+        # Get the authenticated user
+        user_info, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            logging.error(f"Unauthorized: {error_message}")
+            return ({"error": "Unauthorized", "message": error_message}, status_code)
         
-        # Validate organization ID
-        if not organization_id:
-            logging.error("Bad Request: Missing organizationId")
-            return ({"error": "Bad Request", "message": "Organization ID is required"}, 400)
+        user_id = user_info["userId"]
+        logging.info(f"Authenticated user: {user_id}")
+        
+        # Extract organization ID from query parameters (optional)
+        organization_id = request.args.get("organizationId")
         
         # Extract status filter from query parameters if provided
         status = request.args.get("status")
@@ -198,40 +236,61 @@ def list_cases(request):
             logging.warning(f"Invalid status filter: {status}, ignoring filter")
             status = None
         
-        # Get the authenticated user
-        user_info, status_code, error_message = get_authenticated_user(request)
-        if status_code != 200:
-            logging.error(f"Unauthorized: {error_message}")
-            return ({"error": "Unauthorized", "message": error_message}, status_code)
-        
-        user_id = user_info["userId"]
-        logging.info(f"Authenticated user: {user_id}")
-        
-        # Check if user has permission to list cases for this organization
-        permission_check = {
-            "userId": user_id,
-            "resourceId": organization_id,
-            "action": "read",
-            "resourceType": "organization"
-        }
-        
-        # Call check_permissions function
-        from auth import check_permissions as check_permissions_func
-        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-        
-        if permission_status != 200 or not permission_response.get("allowed", False):
-            logging.error(f"Forbidden: User {user_id} does not have permission to list cases for organization {organization_id}")
-            return ({"error": "Forbidden", "message": "You do not have permission to list cases for this organization"}, 403)
-        
         # Initialize Firestore client
         db = firestore.client()
         
-        # Create query that filters by organization ID
-        query = db.collection("cases").where("organizationId", "==", organization_id)
+        # Extract pagination parameters if provided
+        try:
+            limit = int(request.args.get("limit", "50"))  # Default to 50 cases
+            offset = int(request.args.get("offset", "0"))  # Default to start from beginning
+        except ValueError:
+            logging.warning("Invalid pagination parameters, using defaults")
+            limit = 50
+            offset = 0
+            
+        # Ensure limit is reasonable
+        if limit > 100:
+            limit = 100  # Cap at 100 for performance
         
+        # HANDLE ORGANIZATION CASES
+        if organization_id:
+            logging.info(f"Listing cases for organization: {organization_id}")
+            
+            # Check if user has permission to list cases for this organization
+            permission_check = {
+                "userId": user_id,
+                "resourceId": organization_id,
+                "action": "read",
+                "resourceType": "organization"
+            }
+            
+            # Call check_permissions function
+            from auth import check_permissions as check_permissions_func
+            permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
+            
+            if permission_status != 200 or not permission_response.get("allowed", False):
+                logging.error(f"Forbidden: User {user_id} does not have permission to list cases for organization {organization_id}")
+                return ({"error": "Forbidden", "message": "You do not have permission to list cases for this organization"}, 403)
+            
+            # Create query that filters by organization ID
+            query = db.collection("cases").where("organizationId", "==", organization_id)
+        
+        # HANDLE INDIVIDUAL CASES
+        else:
+            logging.info(f"Listing individual cases for user: {user_id}")
+            
+            # Query for cases where userId matches the authenticated user and organizationId is null
+            query = db.collection("cases").where("userId", "==", user_id).where("organizationId", "==", None)
+            
         # Apply status filter if provided
         if status:
             query = query.where("status", "==", status)
+        
+        # Get the total count (for pagination info)
+        total_count = len(list(query.stream()))
+        
+        # Apply pagination
+        query = query.limit(limit).offset(offset)
         
         # Execute query
         case_docs = query.get()
@@ -243,9 +302,24 @@ def list_cases(request):
             case_data["caseId"] = doc.id
             cases.append(case_data)
         
-        # Return the list of cases
-        logging.info(f"Successfully retrieved {len(cases)} cases for organization {organization_id}")
-        return ({"cases": cases}, 200)
+        # Return the list of cases with pagination info
+        response_data = {
+            "cases": cases,
+            "pagination": {
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "hasMore": (offset + len(cases)) < total_count
+            }
+        }
+        
+        if organization_id:
+            response_data["organizationId"] = organization_id
+            logging.info(f"Successfully retrieved {len(cases)} cases for organization {organization_id}")
+        else:
+            logging.info(f"Successfully retrieved {len(cases)} individual cases for user {user_id}")
+            
+        return (response_data, 200)
     except Exception as e:
         logging.error(f"Error listing cases: {str(e)}")
         return ({"error": "Internal Server Error", "message": "Failed to list cases"}, 500)

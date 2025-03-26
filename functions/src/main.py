@@ -10,6 +10,7 @@ from organization import create_organization, get_organization, add_organization
 from chat import receive_prompt, send_to_vertex_ai, store_conversation, enrich_prompt
 from payments import create_payment_intent, create_checkout_session, handle_stripe_webhook
 from organization_membership import add_organization_member, set_organization_member_role, list_organization_members, remove_organization_member, get_user_organization_role, list_user_organizations
+from user import get_user_profile, update_user_profile
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -377,5 +378,23 @@ def organization_membership_list_user_organizations(request):
         modified_request.user_id = user_data.get('userId')
         
         return list_user_organizations(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def users_get_user_profile(request):
+    """HTTP Cloud Function for retrieving a user's profile."""
+    try:
+        # Call the get_user_profile function directly
+        return get_user_profile(request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def users_update_user_profile(request):
+    """HTTP Cloud Function for updating a user's profile."""
+    try:
+        # Call the update_user_profile function directly
+        return update_user_profile(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500

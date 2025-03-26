@@ -1496,4 +1496,137 @@ resource "google_cloud_run_service_iam_member" "list_user_organizations_function
   service  = google_cloudfunctions2_function.list_user_organizations_function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# Cloud Function for Firebase Auth onCreate trigger
+resource "google_cloudfunctions2_function" "create_user_profile_function" {
+  name        = "relex-backend-create-user-profile"
+  description = "Create a user profile in Firestore when a new user signs up"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "create_user_profile"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  event_trigger {
+    trigger_region = var.region
+    event_type     = "google.firebase.auth.user.v1.created"
+    retry_policy   = "RETRY_POLICY_RETRY"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry,
+    google_project_service.firebase
+  ]
+}
+
+# Cloud Function for get_user_profile
+resource "google_cloudfunctions2_function" "get_user_profile_function" {
+  name        = "relex-backend-get-user-profile"
+  description = "Get user profile data for the authenticated user"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "users_get_user_profile"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the get_user_profile function
+resource "google_cloud_run_service_iam_member" "get_user_profile_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.get_user_profile_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# Cloud Function for update_user_profile
+resource "google_cloudfunctions2_function" "update_user_profile_function" {
+  name        = "relex-backend-update-user-profile"
+  description = "Update user profile data for the authenticated user"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "users_update_user_profile"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the update_user_profile function
+resource "google_cloud_run_service_iam_member" "update_user_profile_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.update_user_profile_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 } 
