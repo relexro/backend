@@ -9,7 +9,7 @@ from cases import create_case, get_case, list_cases, archive_case, delete_case, 
 from organization import create_organization, get_organization, add_organization_user, set_user_role, update_organization, list_organization_users, remove_organization_user
 from chat import receive_prompt, send_to_vertex_ai, store_conversation, enrich_prompt
 from payments import create_payment_intent, create_checkout_session, handle_stripe_webhook
-from organization_membership import add_organization_member, set_organization_member_role, list_organization_members, remove_organization_member, get_user_organization_role
+from organization_membership import add_organization_member, set_organization_member_role, list_organization_members, remove_organization_member, get_user_organization_role, list_user_organizations
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -277,7 +277,7 @@ def payments_create_checkout_session(request):
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 
-# New Organization Membership Functions
+# Organization Membership Functions
 @functions_framework.http
 def organization_membership_add_organization_member(request):
     """HTTP Cloud Function for adding a member to an organization."""
@@ -350,6 +350,32 @@ def organization_membership_remove_organization_member(request):
 def organization_membership_get_user_organization_role(request):
     """HTTP Cloud Function for getting a user's role in an organization."""
     try:
-        return get_user_organization_role(request)
+        # Authenticate the user
+        user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            
+        # Add the authenticated user ID to the request
+        modified_request = request.environ.get('werkzeug.request', request)
+        modified_request.user_id = user_data.get('userId')
+        
+        return get_user_organization_role(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def organization_membership_list_user_organizations(request):
+    """HTTP Cloud Function for listing organizations a user belongs to."""
+    try:
+        # Authenticate the user
+        user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            
+        # Add the authenticated user ID to the request
+        modified_request = request.environ.get('werkzeug.request', request)
+        modified_request.user_id = user_data.get('userId')
+        
+        return list_user_organizations(modified_request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500

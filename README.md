@@ -1077,6 +1077,62 @@ Expected response (HTTP 200):
 }
 ```
 
+### Testing the list_user_organizations Function
+
+You can test the `list_user_organizations` function using curl or a tool like Postman:
+
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations"
+```
+
+This will return all organizations the authenticated user belongs to.
+
+Expected response (HTTP 200):
+```json
+{
+  "organizations": [
+    {
+      "organizationId": "org123",
+      "name": "Law Firm A",
+      "type": "law_firm",
+      "role": "administrator"
+    },
+    {
+      "organizationId": "org456",
+      "name": "Consulting B", 
+      "type": "consulting",
+      "role": "staff"
+    }
+  ]
+}
+```
+
+You can also specify a user ID to view organizations for a specific user (only works if you're viewing your own organizations):
+
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations?userId=YOUR_USER_ID"
+```
+
+Attempting to view another user's organizations will result in a 403 Forbidden error:
+
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations?userId=ANOTHER_USER_ID"
+```
+
+Expected response (HTTP 403):
+```json
+{
+  "error": "Forbidden",
+  "message": "You can only view your own organizations"
+}
+```
+
 ### Verifying Organization Membership Operations
 After performing organization membership operations, you can verify they were successful by:
 1. Using the `list_organization_members` function to check all members of an organization

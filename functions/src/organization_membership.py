@@ -487,4 +487,72 @@ def get_user_organization_role(request):
         return ({"role": role}, 200)
     except Exception as e:
         logging.error(f"Error getting user role: {str(e)}")
-        return ({"error": "Internal Server Error", "message": f"Failed to get user role: {str(e)}"}, 500) 
+        return ({"error": "Internal Server Error", "message": f"Failed to get user role: {str(e)}"}, 500)
+
+@functions_framework.http
+def list_user_organizations(request):
+    """List organizations a user belongs to.
+    
+    Args:
+        request (flask.Request): HTTP request object.
+        
+    Returns:
+        tuple: (response, status_code)
+    """
+    logging.info("Received request to list user organizations")
+    
+    try:
+        # Extract user ID from query parameters or use the authenticated user
+        user_id = request.args.get('userId')
+        
+        # Extract the authenticated user ID from the request
+        authenticated_user_id = getattr(request, 'user_id', None)
+        if not authenticated_user_id:
+            logging.error("Unauthorized: User ID not provided in request")
+            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
+        
+        # If no userId specified, use the authenticated user
+        if not user_id:
+            user_id = authenticated_user_id
+            logging.info(f"No userId provided, using authenticated user: {user_id}")
+        # If userId is specified but different from authenticated user, check permissions
+        elif user_id != authenticated_user_id:
+            # For now, only allow users to view their own organizations
+            # This could be extended to allow administrators to view other users' organizations
+            logging.error(f"Forbidden: User {authenticated_user_id} is not authorized to view organizations for user {user_id}")
+            return ({"error": "Forbidden", "message": "You can only view your own organizations"}, 403)
+        
+        # Initialize Firestore client
+        db = firestore.client()
+        
+        # Get all organization memberships for the user
+        query = db.collection("organization_memberships").where("userId", "==", user_id)
+        memberships = list(query.stream())
+        
+        # Prepare the response
+        organizations = []
+        for membership_doc in memberships:
+            membership_data = membership_doc.to_dict()
+            organization_id = membership_data.get("organizationId")
+            
+            # Get the organization details
+            organization_doc = db.collection("organizations").document(organization_id).get()
+            if organization_doc.exists:
+                organization_data = organization_doc.to_dict()
+                
+                # Create a simplified organization object including the user's role
+                organization_info = {
+                    "organizationId": organization_id,
+                    "name": organization_data.get("name", ""),
+                    "type": organization_data.get("type", ""),
+                    "role": membership_data.get("role", "staff")
+                }
+                
+                organizations.append(organization_info)
+        
+        # Return the list of organizations
+        logging.info(f"Successfully retrieved {len(organizations)} organizations for user {user_id}")
+        return ({"organizations": organizations}, 200)
+    except Exception as e:
+        logging.error(f"Error listing user organizations: {str(e)}")
+        return ({"error": "Internal Server Error", "message": f"Failed to list user organizations: {str(e)}"}, 500) 

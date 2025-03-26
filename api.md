@@ -428,6 +428,38 @@ The authentication endpoints support CORS (Cross-Origin Resource Sharing), allow
   - 404: Not Found (organization not found)
   - 500: Internal server error
 
+### List User Organizations
+- **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations`
+- **Method**: GET
+- **Description**: Lists all organizations a user belongs to
+- **Headers**: 
+  - `Authorization: Bearer <firebase_id_token>`
+- **Query Parameters**:
+  - `userId`: (optional) ID of the user to get organizations for. If not provided, uses the authenticated user.
+- **Response**:
+  ```json
+  {
+    "organizations": [
+      {
+        "organizationId": "org123",
+        "name": "Law Firm A",
+        "type": "law_firm",
+        "role": "administrator"
+      },
+      {
+        "organizationId": "org456",
+        "name": "Consulting B",
+        "type": "consulting",
+        "role": "staff"
+      }
+    ]
+  }
+  ```
+- **Errors**:
+  - 401: Unauthorized
+  - 403: Forbidden (attempting to view organizations for another user)
+  - 500: Internal server error
+
 ### Remove Organization Member
 - **URL**: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-organization-member`
 - **Method**: POST

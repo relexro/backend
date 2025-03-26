@@ -1452,4 +1452,48 @@ resource "google_cloud_run_service_iam_member" "get_user_organization_role_funct
   service  = google_cloudfunctions2_function.get_user_organization_role_function.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+resource "google_cloudfunctions2_function" "list_user_organizations_function" {
+  name        = "relex-backend-list-user-organizations"
+  description = "List organizations a user belongs to"
+  location    = var.region
+  
+  build_config {
+    runtime     = "python310"
+    entry_point = "organization_membership_list_user_organizations"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.functions_source_zip.name
+      }
+    }
+  }
+  
+  service_config {
+    max_instance_count = 10
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION  = var.region
+    }
+    # Use default service account
+    service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  }
+  
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_service.artifactregistry
+  ]
+}
+
+# Allow unauthenticated invocation of the list_user_organizations function
+resource "google_cloud_run_service_iam_member" "list_user_organizations_function_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.list_user_organizations_function.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 } 

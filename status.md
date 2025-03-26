@@ -31,6 +31,7 @@
 - ✅ Implemented list_organization_members function
 - ✅ Implemented remove_organization_member function
 - ✅ Implemented get_user_organization_role function
+- ✅ Implemented list_user_organizations function
 
 ### Module: chat.py
 - ✅ Implemented receive_prompt function
