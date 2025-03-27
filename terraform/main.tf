@@ -9,6 +9,21 @@ provider "google-beta" {
   region  = var.region
 }
 
+# Configure Cloudflare provider using CF_RELEX_TOKEN environment variable
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
+}
+
+# Provider configuration for modules
+terraform {
+  required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
+  }
+}
+
 # Enable required APIs
 module "apis" {
   source     = "./modules/apis"
@@ -63,6 +78,21 @@ module "api_gateway" {
   }
 
   depends_on = [module.apis, module.cloud_functions]
+}
+
+# Configure Cloudflare DNS for API Gateway
+module "cloudflare" {
+  source           = "./modules/cloudflare"
+  domain_name      = var.domain_name
+  subdomain        = var.api_subdomain
+  gateway_hostname = module.api_gateway.gateway_hostname
+  zone_id          = var.cloudflare_zone_id
+
+  depends_on = [module.api_gateway]
+  
+  providers = {
+    cloudflare = cloudflare
+  }
 }
 
 # Set up IAM roles and permissions

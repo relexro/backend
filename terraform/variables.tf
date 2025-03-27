@@ -42,4 +42,35 @@ variable "facebook_client_secret" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "domain_name" {
+  description = "The domain name managed by Cloudflare"
+  type        = string
+  default     = "relex.ro"
+}
+
+variable "api_subdomain" {
+  description = "The subdomain for the API Gateway"
+  type        = string
+  default     = "api"
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API Token"
+  type        = string
+  sensitive   = true
+  # Will use the CF_RELEX_TOKEN env var
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare Zone ID for the domain"
+  type        = string
+  # Will use TF_VAR_cloudflare_zone_id environment variable
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare Account ID"
+  type        = string
+  # Will use TF_VAR_cloudflare_account_id environment variable
 } 

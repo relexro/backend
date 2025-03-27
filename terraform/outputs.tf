@@ -25,8 +25,13 @@ output "function_uris" {
 
 # These outputs reference existing resources
 output "api_gateway_url" {
-  description = "The URL of the deployed API Gateway"
-  value       = "relex-api-gateway-xxxxxxxxx.ew.gateway.dev"  # Replace this with your actual gateway URL
+  description = "The URL of the API Gateway"
+  value       = "https://${module.api_gateway.gateway_hostname}"
+}
+
+output "api_custom_domain" {
+  description = "The custom domain URL for the API"
+  value       = "https://${var.api_subdomain}.${var.domain_name}"
 }
 
 output "firebase_web_app_name" {

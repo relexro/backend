@@ -27,6 +27,7 @@ Backend for Relex, an AI-powered legal chat application built using Firebase Fun
 - Terraform
 - Python 3.10 or higher
 - Google Cloud SDK
+- Cloudflare account with access to relex.ro domain
 
 ### Configuration
 
@@ -34,6 +35,12 @@ Backend for Relex, an AI-powered legal chat application built using Firebase Fun
 2. Set up Google Cloud authentication:
    ```bash
    export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service-account-key.json"
+   ```
+3. Set up Cloudflare authentication for DNS management:
+   ```bash
+   export TF_VAR_cloudflare_api_token=your_cloudflare_api_token
+   export TF_VAR_cloudflare_zone_id=your_cloudflare_zone_id
+   export TF_VAR_cloudflare_account_id=your_cloudflare_account_id
    ```
 
 ### Deployment
@@ -180,6 +187,16 @@ Expected response (HTTP 200):
 ## API Documentation
 
 See [api.md](api.md) for complete documentation of all API endpoints.
+
+## Custom Domain
+
+The API is available at `https://api.relex.ro/v1`. This custom domain is configured using:
+
+- Google Cloud API Gateway for hosting the API
+- Cloudflare DNS for domain management
+- Direct CNAME record (unproxied) pointing to the API Gateway hostname
+
+The DNS configuration is managed via Terraform in the `modules/cloudflare` module, which creates an unproxied CNAME record to enable direct connections to the API Gateway without Cloudflare proxying.
 
 ## Deployment Troubleshooting
 

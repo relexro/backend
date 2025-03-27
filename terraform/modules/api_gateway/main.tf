@@ -77,14 +77,4 @@ resource "google_api_gateway_gateway" "gateway" {
   display_name = "Relex API Gateway"
 
   depends_on = [google_api_gateway_api_config.api_config]
-}
-
-# Output the API Gateway URL
-output "api_gateway_url" {
-  value = google_api_gateway_gateway.gateway.default_hostname
-}
-
-# Output the API Gateway service account email
-output "api_gateway_sa_email" {
-  value = google_service_account.api_gateway.email
 } 

@@ -13,7 +13,8 @@ The Relex backend uses the following technologies:
 - **Terraform**: For infrastructure as code and resource provisioning
 - **Python**: The primary programming language for all backend components
 - **Flask**: Web framework used by Firebase Functions
-- **Vertex AI**: Google's machine learning platform for AI capabilities
+- **Stripe**: Payment processing for individual cases
+- **Cloudflare**: DNS management for custom domain (direct CNAME, unproxied)
 
 ## Design Principles
 
@@ -23,40 +24,62 @@ The backend follows these key design principles:
 2. **Stateless Functions**: Each function is designed to be stateless, handling a single responsibility
 3. **Separation of Concerns**: Code is organized into modules by feature area
 4. **RESTful API Design**: Following REST principles for API design
-5. **Role-Based Access Control**: Permissions are based on organization roles and resource ownership
+5. **Dual Case Ownership**: Supporting both individual and organization-owned cases
+6. **Role-Based Access Control**: Permissions based on organization roles and resource ownership
 
 ## Permission Model
 
-The Relex backend implements a comprehensive role-based permission system that controls access to resources based on user roles within organizations. This model ensures that users can only access and modify resources they have appropriate permissions for.
+The Relex backend implements a comprehensive permission system that supports both individual case ownership and organization-based role permissions. This model ensures appropriate access control for all resources.
+
+### Case Ownership Model
+
+The system supports two types of case ownership:
+
+1. **Individual Cases**:
+   - Created by individual users
+   - Require payment (handled through Stripe)
+   - Owner has full control over the case
+   - Not associated with any organization
+
+2. **Organization Cases**:
+   - Created within an organization context
+   - No direct payment required
+   - Access controlled by organization roles
+   - Associated with a specific organization
 
 ### Organization Membership
 
-All resources (cases, files) are associated with organizations, and permissions are determined by:
+For organization-owned resources:
 
 1. **Organization Membership**: A user must be a member of an organization to access its resources
 2. **Role Within Organization**: The specific permissions a user has depends on their role
 
 ### User Roles
 
-The system defines the following roles within organizations:
+The system defines the following roles:
 
 1. **Administrator**:
-   - Has full access to all resources within the organization
+   - Has full access to all organization resources
    - Can manage organization settings and membership
-   - Can create, read, update, delete, and archive cases
-   - Can upload and download files
+   - Can create, read, update, delete, and archive organization cases
+   - Can upload and download files to organization cases
 
 2. **Staff**:
    - Has limited access to organizational resources
    - Can create cases for the organization
    - Can read cases belonging to the organization
-   - Can upload files to cases
-   - Cannot archive or delete cases (unless they are the case owner)
+   - Can upload files to organization cases
+   - Cannot archive or delete organization cases (unless they are the case owner)
 
-3. **Case Owner**:
+3. **Individual User**:
+   - Can create individual cases (with payment)
+   - Has full control over their individual cases
+   - Can be a member of organizations with specific roles
+
+4. **Case Owner**:
    - Special designation for the user who created a case
-   - Has additional permissions for their own cases
-   - Can archive or delete their own cases regardless of organization role
+   - Has full control over their individual cases
+   - Has additional permissions for organization cases they created
 
 ### Permission Implementation
 
@@ -64,29 +87,32 @@ The permission model is implemented through the `check_permissions` function in 
 
 1. Authenticates the user making the request
 2. Determines the resource type (case, file, organization)
-3. Identifies the organization that owns the resource 
-4. Checks the user's role within that organization
-5. Verifies if the action is permitted based on the role and resource
+3. For organization resources:
+   - Identifies the organization
+   - Checks the user's role within that organization
+   - Verifies if the action is permitted based on the role
+4. For individual cases:
+   - Verifies case ownership
+   - Checks payment status if required
 
-For all case and file management functions:
-- The user is authenticated using the token in the Authorization header
-- The function retrieves the organization ID associated with the resource
-- The function checks if the user is a member of that organization and has appropriate permissions
-- If authorized, the requested operation proceeds; if not, a 403 Forbidden error is returned
-
-### Organization Resource Access
+### Resource Access Patterns
 
 When a user performs an action on a case or file:
-1. The system checks if the user is the resource owner (created the case)
-2. If not, the system checks if the user is an administrator in the organization that owns the resource
-3. If not, the system checks if the user is a staff member in the organization and if the action is permitted for staff
-4. If none of these conditions are met, access is denied
+1. The system determines if it's an individual or organization case
+2. For individual cases:
+   - Verifies the user is the owner
+   - Checks payment status if required
+3. For organization cases:
+   - Checks if the user is the case owner
+   - If not, checks administrator role
+   - If not, checks staff permissions
+4. Access is granted or denied based on these checks
 
 ## Implementation Patterns
 
-### Organization-Based Access Control
+### Dual Ownership Access Control
 
-All case and file management functions now follow this pattern:
+All case and file management functions follow this pattern:
 
 ```python
 # Authenticate user
@@ -94,63 +120,66 @@ user = get_authenticated_user()
 if not user:
     return {"error": "Unauthorized", "message": "Authentication required"}, 401
 
-# For organization cases - check permissions against the organization
-organization_id = request.json.get("organizationId") or get_organization_id_from_resource()
-if organization_id:
+# Get case data
+case = get_case(case_id)
+if not case:
+    return {"error": "Not Found", "message": "Case not found"}, 404
+
+# For individual cases
+if not case.get("organizationId"):
+    # Check ownership
+    if case["userId"] != user["userId"]:
+        return {"error": "Forbidden", "message": "Not the case owner"}, 403
+    # Check payment status if required
+    if action_requires_payment and case["paymentStatus"] != "paid":
+        return {"error": "Payment Required", "message": "Case payment pending"}, 402
+
+# For organization cases
+else:
     allowed = check_permissions(
         user["userId"], 
-        resource_id=resource_id,
-        organization_id=organization_id,
-        action="action_name", 
-        resource_type="resource_type"
+        resource_id=case_id,
+        organization_id=case["organizationId"],
+        action="action_name"
     )
-    
     if not allowed:
-        return {"error": "Forbidden", "message": "You do not have permission..."}, 403
-# For individual cases - check if user is the owner
-else:
-    if case_data["userId"] != user["userId"]:
-        return {"error": "Forbidden", "message": "You do not have permission..."}, 403
+        return {"error": "Forbidden", "message": "Insufficient permissions"}, 403
 
 # Proceed with the function logic
 ```
 
-### Error Handling
-
-The backend implements consistent error handling with appropriate HTTP status codes:
-
-- **400 Bad Request**: Invalid input parameters
-- **401 Unauthorized**: Missing or invalid authentication
-- **403 Forbidden**: Authenticated but insufficient permissions
-- **404 Not Found**: Resource does not exist
-- **500 Internal Server Error**: Unexpected server-side errors
-
-### Authentication Token Verification
-
-Firebase Authentication tokens are verified in the `get_authenticated_user()` function. Authentication failures follow this pattern:
-
-```python
-def get_authenticated_user():
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return None
-        
-    token = auth_header.split("Bearer ")[1]
-    try:
-        decoded_token = auth.verify_id_token(token)
-        return {
-            "userId": decoded_token["uid"],
-            "email": decoded_token.get("email", "")
-        }
-    except Exception as e:
-        return None
-```
-
 ## Resource Collection Structure
+
+### User Profile Structure
+
+Created by Auth trigger on user creation:
+
+```
+users/{userId}
+├── email: string
+├── displayName: string
+├── photoURL: string
+├── role: string ("user", "admin")
+├── subscriptionStatus: string ("active", "inactive")
+├── languagePreference: string ("en", "ro")
+├── createdAt: timestamp
+└── updatedAt: timestamp
+```
 
 ### Organization Structure
 
-The organization membership model has been updated to use a separate collection:
+```
+organizations/{organizationId}
+├── name: string
+├── type: string
+├── address: string (optional)
+├── phone: string (optional)
+├── email: string (optional)
+├── ownerId: string
+└── createdAt: timestamp
+```
+
+### Organization Membership Structure
 
 ```
 organization_memberships/{membershipId}
@@ -161,41 +190,32 @@ organization_memberships/{membershipId}
 └── updatedAt: timestamp (optional)
 ```
 
-This allows for efficient querying of:
-- All organizations a user belongs to
-- All members of an organization
-- A user's role in a specific organization
-
 ### Case Structure
 
-Cases now include organization ownership:
+Supports both individual and organization cases:
 
 ```
 cases/{caseId}
 ├── title: string
 ├── description: string
 ├── userId: string (owner user ID)
-├── organizationId: string (organization this case belongs to)
+├── organizationId: string (optional, for organization cases)
 ├── status: string ("open", "archived", "deleted")
-├── creationDate: timestamp
-├── archiveDate: timestamp (if archived)
-└── deletionDate: timestamp (if deleted)
+├── paymentStatus: string (required for individual cases: "paid", "pending")
+├── paymentIntentId: string (required for individual cases)
+├── createdAt: timestamp
+├── archivedAt: timestamp (optional)
+└── deletedAt: timestamp (optional)
 ```
 
 ### Document Structure
 
-File documents include back-references to both case and organization:
-
 ```
 documents/{documentId}
 ├── caseId: string
-├── organizationId: string
-├── filename: string (generated unique filename)
-├── originalFilename: string
-├── fileType: string (MIME type)
-├── fileSize: number
-├── storagePath: string (path in Cloud Storage)
-├── uploadDate: timestamp
+├── fileName: string
+├── fileUrl: string
+├── uploadedAt: timestamp
 └── uploadedBy: string (user ID)
 ```
 
@@ -292,7 +312,6 @@ cases/{caseId}
 ├── userId: string (**Creator/Owner User ID**)
 ├── organizationId: string (**Optional** - ID of the organization this case belongs to, null if individual case)
 ├── status: string ("open", "archived", "deleted")
-├── creationDate: timestamp
 ├── paymentStatus: string ("paid", "pending") # Relevant for individual cases
 └── paymentIntentId: string (**Optional** - Only for individual cases)
 ```

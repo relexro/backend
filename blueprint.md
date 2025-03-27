@@ -14,26 +14,24 @@ The Relex backend is built as a set of serverless Firebase Cloud Functions. Each
    - Organization membership management
 
 2. **Case Management**
-   - Create, read, update, delete (CRUD) operations for legal cases
+   - Individual and organization case management
+   - Create, read, update, delete (CRUD) operations
    - File upload and management
    - Case status tracking (open, archived, deleted)
-   - Organization-based access control
+   - Dual ownership model (individual/organization)
 
-3. **AI Integration**
-   - Integration with Vertex AI for legal analysis
-   - Conversation history management
-   - Document analysis capabilities
-
-4. **Organization Management**
+3. **Organization Management**
    - Organization creation and configuration
    - User role management within organizations
-   - Billing and subscription management
+   - Member invitation and management
 
-5. **Infrastructure**
+4. **Infrastructure**
    - Terraform-managed Google Cloud resources
    - Firebase Firestore for data storage
    - Firebase Storage for file storage
    - Serverless architecture for scalability
+   - Cloudflare DNS for custom domain (direct CNAME, unproxied)
+   - API Gateway with custom domain (api.relex.ro)
 
 ## Development and Testing Workflow
 
@@ -62,14 +60,14 @@ IMPORTANT: This workflow must be strictly adhered to for all development. Custom
 
 ## Permission Model
 
-The Relex backend implements a comprehensive role-based permission system that controls access to resources based on user roles within organizations.
+The Relex backend implements a comprehensive role-based permission system that controls access to resources based on user roles within organizations, while also supporting individual case ownership.
 
 ### Core Principles
 
-1. **Organization Ownership**: All cases and documents belong to organizations, not individual users
-2. **Role-Based Access Control**: Access to resources is determined by a user's role within an organization
+1. **Dual Ownership Model**: Cases can belong to either individuals or organizations
+2. **Role-Based Access Control**: Organization access is determined by user roles
 3. **Least Privilege**: Users are granted only the permissions necessary for their role
-4. **Hierarchical Permissions**: Higher-level roles inherit permissions from lower-level roles
+4. **Individual Ownership**: Users have full control over their individual cases
 
 ### User Roles
 
@@ -77,47 +75,51 @@ The system defines the following roles within organizations:
 
 1. **Administrator**
    - Can manage organization settings
-   - Can manage all cases and documents within the organization
-   - Can add and remove users from the organization
-   - Can assign roles to users
-   - Has full permissions for all actions
+   - Can manage all organization cases and documents
+   - Can add and remove members from the organization
+   - Can assign roles to members
+   - Has full permissions for all organization actions
 
 2. **Staff**
    - Can create cases for the organization
    - Can view all cases within the organization
-   - Can upload files to cases
-   - Cannot archive or delete cases (unless they are the case owner)
-   - Cannot manage organization settings or users
+   - Can upload files to organization cases
+   - Cannot archive or delete organization cases (unless they are the case owner)
+   - Cannot manage organization settings or members
 
 3. **Case Owner**
    - Special designation for the user who created a case
-   - Has additional permissions for their own cases
-   - Can archive or delete their own cases regardless of their organization role
+   - Has full control over their individual cases
+   - Has additional permissions for organization cases they created
+   - Can archive or delete their own cases regardless of organization role
 
 ### Permission Implementation
 
-The permission model is implemented through the `check_permissions` function in the `auth.py` module. This function is called by all case and file management functions to verify that the authenticated user has the necessary permissions to perform the requested action.
+The permission model is implemented through the `check_permissions` function in the `auth.py` module. This function verifies that the authenticated user has the necessary permissions to perform the requested action.
 
 The permission checks follow this process:
 
 1. Authenticate the user making the request
 2. Determine the resource type (case, file, organization)
-3. Identify the organization that owns the resource
-4. Check the user's role within that organization
-5. Verify if the action is permitted based on the role and resource
-6. Allow or deny the request accordingly
+3. For organization resources:
+   - Check the user's role within the organization
+   - Verify if the action is permitted based on the role
+4. For individual cases:
+   - Verify case ownership
+5. Allow or deny the request accordingly
 
 For cases and files, the following permissions apply:
 
-| Action | Administrator | Staff | Case Owner | Non-Member |
-|--------|---------------|-------|------------|------------|
-| Create case | ✅ | ✅ | N/A | ❌ |
-| View case | ✅ | ✅ | ✅ | ❌ |
-| Archive case | ✅ | ❌ | ✅ | ❌ |
-| Delete case | ✅ | ❌ | ✅ | ❌ |
-| Upload file | ✅ | ✅ | ✅ | ❌ |
-| Download file | ✅ | ✅ | ✅ | ❌ |
-| List cases | ✅ | ✅ | ✅ | ❌ |
+| Action | Administrator | Staff | Case Owner | Individual Owner |
+|--------|---------------|-------|------------|------------------|
+| Create Case | ✅ | ✅ | N/A | ✅ |
+| Read Case | ✅ | ✅ | ✅ | ✅ |
+| Update Case | ✅ | ❌ | ✅ | ✅ |
+| Archive Case | ✅ | ❌ | ✅ | ✅ |
+| Delete Case | ✅ | ❌ | ✅ | ✅ |
+| Upload File | ✅ | ✅ | ✅ | ✅ |
+| Download File | ✅ | ✅ | ✅ | ✅ |
+| List Cases | ✅ | ✅ | ✅ | ✅ |
 
 ## Data Model
 
@@ -126,40 +128,35 @@ For cases and files, the following permissions apply:
 1. **users**
    - User profile information
    - Authentication details
-   - Preferences
+   - Language preferences
+   - Subscription status
 
 2. **organizations**
-   - Organization details (name, type, etc.)
-   - Billing information
-   - Configuration settings
+   - Organization details (name, type)
+   - Contact information
+   - Creation timestamp
+   - Owner reference
 
 3. **organization_memberships**
    - Maps users to organizations
    - Stores user roles within organizations
    - Manages access control
+   - Timestamps for member actions
 
 4. **cases**
-   - Case metadata (title, description, status)
+   - Case metadata (title, description)
    - Created by user reference
-   - Organization reference
+   - Optional organization reference
+   - Status (open, archived, deleted)
+   - Payment status (for individual cases)
+   - Payment intent ID (for individual cases)
    - Creation and modification timestamps
-   - Status tracking (open, archived, deleted)
 
 5. **documents**
    - Document metadata
    - File storage references
-   - Case and organization references
-   - Upload information
-
-6. **conversations**
-   - AI conversation history
-   - Prompts and responses
-   - User and case references
-
-7. **messages**
-   - Individual messages within conversations
-   - Timestamps and metadata
-   - References to AI model used
+   - Case reference
+   - Upload information and timestamps
 
 ## API Design
 
@@ -170,35 +167,35 @@ The API is designed around RESTful principles, with each endpoint corresponding 
 - `validate_user`: Validates the user's authentication token and returns user information
 - `check_permissions`: Checks if a user has permission to perform a specific action on a resource
 
-### Case Management Endpoints
+### User Management Endpoints
 
-- `create_case`: Creates a new case, requiring organization ID and checking permissions
-- `get_case`: Retrieves a case by ID, checking if the user has access to the case's organization
-- `list_cases`: Lists cases, filtered by organization ID with permission checks
-- `archive_case`: Archives a case, requiring administrator or case owner permissions
-- `delete_case`: Marks a case as deleted, requiring administrator or case owner permissions
-
-### File Management Endpoints
-
-- `upload_file`: Uploads a file to a case, checking if the user has access to the case's organization
-- `download_file`: Generates a download URL for a file, checking if the user has access to the case's organization
+- `get_user_profile`: Retrieves the authenticated user's profile
+- `update_user_profile`: Updates user profile information
+- `list_user_organizations`: Lists organizations the user is a member of
+- `list_user_cases`: Lists individual cases owned by the user
 
 ### Organization Management Endpoints
 
 - `create_organization`: Creates a new organization
 - `get_organization`: Retrieves organization details
 - `update_organization`: Updates organization details
-- `add_organization_member`: Adds a user to an organization with a specific role
-- `remove_organization_member`: Removes a user from an organization
-- `set_organization_member_role`: Updates a user's role within an organization
+- `add_organization_member`: Adds a member to an organization with a specific role
+- `remove_organization_member`: Removes a member from an organization
+- `set_organization_member_role`: Updates a member's role within an organization
 - `list_organization_members`: Lists all members of an organization
-- `list_user_organizations`: Lists all organizations a user belongs to
 
-### AI Integration Endpoints
+### Case Management Endpoints
 
-- `receive_prompt`: Receives a user prompt for AI processing
-- `send_to_vertex_ai`: Sends a prepared prompt to Vertex AI and returns the response
-- `store_conversation`: Stores conversation history for future reference
+- `create_case`: Creates a new case (individual or organization)
+- `get_case`: Retrieves case details
+- `list_cases`: Lists cases with filtering options
+- `archive_case`: Archives a case
+- `delete_case`: Marks a case as deleted
+
+### File Management Endpoints
+
+- `upload_file`: Uploads a file to a case
+- `download_file`: Generates a download URL for a file
 
 ## Development Roadmap
 
