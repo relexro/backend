@@ -9,6 +9,7 @@ The API Gateway acts as a central entry point for all Relex API requests, provid
 - Centralized security and authentication
 - Path-based routing to appropriate backend functions
 - Potential for rate limiting and monitoring
+- **Enhanced security through restricted direct function access**
 
 ## Architecture
 
@@ -19,6 +20,14 @@ The API Gateway maps RESTful endpoints to the existing Cloud Functions:
 ```
 
 For example, a request to `https://{gateway-url}/v1/organizations/{organizationId}` is routed to the `get_organization` Cloud Function.
+
+### Security Enhancements
+
+The backend Cloud Functions have been configured with restricted access:
+- Cloud Functions use `ingress_settings: ALLOW_INTERNAL_AND_GCLB` to restrict direct public HTTP access
+- Only the API Gateway service account and Google Cloud Load Balancers can invoke the functions directly
+- IAM permissions enforce that only authorized service accounts can trigger the functions
+- Functions process requests forwarded by the API Gateway, handling path parameters, query parameters, and request bodies
 
 ## API Structure
 
@@ -51,8 +60,12 @@ The API follows RESTful conventions:
 
 The implementation consists of two primary components:
 
-1. **Terraform Configuration (`api_gateway.tf`)** - Defines the API Gateway infrastructure resources
-2. **OpenAPI Specification (`openapi_spec.yaml`)** - Defines the API structure and routing
+1. **Terraform Configuration** - Defines the API Gateway infrastructure resources and secures Cloud Functions
+   - `terraform/api_gateway.tf` - API Gateway infrastructure
+   - `terraform/main.tf` - Cloud Functions with security configurations
+   - `terraform/openapi_spec.yaml` - API specification (referenced by api_gateway.tf)
+
+2. **OpenAPI Specification** - Defines the API structure and routing
 
 ### Terraform Resources
 
@@ -61,6 +74,14 @@ The implementation consists of two primary components:
 - `google_service_account` - Service account for the API Gateway
 - `google_project_iam_member` - Grants function invocation permissions
 - `google_api_gateway_gateway` - Deploys the API config
+- `google_cloudfunctions2_function` - Cloud Functions with ingress settings to restrict direct access
+
+### Cloud Functions Configuration
+
+Cloud Functions are configured with:
+- `ingress_settings: ALLOW_INTERNAL_AND_GCLB` - Restricts direct public HTTP access
+- IAM permissions that allow only the API Gateway service account to invoke the functions
+- Python code that properly handles requests forwarded by API Gateway
 
 ### OpenAPI Configuration
 
@@ -76,6 +97,7 @@ The API Gateway uses Firebase Authentication:
 - Requests must include a Firebase ID token in the Authorization header
 - The API Gateway validates the token using the Firebase issuer and JWKS
 - Token validation uses the `x-google-issuer` and `x-google-jwks_uri` extensions
+- The API Gateway forwards authentication headers to the backend Cloud Functions
 
 ## Deployment
 
@@ -97,6 +119,14 @@ To deploy the API Gateway:
 
 3. The API Gateway URL will be output after successful deployment.
 
+## File Organization
+
+The API Gateway configuration files are organized as follows:
+- `terraform/api_gateway.tf` - Terraform configuration for API Gateway
+- `terraform/openapi_spec.yaml` - OpenAPI specification 
+- `terraform/main.tf` - Cloud Functions configuration with security settings
+- `api_gateway_readme.md` (this file) - Documentation
+
 ## Testing the API
 
 To test the API Gateway:
@@ -116,6 +146,20 @@ To test the API Gateway:
 
 3. The API Gateway will route the request to the appropriate Cloud Function.
 
+## Request Flow
+
+When a client makes a request:
+
+1. The request reaches the API Gateway
+2. The API Gateway validates authentication
+3. The API Gateway routes the request to the appropriate Cloud Function, preserving:
+   - Path parameters (e.g., `organizationId`)
+   - Query parameters
+   - Headers (including authentication)
+   - Request body
+4. The Cloud Function processes the request and returns a response
+5. The API Gateway forwards the response back to the client
+
 ## Additional Resources
 
 - [Google API Gateway Documentation](https://cloud.google.com/api-gateway/docs)
@@ -130,6 +174,7 @@ To test the API Gateway:
 1. **403 Forbidden Errors**
    - Ensure the API Gateway service account has `cloudfunctions.invoker` role
    - Verify the Firebase ID token is valid and not expired
+   - Check Cloud Functions ingress settings allow access from API Gateway
 
 2. **404 Not Found Errors**
    - Check that the path in the request matches a defined path in the OpenAPI spec
@@ -138,6 +183,7 @@ To test the API Gateway:
 3. **500 Internal Server Errors**
    - Check Cloud Function logs for issues
    - Verify the API Gateway configuration is correct
+   - Ensure Cloud Functions correctly handle requests forwarded by API Gateway
 
 ### Viewing Logs
 

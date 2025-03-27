@@ -1,0 +1,1 @@
+# This file intentionally left empty as the outputs are defined in main.tf 

@@ -37,30 +37,22 @@ def create_organization(request):
         # Validate required fields
         if "name" not in data:
             logging.error("Bad Request: Missing name")
-            return ({"error": "Bad Request", "message": "name is required"}, 400)
+            return ({"error": "Bad Request", "message": "Name is required"}, 400)
             
-        if not isinstance(data["name"], str):
-            logging.error("Bad Request: name must be a string")
-            return ({"error": "Bad Request", "message": "name must be a string"}, 400)
-            
-        if not data["name"].strip():
-            logging.error("Bad Request: name cannot be empty")
-            return ({"error": "Bad Request", "message": "name cannot be empty"}, 400)
+        if not isinstance(data["name"], str) or not data["name"].strip():
+            logging.error("Bad Request: Name must be a non-empty string")
+            return ({"error": "Bad Request", "message": "Name must be a non-empty string"}, 400)
         
-        # Extract authentication information from the request
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            logging.error("Unauthorized: No valid authentication provided")
-            return ({"error": "Unauthorized", "message": "No valid authentication provided"}, 401)
+        # Check for authentication
+        from auth import get_authenticated_user
+        user_info, status_code, error_message = get_authenticated_user(request)
         
-        # Extract the token and verify it
-        token = auth_header.split('Bearer ')[1]
-        try:
-            decoded_token = auth.verify_id_token(token)
-            admin_user_id = decoded_token.get('uid')
-        except Exception as e:
-            logging.error(f"Unauthorized: {str(e)}")
-            return ({"error": "Unauthorized", "message": str(e)}, 401)
+        if status_code != 200:
+            logging.error(f"Unauthorized: {error_message}")
+            return ({"error": "Unauthorized", "message": error_message}, status_code)
+        
+        admin_user_id = user_info["userId"]
+        logging.info(f"Authenticated user: {admin_user_id}")
         
         # Extract fields
         organization_name = data["name"].strip()
@@ -103,19 +95,29 @@ def create_organization(request):
         
         # For backward compatibility - also add the admin user to the organization users subcollection with admin role
         user_ref = organization_ref.collection("users").document(admin_user_id)
-        user_data = {
-            "role": "admin",
-            "addedDate": firestore.SERVER_TIMESTAMP
-        }
-        user_ref.set(user_data)
+        user_ref.set({
+            "role": "administrator",
+            "email": user_info.get("email", ""),
+            "addedAt": firestore.SERVER_TIMESTAMP
+        })
         
-        # Return the created organization with its ID
-        organization_data["organizationId"] = organization_ref.id
-        logging.info(f"Organization created with ID: {organization_ref.id}")
-        return (organization_data, 201)
+        # Return success response with organization data
+        response_data = {
+            "organizationId": organization_ref.id,
+            "name": organization_name,
+            "type": organization_type,
+            "address": organization_address,
+            "phone": organization_phone,
+            "email": organization_email,
+            "ownerId": admin_user_id,
+            "createdAt": firestore.SERVER_TIMESTAMP
+        }
+        
+        logging.info(f"Successfully created organization with ID: {organization_ref.id}")
+        return (response_data, 201)
     except Exception as e:
         logging.error(f"Error creating organization: {str(e)}")
-        return ({"error": "Internal Server Error", "message": "Failed to create organization"}, 500)
+        return ({"error": "Internal Server Error", "message": f"Failed to create organization: {str(e)}"}, 500)
 
 @functions_framework.http
 def get_organization(request):
@@ -130,8 +132,31 @@ def get_organization(request):
     logging.info("Received request to get an organization")
     
     try:
-        # Extract organization ID from query parameters
-        organization_id = request.args.get('organizationId')
+        # Extract organization ID from various possible sources
+        organization_id = None
+        
+        # 1. Check query parameters (standard HTTP and some API Gateway configurations)
+        if not organization_id:
+            organization_id = request.args.get('organizationId')
+            if organization_id:
+                logging.info(f"Found organizationId in query parameters: {organization_id}")
+        
+        # 2. Check path parameters from API Gateway (extract from path)
+        if not organization_id:
+            path_parts = request.path.split('/')
+            # API Gateway might map /organizations/{organizationId} to /organizations/org123
+            if len(path_parts) > 1 and path_parts[-1] and path_parts[-1] != "organizations":
+                organization_id = path_parts[-1]
+                logging.info(f"Found organizationId in path: {organization_id}")
+        
+        # 3. Check for custom API Gateway headers
+        if not organization_id:
+            # API Gateway might forward path parameters in custom headers
+            for header in request.headers:
+                if header.lower() == 'x-organization-id':
+                    organization_id = request.headers.get(header)
+                    logging.info(f"Found organizationId in header: {organization_id}")
+                    break
         
         # Validate organization ID
         if not organization_id or organization_id == "":

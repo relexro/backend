@@ -1,11 +1,12 @@
-openapi: 3.0.0
+swagger: "2.0"
 info:
   title: Relex API
   description: RESTful API for Relex Backend
   version: 1.0.0
-servers:
-  - url: https://relex-gateway-a12b3c4.uc.gateway.dev/v1
-    description: API Gateway
+host: relex-gateway-a12b3c4.uc.gateway.dev
+basePath: /v1
+schemes:
+  - https
 paths:
   # Organization endpoints
   /organizations:

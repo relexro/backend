@@ -1,10 +1,10 @@
 import logging
 import firebase_admin
-import firebase_functions
-from firebase_admin import firestore
-from firebase_functions import auth
 import functions_framework
+from firebase_admin import firestore
+from firebase_admin import auth as firebase_auth
 from flask import Request
+import auth  # Import our local auth module
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -16,8 +16,9 @@ except ValueError:
     # Use the application default credentials
     firebase_admin.initialize_app()
 
-@auth.on_user_created()
-def create_user_profile(event: auth.UserRecord) -> None:
+# Note: The identity_fn decorator is commented out because it's not available in the current firebase_functions version
+# We would use the on_user_created decorator from firebase_functions in a newer version
+def create_user_profile(user_record):
     """Creates a user profile document in Firestore when a new user signs up.
     
     This function is triggered when a new user is created in Firebase Authentication.
@@ -25,14 +26,13 @@ def create_user_profile(event: auth.UserRecord) -> None:
     application-specific user data.
     
     Args:
-        event (auth.UserRecord): The event object containing the user data.
+        user_record: The user record containing the user data.
     """
     try:
-        user = event.data
-        user_id = user.uid
-        email = user.email or ""
-        display_name = user.display_name or ""
-        photo_url = user.photo_url or ""
+        user_id = user_record.uid
+        email = user_record.email or ""
+        display_name = user_record.display_name or ""
+        photo_url = user_record.photo_url or ""
         
         logging.info(f"Creating user profile for new user: {user_id}")
         
@@ -77,8 +77,7 @@ def get_user_profile(request: Request):
     
     try:
         # Get the authenticated user
-        from auth import get_authenticated_user
-        user_info, status_code, error_message = get_authenticated_user(request)
+        user_info, status_code, error_message = auth.get_authenticated_user(request)
         
         if status_code != 200:
             logging.error(f"Unauthorized: {error_message}")
@@ -122,8 +121,7 @@ def update_user_profile(request: Request):
     
     try:
         # Get the authenticated user
-        from auth import get_authenticated_user
-        user_info, status_code, error_message = get_authenticated_user(request)
+        user_info, status_code, error_message = auth.get_authenticated_user(request)
         
         if status_code != 200:
             logging.error(f"Unauthorized: {error_message}")

@@ -1,113 +1,41 @@
+output "files_bucket_name" {
+  description = "The name of the storage bucket for files"
+  value       = module.storage.files_bucket_name
+}
+
 output "files_bucket_url" {
-  description = "The URL of the files storage bucket"
-  value       = "gs://${google_storage_bucket.files_bucket.name}"
+  description = "The URL of the storage bucket for files"
+  value       = module.storage.files_bucket_url
+}
+
+output "functions_bucket_name" {
+  description = "The name of the storage bucket for Cloud Functions source code"
+  value       = module.storage.functions_bucket_name
 }
 
 output "functions_bucket_url" {
-  description = "The URL of the functions storage bucket"
-  value       = "gs://${google_storage_bucket.functions_bucket.name}"
+  description = "The URL of the storage bucket for Cloud Functions source code"
+  value       = module.storage.functions_bucket_url
 }
 
-output "create_case_function_url" {
-  description = "The URL of the create_case Cloud Function"
-  value       = google_cloudfunctions2_function.create_case_function.url
+output "function_uris" {
+  description = "Map of function names to their URIs for API Gateway configuration"
+  value       = module.cloud_functions.function_uris
 }
 
-output "get_case_function_url" {
-  description = "The URL of the get_case Cloud Function"
-  value       = google_cloudfunctions2_function.get_case_function.url
+# These outputs reference existing resources
+output "api_gateway_url" {
+  description = "The URL of the deployed API Gateway"
+  value       = "relex-api-gateway-xxxxxxxxx.ew.gateway.dev"  # Replace this with your actual gateway URL
 }
 
-output "list_cases_function_url" {
-  description = "The URL of the list_cases Cloud Function"
-  value       = google_cloudfunctions2_function.list_cases_function.url
+output "firebase_web_app_name" {
+  description = "The name of the Firebase Web App"
+  value       = "Relex Web App"
 }
 
-output "archive_case_function_url" {
-  value = google_cloudfunctions2_function.archive_case_function.url
+output "firebase_web_app_id" {
+  description = "The ID of the Firebase Web App"
+  value       = "relexro"
+  sensitive   = true
 }
-
-output "delete_case_function_url" {
-  value = google_cloudfunctions2_function.delete_case_function.url
-}
-
-output "upload_file_function_url" {
-  value = google_cloudfunctions2_function.upload_file_function.url
-}
-
-output "download_file_function_url" {
-  value = google_cloudfunctions2_function.download_file_function.url
-}
-
-# Auth Functions URLs
-output "validate_user_function_url" {
-  value = google_cloudfunctions2_function.validate_user_function.url
-}
-
-output "check_permissions_function_url" {
-  value = google_cloudfunctions2_function.check_permissions_function.url
-}
-
-output "get_user_role_function_url" {
-  value = google_cloudfunctions2_function.get_user_role_function.url
-}
-
-# Organization Functions URLs
-output "create_organization_function_url" {
-  value = google_cloudfunctions2_function.create_organization_function.url
-}
-
-output "get_organization_function_url" {
-  value = google_cloudfunctions2_function.get_organization_function.url
-}
-
-output "add_organization_user_function_url" {
-  value = google_cloudfunctions2_function.add_organization_user_function.url
-}
-
-output "set_user_role_function_url" {
-  value = google_cloudfunctions2_function.set_user_role_function.url
-}
-
-# Chat Functions URLs
-output "receive_prompt_function_url" {
-  value = google_cloudfunctions2_function.receive_prompt_function.url
-}
-
-output "send_to_vertex_ai_function_url" {
-  value = google_cloudfunctions2_function.send_to_vertex_ai_function.url
-}
-
-output "store_conversation_function_url" {
-  value = google_cloudfunctions2_function.store_conversation_function.url
-}
-
-# Additional function URLs would be output similarly 
-
-output "test_function_url" {
-  value = google_cloudfunctions2_function.test_function.url
-}
-
-output "update_organization_function_url" {
-  value = google_cloudfunctions2_function.update_organization_function.url
-}
-
-output "list_organization_users_function_url" {
-  value = google_cloudfunctions2_function.list_organization_users_function.url
-}
-
-output "remove_organization_user_function_url" {
-  value = google_cloudfunctions2_function.remove_organization_user_function.url
-}
-
-output "enrich_prompt_function_url" {
-  value = google_cloudfunctions2_function.enrich_prompt_function.url
-}
-
-output "create_payment_intent_function_url" {
-  value = google_cloudfunctions2_function.create_payment_intent_function.url
-}
-
-output "create_checkout_session_function_url" {
-  value = google_cloudfunctions2_function.create_checkout_session_function.url
-} 

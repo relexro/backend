@@ -10,10 +10,10 @@ variable "region" {
   default     = "europe-west3"
 }
 
-variable "firestore_location" {
-  description = "The location for Firestore database"
+variable "apig_region" {
+  description = "The region for API Gateway deployment"
   type        = string
-  default     = "europe-west3"
+  default     = "europe-west1"
 }
 
 variable "function_names" {
