@@ -37,13 +37,13 @@ The system supports two types of case ownership:
 
 1. **Individual Cases**:
    - Created by individual users
-   - Require payment (handled through Stripe)
+   - Require per-case payment (handled through Stripe)
    - Owner has full control over the case
    - Not associated with any organization
 
 2. **Organization Cases**:
    - Created within an organization context
-   - No direct payment required
+   - Require per-case payment (handled through Stripe)
    - Access controlled by organization roles
    - Associated with a specific organization
 
@@ -144,6 +144,10 @@ else:
     )
     if not allowed:
         return {"error": "Forbidden", "message": "Insufficient permissions"}, 403
+    
+    # Check payment status if required
+    if action_requires_payment and case["paymentStatus"] != "paid":
+        return {"error": "Payment Required", "message": "Case payment pending"}, 402
 
 # Proceed with the function logic
 ```
@@ -176,6 +180,10 @@ organizations/{organizationId}
 ├── phone: string (optional)
 ├── email: string (optional)
 ├── ownerId: string
+├── stripeCustomerId: string (optional, links organization to Stripe customer)
+├── subscriptionPlanId: string (optional, e.g., 'business_basic_monthly', 'business_pro_yearly')
+├── stripeSubscriptionId: string (optional, for active organization subscriptions)
+├── subscriptionStatus: string ("active", "canceled", "past_due", "inactive", null)
 └── createdAt: timestamp
 ```
 
@@ -201,8 +209,10 @@ cases/{caseId}
 ├── userId: string (owner user ID)
 ├── organizationId: string (optional, for organization cases)
 ├── status: string ("open", "archived", "deleted")
-├── paymentStatus: string (required for individual cases: "paid", "pending")
-├── paymentIntentId: string (required for individual cases)
+├── caseTier: number (e.g., 1, 2, 3 - indicates complexity tier)
+├── casePrice: number (e.g., 900, 2900, 9900 - price in cents based on tier)
+├── paymentStatus: string ("paid", "pending", "failed" - for per-case payment)
+├── paymentIntentId: string (optional, links to Stripe Payment Intent for case fee)
 ├── createdAt: timestamp
 ├── archivedAt: timestamp (optional)
 └── deletedAt: timestamp (optional)
@@ -301,7 +311,64 @@ Cases in Relex can be owned in two ways:
     * Created by a member (administrator or staff) of an organization, explicitly associating the case with that organization.
     * Linked to both the creator's `userId` and the `organizationId`.
     * Access permissions are governed by the user's role (`administrator`, `staff`) within the organization, checked via `check_permissions`.
-    * May be covered by the organization's subscription plan.
+    * Requires per-case payment (managed via Stripe Payment Intents).
+
+## Pricing and Subscription Model
+
+The Relex platform implements a hybrid pricing model combining subscriptions and per-case fees:
+
+### Subscription Plans
+
+1. **Personal Plans**:
+   * Available directly to individual users
+   * Provides access to basic platform features
+   * Types: 'personal_monthly', 'personal_yearly'
+   * Does NOT cover per-case fees
+
+2. **Business Plans**:
+   * Available to organizations
+   * Provides access to organization features and collaboration tools
+   * Types: 'business_basic_monthly', 'business_pro_yearly'
+   * Does NOT cover per-case fees
+
+### Case Tiers and Pricing
+
+All cases, regardless of subscription status, require additional per-case payments based on the case complexity tier:
+
+1. **Tier 1 (Basic)**: Simple cases with minimal complexity (e.g., 900 cents / $9.00)
+2. **Tier 2 (Standard)**: Moderate complexity cases (e.g., 2900 cents / $29.00)
+3. **Tier 3 (Complex)**: High complexity cases with extensive features (e.g., 9900 cents / $99.00)
+
+### Stripe Integration
+
+The platform integrates with Stripe for both subscription management and per-case payments:
+
+1. **Stripe Customer ID**:
+   * Each user/organization has a `stripeCustomerId` that links them to a Stripe customer
+   * This ID persists across multiple subscriptions or one-time payments
+
+2. **Stripe Subscription ID**:
+   * The `stripeSubscriptionId` links to an active subscription in Stripe
+   * Updated when subscriptions are created, changed, or canceled
+
+3. **Payment Intent ID**:
+   * Each case has a `paymentIntentId` that links to the Stripe payment for that specific case
+   * Independent of subscription status
+
+### Payment Status Tracking
+
+Both subscriptions and per-case payments have status tracking:
+
+1. **Subscription Status** (`subscriptionStatus`):
+   * "active": Subscription is current and in good standing
+   * "past_due": Payment failed but subscription still active
+   * "canceled": Subscription has been canceled but not yet expired
+   * "inactive": No active subscription
+
+2. **Case Payment Status** (`paymentStatus`):
+   * "pending": Payment initiated but not completed
+   * "paid": Payment successful
+   * "failed": Payment attempt failed
 
 ## Firestore Schema (`cases` collection update)
 
@@ -312,8 +379,10 @@ cases/{caseId}
 ├── userId: string (**Creator/Owner User ID**)
 ├── organizationId: string (**Optional** - ID of the organization this case belongs to, null if individual case)
 ├── status: string ("open", "archived", "deleted")
-├── paymentStatus: string ("paid", "pending") # Relevant for individual cases
-└── paymentIntentId: string (**Optional** - Only for individual cases)
+├── caseTier: number (e.g., 1, 2, 3 - indicates complexity tier)
+├── casePrice: number (e.g., 900, 2900, 9900 - price in cents based on tier)
+├── paymentStatus: string ("paid", "pending", "failed" - for per-case payment)
+└── paymentIntentId: string (**Optional** - Links to Stripe Payment Intent for this case's fee)
 ```
 
 ## Known Limitations
@@ -364,7 +433,10 @@ users/{userId}
 ├── displayName: string (from Firebase Auth or user-provided)
 ├── photoURL: string (from Firebase Auth or user-provided)
 ├── role: string ("user", "admin") - default "user"
-├── subscriptionStatus: string ("active", "inactive", null)
+├── stripeCustomerId: string (optional, links user to Stripe customer)
+├── subscriptionPlanId: string (optional, e.g., 'personal_monthly', 'personal_yearly')
+├── stripeSubscriptionId: string (optional, for active personal subscriptions)
+├── subscriptionStatus: string ("active", "canceled", "past_due", "inactive", null)
 ├── languagePreference: string ("en", "ro", etc.) - default "en"
 ├── createdAt: timestamp
 └── updatedAt: timestamp (when profile is modified)
