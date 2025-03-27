@@ -1,8 +1,6 @@
 terraform {
   backend "gcs" {
     bucket = "tf-state-relex"
-    prefix = "terraform/state"
+    prefix = "backend"
   }
 }
-
-data "google_project" "current" {} 

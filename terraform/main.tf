@@ -1,3 +1,14 @@
+# Configure the Google Cloud provider
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
+
 # Enable required APIs
 module "apis" {
   source     = "./modules/apis"
@@ -17,34 +28,34 @@ module "storage" {
   source              = "./modules/storage"
   project_id          = var.project_id
   region              = var.region
-  functions_source_path = "../functions/src"
-  functions_zip_path  = "functions-source.zip"
+  functions_source_path = "${path.root}/../functions/src"
+  functions_zip_path  = "${path.root}/functions-source.zip"
 
   depends_on = [module.apis]
 }
 
-# Deploy Cloud Functions first (API Gateway needs the function URIs)
+# Deploy Cloud Functions first
 module "cloud_functions" {
   source              = "./modules/cloud_functions"
   project_id          = var.project_id
   region              = var.region
   functions_bucket_name = module.storage.functions_bucket_name
-  functions_source_path = "../functions/src"
-  functions_zip_path    = "functions-source.zip"
+  functions_source_path = "${path.root}/../functions/src"
+  functions_zip_path    = "${path.root}/functions-source.zip"
   functions_zip_name    = module.storage.functions_source_zip_name
   api_gateway_sa_email = "api-gateway-sa@${var.project_id}.iam.gserviceaccount.com"
 
   depends_on = [module.apis, module.storage]
 }
 
-# Create API Gateway and service account
+# Create API Gateway with function URIs
 module "api_gateway" {
   source           = "./modules/api_gateway"
   project_id       = var.project_id
   region           = var.apig_region
-  openapi_spec_path = "openapi_spec.yaml"
+  openapi_spec_path = "${path.root}/openapi_spec.yaml"
   function_uris    = {
-    for name, uri in module.cloud_functions.function_uris : name => format("https://%s-%s.cloudfunctions.net/%s",
+    for name in var.function_names : name => format("https://%s-%s.cloudfunctions.net/%s",
       var.region,
       var.project_id,
       name
