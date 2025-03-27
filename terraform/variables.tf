@@ -73,4 +73,18 @@ variable "cloudflare_account_id" {
   description = "Cloudflare Account ID"
   type        = string
   # Will use TF_VAR_cloudflare_account_id environment variable
+}
+
+variable "stripe_secret_key" {
+  description = "Stripe Secret API key"
+  type        = string
+  sensitive   = true
+  # Will use TF_VAR_stripe_secret_key environment variable
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe Webhook Secret for validating webhook events"
+  type        = string
+  sensitive   = true
+  # Will use TF_VAR_stripe_webhook_secret environment variable
 } 

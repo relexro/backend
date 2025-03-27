@@ -8,7 +8,7 @@ from auth import validate_user, check_permissions, get_user_role, get_authentica
 from cases import create_case, get_case, list_cases, archive_case, delete_case, upload_file, download_file
 from organization import create_organization, get_organization, add_organization_user, set_user_role, update_organization, list_organization_users, remove_organization_user
 from chat import receive_prompt, send_to_vertex_ai, store_conversation, enrich_prompt
-from payments import create_payment_intent, create_checkout_session, handle_stripe_webhook
+from payments import create_payment_intent, create_checkout_session, handle_stripe_webhook, cancel_subscription
 from organization_membership import add_organization_member, set_organization_member_role, list_organization_members, remove_organization_member, get_user_organization_role, list_user_organizations
 from user import get_user_profile, update_user_profile
 
@@ -275,6 +275,32 @@ def payments_create_checkout_session(request):
         modified_request.user_id = user_data.get('userId')
         
         return create_checkout_session(modified_request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def payments_handle_stripe_webhook(request):
+    """HTTP Cloud Function for handling Stripe webhook events."""
+    try:
+        # Webhook requests are not authenticated - they come directly from Stripe
+        return handle_stripe_webhook(request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def payments_cancel_subscription(request):
+    """HTTP Cloud Function for canceling a Stripe subscription."""
+    try:
+        # Authenticate the user
+        user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            
+        # Add the authenticated user ID to the request
+        modified_request = request.environ.get('werkzeug.request', request)
+        modified_request.user_id = user_data.get('userId')
+        
+        return cancel_subscription(modified_request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500
 

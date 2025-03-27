@@ -75,6 +75,7 @@ The Cloud Functions use the following environment variables:
 - `GOOGLE_CLOUD_PROJECT`: The Google Cloud project ID (default: "relexro")
 - `GOOGLE_CLOUD_REGION`: The Google Cloud region (default: "europe-west3")
 - `STRIPE_SECRET_KEY`: The Stripe secret key (used in payment functions)
+- `STRIPE_WEBHOOK_SECRET`: The Stripe webhook signing secret (used to verify webhook authenticity)
 
 These environment variables are set in the Terraform configuration (`terraform/main.tf`) and passed to each function.
 

@@ -50,10 +50,11 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Payment Processing
 - [x] Stripe integration
-- [x] Payment intent creation
-- [x] Checkout sessions
-- [ ] Subscription management
-- [ ] Payment webhooks
+- [x] Payment intent creation based on case tier
+- [x] Checkout sessions for subscriptions
+- [x] Subscription management with cancellation
+- [x] Payment webhooks for subscription and payment events
+- [x] Per-case payment verification
 - [ ] Invoice generation
 
 ### File Management
@@ -123,11 +124,11 @@ This document tracks the implementation status of the Relex backend components.
 ## Next Steps
 
 ### High Priority
-1. Implement Stripe webhooks
-2. Complete subscription management
-3. Add file versioning
-4. Improve error handling
-5. Set up comprehensive monitoring
+1. Add file versioning
+2. Improve error handling
+3. Set up comprehensive monitoring
+4. Implement rate limiting
+5. Add security headers
 
 ### Medium Priority
 1. Implement advanced search

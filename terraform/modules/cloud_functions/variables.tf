@@ -151,4 +151,16 @@ variable "functions" {
       env_vars    = {}
     }
   }
+}
+
+variable "stripe_secret_key" {
+  description = "Stripe Secret API key"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe Webhook Secret for validating webhook events"
+  type        = string
+  sensitive   = true
 } 

@@ -328,16 +328,27 @@ The Relex platform implements a hybrid pricing model combining subscriptions and
 2. **Business Plans**:
    * Available to organizations
    * Provides access to organization features and collaboration tools
-   * Types: 'business_basic_monthly', 'business_pro_yearly'
+   * Types: 'business_standard_monthly', 'business_standard_yearly', 'business_pro_monthly', 'business_pro_yearly'
    * Does NOT cover per-case fees
 
 ### Case Tiers and Pricing
 
 All cases, regardless of subscription status, require additional per-case payments based on the case complexity tier:
 
-1. **Tier 1 (Basic)**: Simple cases with minimal complexity (e.g., 900 cents / $9.00)
-2. **Tier 2 (Standard)**: Moderate complexity cases (e.g., 2900 cents / $29.00)
-3. **Tier 3 (Complex)**: High complexity cases with extensive features (e.g., 9900 cents / $99.00)
+1. **Tier 1 (Basic)**: Simple cases with minimal complexity (€9.00 / 900 cents)
+2. **Tier 2 (Standard)**: Moderate complexity cases (€29.00 / 2900 cents)
+3. **Tier 3 (Complex)**: High complexity cases with extensive features (€99.00 / 9900 cents)
+
+### Case Creation Flow
+
+When creating a case, the following flow occurs:
+
+1. Frontend creates a Payment Intent for the desired case tier (calling `/v1/payments/payment-intent` with the `caseTier`)
+2. User completes payment using Stripe Elements integration
+3. After successful payment, frontend creates case by calling `/v1/cases` with `paymentIntentId` and `caseTier`
+4. Backend verifies the payment status and amount with Stripe API
+5. If verification succeeds, case is created with pricing details
+6. If verification fails, appropriate error response is returned
 
 ### Stripe Integration
 
@@ -354,6 +365,18 @@ The platform integrates with Stripe for both subscription management and per-cas
 3. **Payment Intent ID**:
    * Each case has a `paymentIntentId` that links to the Stripe payment for that specific case
    * Independent of subscription status
+
+4. **Webhook Handler**:
+   * Processes various Stripe events to update Firestore data
+   * Handles subscription lifecycle events (created, updated, deleted)
+   * Handles payment success and failure events
+   * Ensures data consistency between Stripe and Firestore
+
+5. **Subscription Cancellation**:
+   * Users can cancel their own subscriptions
+   * Organization admins can cancel organization subscriptions
+   * Cancellations occur at the end of the billing period
+   * Status updates are handled by the webhook when Stripe processes the cancellation
 
 ### Payment Status Tracking
 
@@ -382,7 +405,10 @@ cases/{caseId}
 ├── caseTier: number (e.g., 1, 2, 3 - indicates complexity tier)
 ├── casePrice: number (e.g., 900, 2900, 9900 - price in cents based on tier)
 ├── paymentStatus: string ("paid", "pending", "failed" - for per-case payment)
-└── paymentIntentId: string (**Optional** - Links to Stripe Payment Intent for this case's fee)
+├── paymentIntentId: string (**Required** - Links to Stripe Payment Intent for this case's fee)
+├── createdAt: timestamp
+├── archivedAt: timestamp (optional)
+└── deletedAt: timestamp (optional)
 ```
 
 ## Known Limitations

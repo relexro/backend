@@ -46,9 +46,30 @@ Split across multiple files for different aspects:
 - `update_user_profile`: Profile updates
 
 ### Payment Processing (`payments.py`)
-- `create_payment_intent`: Stripe payment intent creation
-- `create_checkout_session`: Checkout session creation
-- `handle_stripe_webhook`: Webhook handling
+- `create_payment_intent`: 
+  - Creates Stripe payment intent based on case tier (1, 2, 3)
+  - Maps tier to appropriate amount (Tier 1=900, Tier 2=2900, Tier 3=9900 cents)
+  - Stores payment metadata in Firestore
+  - Returns client secret for frontend payment processing
+
+- `create_checkout_session`: 
+  - Creates Stripe checkout session for subscriptions or one-time payments
+  - For subscriptions: Maps planId (e.g., 'personal_monthly') to Stripe priceId
+  - Can be used for both user and organization subscriptions
+  - Returns checkout URL for frontend redirection
+
+- `handle_stripe_webhook`: 
+  - Processes Stripe webhook events securely
+  - Handles checkout.session.completed for subscription and payment events
+  - Handles invoice.payment_failed to update subscription status
+  - Handles customer.subscription.deleted/updated events
+  - Updates relevant Firestore records based on events
+
+- `cancel_subscription`: 
+  - Allows users to cancel their subscriptions
+  - Verifies appropriate permissions (own subscription or org admin)
+  - Schedules cancellation at period end (better UX)
+  - Actual status update happens via webhook when processed by Stripe
 
 ## Implementation Details
 
@@ -76,11 +97,12 @@ def check_permissions(request):
 ```python
 def create_case(request):
     """Create a new case (individual or organization)."""
-    # Validate input data
+    # Validate input data including caseTier and paymentIntentId
+    # Verify payment status with Stripe API
     # Check organization permissions if applicable
-    # Handle payment for individual cases
-    # Create case document
-    # Return case details
+    # Validate payment amount matches caseTier price
+    # Create case document with payment details and tier info
+    # Return case details with price information
 ```
 
 ### File Operations

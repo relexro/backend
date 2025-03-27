@@ -59,6 +59,8 @@ module "cloud_functions" {
   functions_zip_path    = "${path.root}/functions-source.zip"
   functions_zip_name    = module.storage.functions_source_zip_name
   api_gateway_sa_email = "api-gateway-sa@${var.project_id}.iam.gserviceaccount.com"
+  stripe_secret_key    = var.stripe_secret_key
+  stripe_webhook_secret = var.stripe_webhook_secret
 
   depends_on = [module.apis, module.storage]
 }

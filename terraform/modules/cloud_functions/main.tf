@@ -134,9 +134,13 @@ locals {
       max_instances = 10,
       memory = "256Mi",
       timeout = 60,
-      env_vars = {
-        STRIPE_SECRET_KEY = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
-      }
+      secret_env_vars = [
+        {
+          key = "STRIPE_SECRET_KEY",
+          secret = "stripe-secret-key",
+          version = "latest"
+        }
+      ]
     },
     "relex-backend-create-checkout-session" = {
       entry_point = "payments_create_checkout_session",
@@ -144,9 +148,46 @@ locals {
       max_instances = 10,
       memory = "256Mi",
       timeout = 60,
-      env_vars = {
-        STRIPE_SECRET_KEY = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
-      }
+      secret_env_vars = [
+        {
+          key = "STRIPE_SECRET_KEY",
+          secret = "stripe-secret-key",
+          version = "latest"
+        }
+      ]
+    },
+    "relex-backend-handle-stripe-webhook" = {
+      entry_point = "payments_handle_stripe_webhook",
+      description = "Handle Stripe webhook events",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60,
+      secret_env_vars = [
+        {
+          key = "STRIPE_SECRET_KEY",
+          secret = "stripe-secret-key",
+          version = "latest"
+        },
+        {
+          key = "STRIPE_WEBHOOK_SECRET",
+          secret = "stripe-webhook-secret",
+          version = "latest"
+        }
+      ]
+    },
+    "relex-backend-cancel-subscription" = {
+      entry_point = "payments_cancel_subscription",
+      description = "Cancel a Stripe subscription",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60,
+      secret_env_vars = [
+        {
+          key = "STRIPE_SECRET_KEY",
+          secret = "stripe-secret-key",
+          version = "latest"
+        }
+      ]
     },
     
     # User Functions
@@ -210,7 +251,17 @@ resource "google_cloudfunctions2_function" "functions" {
     environment_variables = merge({
       "GOOGLE_CLOUD_PROJECT" = var.project_id
       "GOOGLE_CLOUD_REGION"  = var.region
-    }, each.value.env_vars)
+    }, each.value.env_vars != null ? each.value.env_vars : {})
+    
+    dynamic "secret_environment_variables" {
+      for_each = each.value.secret_env_vars != null ? each.value.secret_env_vars : []
+      content {
+        key        = secret_environment_variables.value.key
+        project_id = var.project_id
+        secret     = secret_environment_variables.value.secret
+        version    = secret_environment_variables.value.version
+      }
+    }
   }
 
   lifecycle {
@@ -220,7 +271,8 @@ resource "google_cloudfunctions2_function" "functions" {
       service_config.0.service,
       service_config.0.available_memory,
       service_config.0.timeout_seconds,
-      service_config.0.max_instance_count
+      service_config.0.max_instance_count,
+      service_config.0.secret_environment_variables
     ]
     create_before_destroy = true
   }
@@ -250,4 +302,39 @@ output "function_uris" {
     for name, function in google_cloudfunctions2_function.functions :
     name => function.url
   }
+}
+
+# Secret Manager resources for Stripe secrets
+resource "google_secret_manager_secret" "stripe_secret_key" {
+  secret_id = "stripe-secret-key"
+  
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
+  }
+}
+
+resource "google_secret_manager_secret_version" "stripe_secret_key_version" {
+  secret      = google_secret_manager_secret.stripe_secret_key.id
+  secret_data = var.stripe_secret_key
+}
+
+resource "google_secret_manager_secret" "stripe_webhook_secret" {
+  secret_id = "stripe-webhook-secret"
+  
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
+  }
+}
+
+resource "google_secret_manager_secret_version" "stripe_webhook_secret_version" {
+  secret      = google_secret_manager_secret.stripe_webhook_secret.id
+  secret_data = var.stripe_webhook_secret
 } 

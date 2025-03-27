@@ -208,6 +208,7 @@ paths:
               - title
               - description
               - paymentIntentId
+              - caseTier
             properties:
               title:
                 type: string
@@ -218,6 +219,10 @@ paths:
               paymentIntentId:
                 type: string
                 description: Stripe payment intent ID
+              caseTier:
+                type: integer
+                enum: [1, 2, 3]
+                description: Case tier level determining the price (1=€9.00, 2=€29.00, 3=€99.00)
       responses:
         '201':
           description: Case created successfully
@@ -227,6 +232,8 @@ paths:
           $ref: '#/definitions/BadRequest'
         '401':
           $ref: '#/definitions/Unauthorized'
+        '402':
+          $ref: '#/definitions/PaymentRequired'
         '500':
           $ref: '#/definitions/InternalServerError'
 
@@ -253,6 +260,8 @@ paths:
             required:
               - title
               - description
+              - paymentIntentId
+              - caseTier
             properties:
               title:
                 type: string
@@ -260,9 +269,13 @@ paths:
               description:
                 type: string
                 description: Description of the case
-              caseType:
+              paymentIntentId:
                 type: string
-                description: Type of the case
+                description: Stripe payment intent ID
+              caseTier:
+                type: integer
+                enum: [1, 2, 3]
+                description: Case tier level determining the price (1=€9.00, 2=€29.00, 3=€99.00)
       responses:
         '201':
           description: Case created successfully
@@ -272,6 +285,8 @@ paths:
           $ref: '#/definitions/BadRequest'
         '401':
           $ref: '#/definitions/Unauthorized'
+        '402':
+          $ref: '#/definitions/PaymentRequired'
         '403':
           $ref: '#/definitions/Forbidden'
         '500':
@@ -582,6 +597,197 @@ paths:
         '500':
           $ref: '#/definitions/InternalServerError'
 
+  # Payment endpoints
+  /payments/create-intent:
+    post:
+      summary: Create a Stripe payment intent
+      operationId: createPaymentIntent
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-payment-intent
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - caseTier
+            properties:
+              caseTier:
+                type: integer
+                enum: [1, 2, 3]
+                description: Case tier level to determine the amount (1=€9.00, 2=€29.00, 3=€99.00)
+              currency:
+                type: string
+                default: "eur"
+                description: Currency for the payment (default is EUR)
+              description:
+                type: string
+                description: Description of what this payment is for
+              metadata:
+                type: object
+                description: Additional metadata to attach to the payment intent
+              caseId:
+                type: string
+                description: Optional ID of the case this payment is for
+      responses:
+        '201':
+          description: Payment intent created successfully
+          schema:
+            type: object
+            properties:
+              clientSecret:
+                type: string
+              paymentIntentId:
+                type: string
+              message:
+                type: string
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /payments/create-checkout-session:
+    post:
+      summary: Create a Stripe checkout session
+      operationId: createCheckoutSession
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-checkout-session
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            properties:
+              planId:
+                type: string
+                description: ID of the subscription plan to purchase (e.g., 'personal_monthly', 'business_pro_yearly')
+              mode:
+                type: string
+                default: "subscription"
+                enum: ["subscription", "payment"]
+                description: Checkout mode - subscription or one-time payment
+              currency:
+                type: string
+                default: "eur"
+                description: Currency for the payment (if one-time payment)
+              amount:
+                type: integer
+                description: Amount in cents for a one-time payment (required if mode=payment)
+              successUrl:
+                type: string
+                description: URL to redirect to after successful payment
+              cancelUrl:
+                type: string
+                description: URL to redirect to after cancelled payment
+              metadata:
+                type: object
+                description: Additional metadata to attach to the checkout session
+              organizationId:
+                type: string
+                description: Optional ID of the organization this subscription is for
+              caseId:
+                type: string
+                description: Optional ID of the case this payment is for
+      responses:
+        '201':
+          description: Checkout session created successfully
+          schema:
+            type: object
+            properties:
+              sessionId:
+                type: string
+              url:
+                type: string
+              message:
+                type: string
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /payments/webhook:
+    post:
+      summary: Handle Stripe webhook events
+      operationId: handleStripeWebhook
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-handle-stripe-webhook
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            description: Stripe webhook event payload
+      responses:
+        '200':
+          description: Webhook processed successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /subscriptions/{subscriptionId}:
+    delete:
+      summary: Cancel a subscription
+      operationId: cancelSubscription
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-cancel-subscription
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          type: string
+          description: ID of the subscription to cancel
+      responses:
+        '200':
+          description: Subscription cancelled successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
 definitions:
   UserProfile:
     type: object
@@ -760,6 +966,14 @@ definitions:
         type: string
     
   InternalServerError:
+    type: object
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    
+  PaymentRequired:
     type: object
     properties:
       error:

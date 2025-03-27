@@ -147,9 +147,9 @@ For cases and files, the following permissions apply:
    - Case metadata (title, description)
    - Created by user reference
    - Optional organization reference
+   - Case tier and price information
    - Status (open, archived, deleted)
-   - Payment status (for individual cases)
-   - Payment intent ID (for individual cases)
+   - Payment status and payment intent ID
    - Creation and modification timestamps
 
 5. **documents**
@@ -197,6 +197,13 @@ The API is designed around RESTful principles, with each endpoint corresponding 
 - `upload_file`: Uploads a file to a case
 - `download_file`: Generates a download URL for a file
 
+### Payment Processing Endpoints
+
+- `create_payment_intent`: Creates a Stripe payment intent for case payments
+- `create_checkout_session`: Creates a Stripe checkout session for subscriptions
+- `cancel_subscription`: Cancels an active subscription
+- `handle_stripe_webhook`: Processes Stripe webhook events to update database records
+
 ## Development Roadmap
 
 ### Phase 1: Core Infrastructure (Completed)
@@ -218,25 +225,34 @@ The API is designed around RESTful principles, with each endpoint corresponding 
 - Develop user role management within organizations
 - Create organization membership functionality
 
-### Phase 4: Permission System (Current Phase)
+### Phase 4: Permission System (Completed)
 
 - Implement role-based access control
 - Develop the `check_permissions` function
 - Update all case and file functions to use permission checks
 - Ensure proper organization ownership of resources
 
-### Phase 5: AI Integration (Planned)
+### Phase 5: Payment System (Completed)
+
+- Implement Stripe integration for payments and subscriptions
+- Create webhook handler for payment event processing
+- Develop subscription management functionality
+- Add case-tier based pricing model
+- Implement payment verification during case creation
+- Set up secure secrets management with Google Secret Manager
+
+### Phase 6: AI Integration (Current Phase)
 
 - Integrate with Vertex AI
 - Implement conversation management
 - Develop document analysis capabilities
 
-### Phase 6: Advanced Features (Future)
+### Phase 7: Advanced Features (Future)
 
-- Implement billing and subscription management
 - Develop analytics and reporting
 - Create notification system
 - Implement document versioning
+- Add advanced security features
 
 ## Testing Strategy
 

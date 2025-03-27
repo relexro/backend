@@ -62,6 +62,28 @@ def create_case(request):
         if not data["description"].strip():
             logging.error("Bad Request: Description cannot be empty")
             return ({"error": "Bad Request", "message": "Description cannot be empty"}, 400)
+
+        # Validate caseTier (required field)
+        if "caseTier" not in data:
+            logging.error("Bad Request: Missing caseTier")
+            return ({"error": "Bad Request", "message": "caseTier is required"}, 400)
+            
+        if not isinstance(data["caseTier"], int):
+            logging.error("Bad Request: caseTier must be an integer")
+            return ({"error": "Bad Request", "message": "caseTier must be an integer (1, 2, or 3)"}, 400)
+            
+        if data["caseTier"] not in [1, 2, 3]:
+            logging.error("Bad Request: caseTier must be 1, 2, or 3")
+            return ({"error": "Bad Request", "message": "caseTier must be 1, 2, or 3"}, 400)
+
+        # Validate paymentIntentId (required field)
+        if "paymentIntentId" not in data:
+            logging.error("Bad Request: Missing paymentIntentId")
+            return ({"error": "Bad Request", "message": "paymentIntentId is required"}, 400)
+            
+        if not isinstance(data["paymentIntentId"], str) or not data["paymentIntentId"].strip():
+            logging.error("Bad Request: Invalid paymentIntentId")
+            return ({"error": "Bad Request", "message": "paymentIntentId must be a non-empty string"}, 400)
         
         # Get the authenticated user
         user_info, status_code, error_message = get_authenticated_user(request)
@@ -74,6 +96,52 @@ def create_case(request):
         
         # Initialize Firestore client
         db = firestore.client()
+
+        # Define price map for case tiers (in cents)
+        case_tier_prices = {
+            1: 900,   # Tier 1 = €9.00
+            2: 2900,  # Tier 2 = €29.00
+            3: 9900   # Tier 3 = €99.00
+        }
+        
+        # Get the expected price based on caseTier
+        case_tier = data["caseTier"]
+        expected_amount = case_tier_prices[case_tier]
+        
+        # Verify payment intent with Stripe
+        try:
+            import stripe
+            import os
+            
+            # Initialize Stripe with the API key from environment variables
+            stripe_api_key = os.environ.get('STRIPE_SECRET_KEY')
+            if not stripe_api_key:
+                logging.error("Configuration Error: STRIPE_SECRET_KEY not set")
+                return ({"error": "Configuration Error", "message": "Payment processing is not properly configured"}, 500)
+                
+            stripe.api_key = stripe_api_key
+            
+            # Retrieve the payment intent from Stripe
+            payment_intent_id = data["paymentIntentId"]
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            # Check if the payment intent status is 'succeeded'
+            if intent.status != 'succeeded':
+                logging.error(f"Payment verification failed: Payment intent {payment_intent_id} has status {intent.status}, expected 'succeeded'")
+                return ({"error": "Payment Required", "message": "Payment has not been completed successfully"}, 402)
+            
+            # Check if the payment amount matches the expected amount for the case tier
+            if intent.amount != expected_amount:
+                logging.error(f"Payment verification failed: Payment amount {intent.amount} does not match expected amount {expected_amount} for tier {case_tier}")
+                return ({"error": "Payment Verification Failed", "message": "Payment amount does not match the expected amount for the selected case tier"}, 400)
+                
+            logging.info(f"Payment verification successful for payment intent {payment_intent_id}")
+        except ImportError:
+            logging.error("Stripe library not available")
+            return ({"error": "Configuration Error", "message": "Payment processing is not properly configured"}, 500)
+        except stripe.error.StripeError as e:
+            logging.error(f"Stripe error verifying payment: {str(e)}")
+            return ({"error": "Payment Verification Failed", "message": str(e)}, 400)
         
         # Extract organization ID if provided
         organization_id = data.get("organizationId")
@@ -84,6 +152,10 @@ def create_case(request):
             "title": data["title"].strip(),
             "description": data["description"].strip(),
             "status": "open",
+            "caseTier": case_tier,
+            "casePrice": expected_amount,
+            "paymentStatus": "paid",
+            "paymentIntentId": payment_intent_id,
             "creationDate": firestore.SERVER_TIMESTAMP
         }
         
@@ -111,29 +183,12 @@ def create_case(request):
                 logging.error(f"Forbidden: User {user_id} does not have permission to create a case for organization {organization_id}")
                 return ({"error": "Forbidden", "message": "You do not have permission to create a case for this organization"}, 403)
             
-            # TODO: Check organization subscription status
-            # This would verify the organization's subscription allows for more cases
-            # For now, we'll just add the organization ID to the case
-            
+            # Add organization ID to the case
             case_data["organizationId"] = organization_id
-            case_data["paymentStatus"] = "covered_by_subscription"
             
         # HANDLE INDIVIDUAL CASE
         else:
             logging.info(f"Creating individual case for user: {user_id}")
-            
-            # Check payment intent if provided
-            payment_intent_id = data.get("paymentIntentId")
-            if not payment_intent_id:
-                logging.error("Bad Request: Missing paymentIntentId for individual case")
-                return ({"error": "Bad Request", "message": "Payment Intent ID is required for individual cases"}, 400)
-            
-            # TODO: Verify payment intent with Stripe
-            # For now, we'll assume the payment intent is valid if it's provided
-            # In a real implementation, you would verify the payment intent with Stripe
-            
-            case_data["paymentStatus"] = "paid"
-            case_data["paymentIntentId"] = payment_intent_id
             # Explicitly set organizationId to null for individual cases
             case_data["organizationId"] = None
         
@@ -145,6 +200,8 @@ def create_case(request):
         response_data = {
             "caseId": case_ref.id,
             "userId": user_id,
+            "caseTier": case_tier,
+            "casePrice": expected_amount,
             "message": "Case created successfully"
         }
         

@@ -76,6 +76,12 @@ The API is organized into the following groups:
 - `POST /v1/cases/{caseId}/files`
 - `GET /v1/files/{fileId}`
 
+### Payments
+- `POST /v1/payments/payment-intent` (create payment intent)
+- `POST /v1/payments/checkout-session` (create checkout session)
+- `POST /v1/payments/cancel-subscription` (cancel subscription)
+- `POST /v1/webhook/stripe` (handle Stripe webhooks)
+
 ## Detailed Endpoints
 
 ### Authentication
@@ -209,7 +215,8 @@ The API is organized into the following groups:
   {
     "title": "string",
     "description": "string",
-    "paymentIntentId": "string"
+    "paymentIntentId": "string",
+    "caseTier": 1 // 1, 2, or 3
   }
   ```
 - **Response**:
@@ -219,7 +226,9 @@ The API is organized into the following groups:
     "title": "string",
     "status": "open",
     "createdAt": "string",
-    "paymentStatus": "paid"
+    "paymentStatus": "paid",
+    "caseTier": 1,
+    "casePrice": 900
   }
   ```
 
@@ -231,7 +240,8 @@ The API is organized into the following groups:
   {
     "title": "string",
     "description": "string",
-    "caseType": "string"
+    "paymentIntentId": "string",
+    "caseTier": 1 // 1, 2, or 3
   }
   ```
 - **Response**:
@@ -240,7 +250,10 @@ The API is organized into the following groups:
     "caseId": "string",
     "title": "string",
     "status": "open",
-    "createdAt": "string"
+    "createdAt": "string",
+    "paymentStatus": "paid",
+    "caseTier": 1,
+    "casePrice": 900
   }
   ```
 
@@ -307,6 +320,103 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/files/{fileId}`
 - **Response**: File content (application/octet-stream)
+
+### Payments
+
+#### Create Payment Intent
+- **Method**: POST
+- **Path**: `/v1/payments/payment-intent`
+- **Description**: Create a Stripe Payment Intent for a case payment
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "caseTier": 1, // 1, 2, or 3
+    "currency": "eur", // optional, defaults to "eur"
+    "caseId": "string" // optional, to link the payment to a case
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "clientSecret": "string",
+    "paymentIntentId": "string",
+    "message": "Payment intent created successfully"
+  }
+  ```
+
+#### Create Checkout Session
+- **Method**: POST
+- **Path**: `/v1/payments/checkout-session`
+- **Description**: Create a Stripe Checkout Session for a subscription or one-time payment
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body** (for subscription):
+  ```json
+  {
+    "planId": "personal_monthly", // or other plan IDs
+    "mode": "subscription", // default value
+    "successUrl": "https://relex.ro/success", // optional
+    "cancelUrl": "https://relex.ro/cancel", // optional
+    "organizationId": "string" // optional, for business subscriptions
+  }
+  ```
+- **Body** (for one-time payment):
+  ```json
+  {
+    "amount": 2900, // in cents
+    "mode": "payment", // required for one-time payment
+    "currency": "eur", // optional, defaults to "eur"
+    "productName": "Relex Legal Service", // optional
+    "caseId": "string" // optional, to link the payment to a case
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "sessionId": "string",
+    "url": "string",
+    "message": "Checkout session created successfully"
+  }
+  ```
+
+#### Cancel Subscription
+- **Method**: DELETE
+- **Path**: `/v1/subscriptions/{subscriptionId}`
+- **Description**: Cancel a Stripe subscription at the end of the current billing period
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Subscription has been scheduled for cancellation at the end of the current billing period"
+  }
+  ```
+
+#### Handle Stripe Webhook
+- **Method**: POST
+- **Path**: `/v1/payments/webhook`
+- **Description**: Process Stripe webhook events to update subscriptions and payments
+- **Headers**: 
+  ```
+  Stripe-Signature: <stripe_webhook_signature>
+  ```
+- **Body**: Stripe webhook event payload (raw)
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Webhook processed: event_type"
+  }
+  ```
 
 ## Error Responses
 
