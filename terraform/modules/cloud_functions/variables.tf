@@ -39,6 +39,11 @@ variable "functions" {
     description = string
     entry_point = string
     env_vars    = map(string)
+    secret_env_vars = optional(list(object({
+      key     = string
+      secret  = string
+      version = string
+    })))
   }))
   default = {
     "relex-backend-create-organization" = {
@@ -109,16 +114,12 @@ variable "functions" {
     "relex-backend-create-payment-intent" = {
       description = "Create a Stripe payment intent"
       entry_point = "payments_create_payment_intent"
-      env_vars    = {
-        "STRIPE_SECRET_KEY" = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
-      }
+      env_vars    = {}
     },
     "relex-backend-create-checkout-session" = {
       description = "Create a Stripe checkout session"
       entry_point = "payments_create_checkout_session"
-      env_vars    = {
-        "STRIPE_SECRET_KEY" = "sk_test_51KGx9ySBqRYQv8xZY0PQnQkmQ2AwZsEZyHcLgjE8gMmL8GQbQYhIwzqnTCwGQ1zqOVlOZBHFGpPx"
-      }
+      env_vars    = {}
     },
     "relex-backend-add-organization-member" = {
       description = "Add a member to an organization"
@@ -148,6 +149,16 @@ variable "functions" {
     "relex-backend-list-user-organizations" = {
       description = "List organizations a user belongs to"
       entry_point = "organization_membership_list_user_organizations"
+      env_vars    = {}
+    },
+    "relex-backend-handle-stripe-webhook" = {
+      description = "Handle Stripe webhook events"
+      entry_point = "payments_handle_stripe_webhook"
+      env_vars    = {}
+    },
+    "relex-backend-cancel-subscription" = {
+      description = "Cancel a Stripe subscription"
+      entry_point = "payments_cancel_subscription"
       env_vars    = {}
     }
   }
