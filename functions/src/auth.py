@@ -229,6 +229,34 @@ def check_permissions(request):
             except Exception as e:
                 logging.error(f"Error checking organization permissions: {str(e)}")
         
+        # For party resources
+        elif resource_type == "party":
+            try:
+                # Get the party document
+                party_doc = db.collection("parties").document(resource_id).get()
+                
+                # Check if the party exists
+                if party_doc.exists:
+                    party_data = party_doc.to_dict()
+                    
+                    # Get the owner's user ID
+                    owner_user_id = party_data.get("userId")
+                    
+                    # For parties, only the owner has access
+                    if owner_user_id == user_id:
+                        # Owner can read, update, and delete their own parties
+                        if action in ["read", "update", "delete"]:
+                            allowed = True
+                            logging.info(f"User {user_id} is the owner of party {resource_id}. Access granted for action {action}.")
+                        else:
+                            logging.info(f"User {user_id} is the owner of party {resource_id} but action {action} is not supported for party resources.")
+                    else:
+                        logging.info(f"User {user_id} is not the owner of party {resource_id}. Access denied.")
+                else:
+                    logging.error(f"Resource not found: Party with ID {resource_id} does not exist")
+            except Exception as e:
+                logging.error(f"Error checking party permissions: {str(e)}")
+        
         # Return the permission check result
         logging.info(f"Permission check: userId={user_id}, resourceId={resource_id}, resourceType={resource_type}, action={action}, allowed={allowed}")
         return ({"allowed": allowed}, 200)

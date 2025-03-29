@@ -2,21 +2,23 @@ import functions_framework
 import json
 import flask
 import logging
+from flask import Request
 
 # Import function modules
 from auth import validate_user, check_permissions, get_user_role, get_authenticated_user
-from cases import create_case, get_case, list_cases, archive_case, delete_case, upload_file, download_file
+from cases import create_case, get_case, list_cases, archive_case, delete_case, upload_file, download_file, attach_party_to_case, detach_party_from_case
 from organization import create_organization, get_organization, add_organization_user, set_user_role, update_organization, list_organization_users, remove_organization_user
 from chat import receive_prompt, send_to_vertex_ai, store_conversation, enrich_prompt
 from payments import create_payment_intent, create_checkout_session, handle_stripe_webhook, cancel_subscription
 from organization_membership import add_organization_member, set_organization_member_role, list_organization_members, remove_organization_member, get_user_organization_role, list_user_organizations
 from user import get_user_profile, update_user_profile
+from party import create_party, get_party, update_party, delete_party, list_parties
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 
 @functions_framework.http
-def cases_create_case(request):
+def cases_create_case(request: Request):
     """HTTP Cloud Function for creating a case."""
     try:
         # Authenticate the user
@@ -40,7 +42,7 @@ def cases_create_case(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def cases_get_case(request):
+def cases_get_case(request: Request):
     """HTTP Cloud Function for retrieving a case by ID."""
     try:
         return get_case(request)
@@ -48,7 +50,7 @@ def cases_get_case(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def cases_list_cases(request):
+def cases_list_cases(request: Request):
     """HTTP Cloud Function for listing cases."""
     try:
         return list_cases(request)
@@ -56,7 +58,7 @@ def cases_list_cases(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def cases_archive_case(request):
+def cases_archive_case(request: Request):
     """HTTP Cloud Function for archiving a case."""
     try:
         return archive_case(request)
@@ -64,7 +66,7 @@ def cases_archive_case(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def cases_delete_case(request):
+def cases_delete_case(request: Request):
     """HTTP Cloud Function for marking a case as deleted."""
     try:
         return delete_case(request)
@@ -72,7 +74,7 @@ def cases_delete_case(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def cases_upload_file(request):
+def cases_upload_file(request: Request):
     """HTTP Cloud Function for uploading a file to a case."""
     try:
         return upload_file(request)
@@ -80,7 +82,7 @@ def cases_upload_file(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def cases_download_file(request):
+def cases_download_file(request: Request):
     """HTTP Cloud Function for downloading a file."""
     try:
         return download_file(request)
@@ -94,7 +96,7 @@ def test_function(request):
 
 # Auth Functions
 @functions_framework.http
-def auth_validate_user(request):
+def auth_validate_user(request: Request):
     """HTTP Cloud Function for validating a user's authentication token."""
     try:
         return validate_user(request)
@@ -102,7 +104,7 @@ def auth_validate_user(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def auth_check_permissions(request):
+def auth_check_permissions(request: Request):
     """HTTP Cloud Function for checking a user's permissions for a resource."""
     try:
         return check_permissions(request)
@@ -119,7 +121,7 @@ def auth_get_user_role(request):
 
 # Organization Functions (renamed from Business Functions)
 @functions_framework.http
-def organization_create_organization(request):
+def organization_create_organization(request: Request):
     """HTTP Cloud Function for creating a new organization account."""
     try:
         return create_organization(request)
@@ -127,7 +129,7 @@ def organization_create_organization(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def organization_get_organization(request):
+def organization_get_organization(request: Request):
     """HTTP Cloud Function for retrieving an organization account by ID."""
     try:
         return get_organization(request)
@@ -151,7 +153,7 @@ def organization_set_user_role(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def organization_update_organization(request):
+def organization_update_organization(request: Request):
     """HTTP Cloud Function for updating an organization account."""
     try:
         # Authenticate the user
@@ -245,7 +247,7 @@ def chat_enrich_prompt(request):
 
 # Payment Functions
 @functions_framework.http
-def payments_create_payment_intent(request):
+def payments_create_payment_intent(request: Request):
     """HTTP Cloud Function for creating a Stripe Payment Intent."""
     try:
         # Authenticate the user
@@ -262,7 +264,7 @@ def payments_create_payment_intent(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def payments_create_checkout_session(request):
+def payments_create_checkout_session(request: Request):
     """HTTP Cloud Function for creating a Stripe Checkout Session."""
     try:
         # Authenticate the user
@@ -279,7 +281,7 @@ def payments_create_checkout_session(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def payments_handle_stripe_webhook(request):
+def payments_handle_stripe_webhook(request: Request):
     """HTTP Cloud Function for handling Stripe webhook events."""
     try:
         # Webhook requests are not authenticated - they come directly from Stripe
@@ -288,7 +290,7 @@ def payments_handle_stripe_webhook(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def payments_cancel_subscription(request):
+def payments_cancel_subscription(request: Request):
     """HTTP Cloud Function for canceling a Stripe subscription."""
     try:
         # Authenticate the user
@@ -306,7 +308,7 @@ def payments_cancel_subscription(request):
 
 # Organization Membership Functions
 @functions_framework.http
-def organization_membership_add_organization_member(request):
+def organization_membership_add_organization_member(request: Request):
     """HTTP Cloud Function for adding a member to an organization."""
     try:
         # Authenticate the user
@@ -323,7 +325,7 @@ def organization_membership_add_organization_member(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def organization_membership_set_organization_member_role(request):
+def organization_membership_set_organization_member_role(request: Request):
     """HTTP Cloud Function for setting a member's role in an organization."""
     try:
         # Authenticate the user
@@ -340,7 +342,7 @@ def organization_membership_set_organization_member_role(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def organization_membership_list_organization_members(request):
+def organization_membership_list_organization_members(request: Request):
     """HTTP Cloud Function for listing members of an organization."""
     try:
         # Authenticate the user
@@ -357,7 +359,7 @@ def organization_membership_list_organization_members(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def organization_membership_remove_organization_member(request):
+def organization_membership_remove_organization_member(request: Request):
     """HTTP Cloud Function for removing a member from an organization."""
     try:
         # Authenticate the user
@@ -374,7 +376,7 @@ def organization_membership_remove_organization_member(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def organization_membership_get_user_organization_role(request):
+def organization_membership_get_user_organization_role(request: Request):
     """HTTP Cloud Function for getting a user's role in an organization."""
     try:
         # Authenticate the user
@@ -391,7 +393,7 @@ def organization_membership_get_user_organization_role(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def organization_membership_list_user_organizations(request):
+def organization_membership_list_user_organizations(request: Request):
     """HTTP Cloud Function for listing organizations a user belongs to."""
     try:
         # Authenticate the user
@@ -408,7 +410,7 @@ def organization_membership_list_user_organizations(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def users_get_user_profile(request):
+def users_get_user_profile(request: Request):
     """HTTP Cloud Function for retrieving a user's profile."""
     try:
         # Call the get_user_profile function directly
@@ -417,10 +419,55 @@ def users_get_user_profile(request):
         return flask.jsonify({"error": str(e)}), 500
 
 @functions_framework.http
-def users_update_user_profile(request):
+def users_update_user_profile(request: Request):
     """HTTP Cloud Function for updating a user's profile."""
     try:
         # Call the update_user_profile function directly
         return update_user_profile(request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+# Party Management Functions
+@functions_framework.http
+def party_create_party(request: Request):
+    """Create a new party."""
+    return create_party(request)
+
+@functions_framework.http
+def party_get_party(request: Request):
+    """Get a party by ID."""
+    return get_party(request)
+
+@functions_framework.http
+def party_update_party(request: Request):
+    """Update a party."""
+    return update_party(request)
+
+@functions_framework.http
+def party_delete_party(request: Request):
+    """Delete a party."""
+    return delete_party(request)
+
+@functions_framework.http
+def party_list_parties(request: Request):
+    """HTTP Cloud Function for listing parties."""
+    try:
+        return list_parties(request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def cases_attach_party(request: Request):
+    """HTTP Cloud Function for attaching a party to a case."""
+    try:
+        return attach_party_to_case(request)
+    except Exception as e:
+        return flask.jsonify({"error": str(e)}), 500
+
+@functions_framework.http
+def cases_detach_party(request: Request):
+    """HTTP Cloud Function for detaching a party from a case."""
+    try:
+        return detach_party_from_case(request)
     except Exception as e:
         return flask.jsonify({"error": str(e)}), 500

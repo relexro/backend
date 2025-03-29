@@ -79,8 +79,8 @@ The API is organized into the following groups:
 ### Payments
 - `POST /v1/payments/payment-intent` (create payment intent)
 - `POST /v1/payments/checkout-session` (create checkout session)
-- `POST /v1/payments/cancel-subscription` (cancel subscription)
-- `POST /v1/webhook/stripe` (handle Stripe webhooks)
+- `DELETE /v1/subscriptions/{subscriptionId}` (cancel subscription)
+- `POST /v1/payments/webhook` (handle Stripe webhooks)
 
 ## Detailed Endpoints
 
@@ -142,6 +142,13 @@ The API is organized into the following groups:
     "photoURL": "string",
     "role": "user|admin",
     "subscriptionStatus": "active|inactive",
+    "subscriptionPlanId": "string",
+    "billingCycleStart": "2023-04-01T00:00:00Z",
+    "billingCycleEnd": "2023-05-01T00:00:00Z",
+    "caseQuotaTotal": 10,
+    "caseQuotaUsed": 5,
+    "stripeCustomerId": "string",
+    "stripeSubscriptionId": "string",
     "languagePreference": "en|ro",
     "createdAt": "string",
     "updatedAt": "string"
@@ -201,7 +208,8 @@ The API is organized into the following groups:
     "organizationId": "string",
     "name": "string",
     "type": "string",
-    "createdAt": "string"
+    "createdAt": "string",
+    "subscriptionStatus": "inactive"
   }
   ```
 
@@ -210,13 +218,14 @@ The API is organized into the following groups:
 #### Create Individual Case
 - **Method**: POST
 - **Path**: `/v1/cases`
+- **Description**: Create a new case as an individual. The system first checks if the user has an active subscription with available quota. If quota is available, the case is created using the quota. If quota is exhausted or no active subscription exists, a `paymentIntentId` is required.
 - **Body**:
   ```json
   {
     "title": "string",
     "description": "string",
-    "paymentIntentId": "string",
-    "caseTier": 1 // 1, 2, or 3
+    "caseTier": 1, // 1, 2, or 3 - REQUIRED
+    "paymentIntentId": "string" // OPTIONAL if user has subscription with quota
   }
   ```
 - **Response**:
@@ -226,22 +235,27 @@ The API is organized into the following groups:
     "title": "string",
     "status": "open",
     "createdAt": "string",
-    "paymentStatus": "paid",
+    "paymentStatus": "covered_by_quota", // or "paid_intent" if using payment
     "caseTier": 1,
     "casePrice": 900
   }
   ```
+- **Errors**:
+  - `402 Payment Required`: Returned when quota is exhausted and no payment intent is provided
+  - `400 Bad Request`: Missing required fields or invalid data
+  - `401 Unauthorized`: Authentication error
 
 #### Create Organization Case
 - **Method**: POST
 - **Path**: `/v1/organizations/{organizationId}/cases`
+- **Description**: Create a new case for an organization. The system first checks if the organization has an active subscription with available quota. If quota is available, the case is created using the quota. If quota is exhausted or no active subscription exists, a `paymentIntentId` is required.
 - **Body**:
   ```json
   {
     "title": "string",
     "description": "string",
-    "paymentIntentId": "string",
-    "caseTier": 1 // 1, 2, or 3
+    "caseTier": 1, // 1, 2, or 3 - REQUIRED
+    "paymentIntentId": "string" // OPTIONAL if organization has subscription with quota
   }
   ```
 - **Response**:
@@ -251,11 +265,16 @@ The API is organized into the following groups:
     "title": "string",
     "status": "open",
     "createdAt": "string",
-    "paymentStatus": "paid",
+    "paymentStatus": "covered_by_quota", // or "paid_intent" if using payment
     "caseTier": 1,
     "casePrice": 900
   }
   ```
+- **Errors**:
+  - `402 Payment Required`: Returned when quota is exhausted and no payment intent is provided
+  - `403 Forbidden`: User doesn't have permission to create cases for this organization
+  - `400 Bad Request`: Missing required fields or invalid data
+  - `401 Unauthorized`: Authentication error
 
 #### List Individual Cases
 - **Method**: GET
@@ -272,7 +291,8 @@ The API is organized into the following groups:
         "title": "string",
         "status": "string",
         "createdAt": "string",
-        "paymentStatus": "string"
+        "paymentStatus": "covered_by_quota", // or "paid_intent"
+        "caseTier": 1
       }
     ]
   }
@@ -292,7 +312,9 @@ The API is organized into the following groups:
         "caseId": "string",
         "title": "string",
         "status": "string",
-        "createdAt": "string"
+        "createdAt": "string",
+        "paymentStatus": "covered_by_quota", // or "paid_intent"
+        "caseTier": 1
       }
     ]
   }
@@ -326,7 +348,7 @@ The API is organized into the following groups:
 #### Create Payment Intent
 - **Method**: POST
 - **Path**: `/v1/payments/payment-intent`
-- **Description**: Create a Stripe Payment Intent for a case payment
+- **Description**: Create a Stripe Payment Intent for a case payment (used when subscription quota is exhausted or no subscription exists)
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>
@@ -351,7 +373,7 @@ The API is organized into the following groups:
 #### Create Checkout Session
 - **Method**: POST
 - **Path**: `/v1/payments/checkout-session`
-- **Description**: Create a Stripe Checkout Session for a subscription or one-time payment
+- **Description**: Create a Stripe Checkout Session for a subscription with case quota or a one-time payment
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>
@@ -388,7 +410,7 @@ The API is organized into the following groups:
 #### Cancel Subscription
 - **Method**: DELETE
 - **Path**: `/v1/subscriptions/{subscriptionId}`
-- **Description**: Cancel a Stripe subscription at the end of the current billing period
+- **Description**: Cancel a Stripe subscription at the end of the current billing period. The subscription will remain active until the end of the current billing cycle.
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>
@@ -404,7 +426,7 @@ The API is organized into the following groups:
 #### Handle Stripe Webhook
 - **Method**: POST
 - **Path**: `/v1/payments/webhook`
-- **Description**: Process Stripe webhook events to update subscriptions and payments
+- **Description**: Process Stripe webhook events to update subscriptions and payments. Handles events such as `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `payment_intent.succeeded`, and more.
 - **Headers**: 
   ```
   Stripe-Signature: <stripe_webhook_signature>
@@ -431,9 +453,252 @@ All endpoints use a consistent error format:
 Common error codes:
 - `invalid_request`: 400
 - `unauthorized`: 401
+- `payment_required`: 402 - Subscription quota exhausted or no subscription
 - `forbidden`: 403
 - `not_found`: 404
 - `internal_error`: 500
+
+## Party Management
+
+The Relex API supports management of parties (individuals or organizations) that can be attached to cases as plaintiffs, defendants, or other stakeholders.
+
+### Party Types and Conditional Fields
+
+A key feature of the Party system is the `partyType` field, which determines what other fields are required:
+
+1. **Individual Parties** (`partyType: "individual"`):
+   - **Required in nameDetails**: `firstName`, `lastName`
+   - **Required in identityCodes**: `cnp` (Romanian Personal Numeric Code, 13 digits)
+   - Cannot have organization-specific fields (companyName, cui, regCom)
+
+2. **Organization Parties** (`partyType: "organization"`):
+   - **Required in nameDetails**: `companyName`
+   - **Required in identityCodes**: `cui` (Romanian Fiscal Code), `regCom` (Romanian Registration Number)
+   - Cannot have individual-specific fields (firstName, lastName, cnp)
+
+All party types require `contactInfo.address` (email and phone are optional).
+
+### Create Party
+- **Method**: POST
+- **Path**: `/v1/parties`
+- **Description**: Creates a new party with type-specific validation
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "partyType": "individual", // REQUIRED: "individual" or "organization"
+    "nameDetails": {
+      // For individual parties:
+      "firstName": "John", // REQUIRED for individuals
+      "lastName": "Doe",   // REQUIRED for individuals
+      
+      // For organization parties:
+      "companyName": "Acme Inc" // REQUIRED for organizations
+    },
+    "identityCodes": {
+      // For individual parties:
+      "cnp": "1234567890123", // REQUIRED for individuals (13 digits)
+      
+      // For organization parties:
+      "cui": "RO12345678", // REQUIRED for organizations 
+      "regCom": "J12/345/2022" // REQUIRED for organizations
+    },
+    "contactInfo": {
+      "address": "123 Main St", // REQUIRED for all party types
+      "email": "contact@example.com", // Optional
+      "phone": "+401234567" // Optional
+    },
+    "signatureData": { // Optional
+      "storagePath": "signatures/party_signature.png"
+    }
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "partyId": "string",
+    "userId": "string",
+    "partyType": "individual",
+    "nameDetails": {
+      "firstName": "John",
+      "lastName": "Doe"
+    },
+    "identityCodes": {
+      "cnp": "1234567890123"
+    },
+    "contactInfo": {
+      "address": "123 Main St",
+      "email": "contact@example.com",
+      "phone": "+401234567"
+    },
+    "signatureData": {
+      "storagePath": "signatures/party_signature.png",
+      "capturedAt": "2023-10-20T14:30:00Z"
+    },
+    "createdAt": "2023-10-20T14:30:00Z",
+    "updatedAt": "2023-10-20T14:30:00Z"
+  }
+  ```
+
+### Example: Creating an Organization Party
+```json
+{
+  "partyType": "organization",
+  "nameDetails": {
+    "companyName": "ABC Company SRL"
+  },
+  "identityCodes": {
+    "cui": "RO12345678",
+    "regCom": "J40/123/2020"
+  },
+  "contactInfo": {
+    "address": "123 Business Ave, Bucharest",
+    "email": "contact@abccompany.ro",
+    "phone": "+40721234567"
+  }
+}
+```
+
+### Get Party
+- **Method**: GET
+- **Path**: `/v1/parties/{partyId}`
+- **Description**: Retrieves a party by ID (requires ownership)
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**: Same as Create Party response
+
+### Update Party
+- **Method**: PUT
+- **Path**: `/v1/parties/{partyId}`
+- **Description**: Updates a party with type-specific validation based on existing partyType (partyType itself cannot be changed)
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "partyId": "string", // REQUIRED
+    "nameDetails": {
+      // For updating individual parties - cannot add companyName to individuals
+      "firstName": "John",
+      "lastName": "Smith"
+      
+      // For updating organization parties - cannot add firstName/lastName to organizations
+      //"companyName": "Acme Corporation"
+    },
+    "identityCodes": {
+      // Fields must match existing partyType
+      "cnp": "1234567890123" // Only valid for individual parties
+      //"cui": "RO87654321",  // Only valid for organization parties
+      //"regCom": "J12/999/2022" // Only valid for organization parties
+    },
+    "contactInfo": {
+      "address": "456 New St",
+      "email": "new@example.com",
+      "phone": "+40987654321"
+    }
+  }
+  ```
+- **Response**: Updated party object similar to Create Party response
+
+### Delete Party
+- **Method**: DELETE
+- **Path**: `/v1/parties/{partyId}`
+- **Description**: Deletes a party (requires ownership, fails if party is attached to any cases)
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**: Status 204 No Content
+
+### List Parties
+- **Method**: GET
+- **Path**: `/v1/parties`
+- **Query Parameters**:
+  - `partyType`: Filter by party type (`individual` or `organization`)
+- **Description**: Lists parties owned by the authenticated user
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**:
+  ```json
+  {
+    "parties": [
+      {
+        "partyId": "string",
+        "partyType": "individual",
+        "nameDetails": { ... },
+        "identityCodes": { ... },
+        "contactInfo": { ... },
+        "createdAt": "2023-10-20T14:30:00Z",
+        "updatedAt": "2023-10-20T14:30:00Z"
+      }
+    ]
+  }
+  ```
+
+### Attach Party to Case
+- **Method**: POST
+- **Path**: `/v1/cases/{caseId}/parties`
+- **Description**: Attaches an existing party to a case
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "partyId": "string" // REQUIRED
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Party successfully attached to case",
+    "caseId": "string",
+    "partyId": "string"
+  }
+  ```
+
+### Detach Party from Case
+- **Method**: DELETE
+- **Path**: `/v1/cases/{caseId}/parties/{partyId}`
+- **Description**: Removes a party from a case
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Party successfully detached from case",
+    "caseId": "string",
+    "partyId": "string"
+  }
+  ```
+
+## Subscription & Quota System
+
+The platform uses a subscription model with case quotas:
+
+1. **Subscription Plans**: Each plan includes a specific number of cases per billing cycle (caseQuotaTotal)
+2. **Quota Usage**: As cases are created, the quota is consumed (caseQuotaUsed)
+3. **Quota Reset**: When a new billing cycle begins, the quota resets
+4. **Exceeding Quota**: After exhausting quota, additional cases require individual payment
+
+Case tiers:
+- **Tier 1 (Basic)**: Simple cases (€9.00 each if purchased individually)
+- **Tier 2 (Standard)**: Medium complexity (€29.00 each if purchased individually)
+- **Tier 3 (Complex)**: High complexity (€99.00 each if purchased individually)
 
 ## Security
 

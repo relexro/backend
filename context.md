@@ -164,11 +164,62 @@ users/{userId}
 ├── displayName: string
 ├── photoURL: string
 ├── role: string ("user", "admin")
-├── subscriptionStatus: string ("active", "inactive")
+├── stripeCustomerId: string (optional, links user to Stripe customer)
+├── subscriptionPlanId: string (optional, e.g., 'personal_monthly', 'personal_yearly')
+├── stripeSubscriptionId: string (optional, for active personal subscriptions)
+├── subscriptionStatus: string ("active", "canceled", "past_due", "inactive", null)
+├── caseQuotaTotal: number (integer, max cases included per cycle for current plan)
+├── caseQuotaUsed: number (integer, default: 0, cases used in current cycle)
+├── billingCycleStart: timestamp (optional, start date of current billing cycle)
+├── billingCycleEnd: timestamp (optional, end date of current billing cycle)
 ├── languagePreference: string ("en", "ro")
 ├── createdAt: timestamp
 └── updatedAt: timestamp
 ```
+
+### Subscription Plans Schema
+
+The `plans` collection in Firestore stores internal configuration data for subscription plans offered by the platform:
+
+```text
+plans/{planId}
+├── planId: string (matches Document ID, e.g., 'personal_monthly', 'business_pro_yearly')
+├── name: string (user-friendly name, e.g., "Personal Monthly")
+├── stripePriceId: string (corresponding Stripe Price ID, e.g., 'price_123abc')
+├── caseQuotaTotal: number (integer, number of cases included per billing cycle)
+├── isActive: boolean (whether the plan is currently offered)
+├── type: string ('personal' or 'business')
+├── billingCycle: string ('monthly' or 'yearly')
+└── updatedAt: timestamp (when plan configuration was last modified)
+```
+
+### Permission Model for Profile Management
+
+- Only the authenticated user can access or modify their own profile
+- Users can only update certain fields (displayName, photoURL, languagePreference)
+- Critical fields like role, userId, and subscriptionStatus can only be modified by system administrators
+- Firebase Authentication tokens are used to verify identity for all profile operations
+
+### API Endpoints
+
+1. **GET /v1/users/me**
+   - Returns the complete profile data for the authenticated user
+   - Requires Firebase Auth token in the Authorization header
+   - 404 response if profile doesn't exist (should not happen with proper trigger setup)
+
+2. **PUT /v1/users/me**
+   - Updates allowed fields in the user's profile
+   - Validates input data (e.g., language codes must be from supported list)
+   - Returns the updated profile data
+   - Requires Firebase Auth token in the Authorization header
+
+### Integration with Organization Membership
+
+The user profile system integrates with the organization membership model:
+- The basic user profile contains user identity and preferences
+- Organization memberships are stored in a separate collection (`organization_memberships`)
+- This allows users to have different roles in different organizations
+- The `role` field in the user profile is separate from organization-specific roles
 
 ### Organization Structure
 
@@ -181,9 +232,13 @@ organizations/{organizationId}
 ├── email: string (optional)
 ├── ownerId: string
 ├── stripeCustomerId: string (optional, links organization to Stripe customer)
-├── subscriptionPlanId: string (optional, e.g., 'business_basic_monthly', 'business_pro_yearly')
+├── subscriptionPlanId: string (optional, e.g., 'business_standard_monthly', 'business_pro_yearly')
 ├── stripeSubscriptionId: string (optional, for active organization subscriptions)
 ├── subscriptionStatus: string ("active", "canceled", "past_due", "inactive", null)
+├── caseQuotaTotal: number (integer, max cases included per cycle for current plan)
+├── caseQuotaUsed: number (integer, default: 0, cases used in current cycle)
+├── billingCycleStart: timestamp (optional, start date of current billing cycle)
+├── billingCycleEnd: timestamp (optional, end date of current billing cycle)
 └── createdAt: timestamp
 ```
 
@@ -206,16 +261,44 @@ Supports both individual and organization cases:
 cases/{caseId}
 ├── title: string
 ├── description: string
-├── userId: string (owner user ID)
-├── organizationId: string (optional, for organization cases)
+├── userId: string (**Creator/Owner User ID**)
+├── organizationId: string (**Optional** - ID of the organization this case belongs to, null if individual case)
 ├── status: string ("open", "archived", "deleted")
 ├── caseTier: number (e.g., 1, 2, 3 - indicates complexity tier)
 ├── casePrice: number (e.g., 900, 2900, 9900 - price in cents based on tier)
-├── paymentStatus: string ("paid", "pending", "failed" - for per-case payment)
-├── paymentIntentId: string (optional, links to Stripe Payment Intent for case fee)
+├── paymentStatus: string ("paid_intent", "pending", "failed", "covered_by_quota" - indicates payment method)
+├── paymentIntentId: string (**Optional** - Links to Stripe Payment Intent for this case's fee, only present if paid via intent)
+├── attachedPartyIds: array of strings (**Optional** - List of party IDs linked to this case)
 ├── createdAt: timestamp
 ├── archivedAt: timestamp (optional)
 └── deletedAt: timestamp (optional)
+```
+
+### Party Structure
+
+Supports both individual (person) and organization parties:
+
+```
+parties/{partyId}
+├── userId: string (**Creator/Owner User ID**)
+├── partyType: string ("individual", "organization") (**Required** - Type of entity)
+├── nameDetails: object (**Required**)
+│   ├── firstName: string (**Required if partyType='individual'**)
+│   ├── lastName: string (**Required if partyType='individual'**)
+│   └── companyName: string (**Required if partyType='organization'**)
+├── identityCodes: object (**Required**)
+│   ├── cnp: string (**Required if partyType='individual'** - Romanian Personal Numeric Code)
+│   ├── cui: string (**Required if partyType='organization'** - Romanian Org Fiscal Code)
+│   └── regCom: string (**Required if partyType='organization'** - Romanian Org Registration Number)
+├── contactInfo: object (**Required**)
+│   ├── address: string
+│   ├── email: string (optional)
+│   └── phone: string (optional)
+├── signatureData: object (optional)
+│   ├── storagePath: string
+│   └── capturedAt: timestamp
+├── createdAt: timestamp
+└── updatedAt: timestamp
 ```
 
 ### Document Structure
@@ -315,7 +398,7 @@ Cases in Relex can be owned in two ways:
 
 ## Pricing and Subscription Model
 
-The Relex platform implements a hybrid pricing model combining subscriptions and per-case fees:
+The Relex platform implements a subscription model with included case quotas (Model B):
 
 ### Subscription Plans
 
@@ -323,36 +406,58 @@ The Relex platform implements a hybrid pricing model combining subscriptions and
    * Available directly to individual users
    * Provides access to basic platform features
    * Types: 'personal_monthly', 'personal_yearly'
-   * Does NOT cover per-case fees
+   * Includes a predefined number of cases per billing cycle (defined in `caseQuotaTotal`)
 
 2. **Business Plans**:
    * Available to organizations
    * Provides access to organization features and collaboration tools
    * Types: 'business_standard_monthly', 'business_standard_yearly', 'business_pro_monthly', 'business_pro_yearly'
-   * Does NOT cover per-case fees
+   * Includes a predefined number of cases per billing cycle (defined in `caseQuotaTotal`), typically more than personal plans
 
 ### Case Tiers and Pricing
 
-All cases, regardless of subscription status, require additional per-case payments based on the case complexity tier:
+Cases are categorized by complexity tier, which affects how many quota units they consume:
 
-1. **Tier 1 (Basic)**: Simple cases with minimal complexity (€9.00 / 900 cents)
-2. **Tier 2 (Standard)**: Moderate complexity cases (€29.00 / 2900 cents)
-3. **Tier 3 (Complex)**: High complexity cases with extensive features (€99.00 / 9900 cents)
+1. **Tier 1 (Basic)**: Simple cases with minimal complexity (€9.00 / 900 cents if purchased individually)
+2. **Tier 2 (Standard)**: Moderate complexity cases (€29.00 / 2900 cents if purchased individually)
+3. **Tier 3 (Complex)**: High complexity cases with extensive features (€99.00 / 9900 cents if purchased individually)
+
+### Plans Configuration
+
+The system uses an internal `plans` collection to define subscription plans:
+- Each plan document defines the `caseQuotaTotal` (number of cases included)
+- Plans specify whether they are 'personal' or 'business' type
+- Plans include the corresponding Stripe Price ID for billing
+- Admin can modify plans or add new ones through this collection
+
+### Quota Management
+
+Quota usage is tracked in the user or organization document:
+- `caseQuotaTotal`: Max number of cases included in the subscription
+- `caseQuotaUsed`: Number of cases already created in the current billing cycle
+- `billingCycleStart` and `billingCycleEnd`: Define the current quota period
+- Quotas reset automatically at the end of each billing cycle
 
 ### Case Creation Flow
 
 When creating a case, the following flow occurs:
 
-1. Frontend creates a Payment Intent for the desired case tier (calling `/v1/payments/payment-intent` with the `caseTier`)
-2. User completes payment using Stripe Elements integration
-3. After successful payment, frontend creates case by calling `/v1/cases` with `paymentIntentId` and `caseTier`
-4. Backend verifies the payment status and amount with Stripe API
-5. If verification succeeds, case is created with pricing details
-6. If verification fails, appropriate error response is returned
+1. Backend checks if the user/organization has an active subscription
+2. If active, it compares `caseQuotaUsed` against `caseQuotaTotal`
+3. If quota is available, the case is created with `paymentStatus: "covered_by_quota"`
+4. If quota is exceeded, the user has two options:
+   a. Purchase an individual case via Stripe Payment Intent
+   b. Upgrade to a plan with a higher quota
+
+5. For individual case purchases:
+   a. Frontend creates a Payment Intent for the desired case tier
+   b. User completes payment using Stripe Elements integration
+   c. After successful payment, case is created with `paymentStatus: "paid_intent"` and the `paymentIntentId`
+   d. This case doesn't count against the subscription quota
 
 ### Stripe Integration
 
-The platform integrates with Stripe for both subscription management and per-case payments:
+The platform integrates with Stripe for both subscription management and individual case payments:
 
 1. **Stripe Customer ID**:
    * Each user/organization has a `stripeCustomerId` that links them to a Stripe customer
@@ -363,24 +468,18 @@ The platform integrates with Stripe for both subscription management and per-cas
    * Updated when subscriptions are created, changed, or canceled
 
 3. **Payment Intent ID**:
-   * Each case has a `paymentIntentId` that links to the Stripe payment for that specific case
-   * Independent of subscription status
+   * Only present for individually purchased cases (outside of quota)
+   * Links to the Stripe payment for that specific case
 
 4. **Webhook Handler**:
    * Processes various Stripe events to update Firestore data
    * Handles subscription lifecycle events (created, updated, deleted)
-   * Handles payment success and failure events
+   * Updates quota reset on new billing cycles
    * Ensures data consistency between Stripe and Firestore
-
-5. **Subscription Cancellation**:
-   * Users can cancel their own subscriptions
-   * Organization admins can cancel organization subscriptions
-   * Cancellations occur at the end of the billing period
-   * Status updates are handled by the webhook when Stripe processes the cancellation
 
 ### Payment Status Tracking
 
-Both subscriptions and per-case payments have status tracking:
+Both subscriptions and individual case payments have status tracking:
 
 1. **Subscription Status** (`subscriptionStatus`):
    * "active": Subscription is current and in good standing
@@ -389,9 +488,10 @@ Both subscriptions and per-case payments have status tracking:
    * "inactive": No active subscription
 
 2. **Case Payment Status** (`paymentStatus`):
-   * "pending": Payment initiated but not completed
-   * "paid": Payment successful
-   * "failed": Payment attempt failed
+   * "covered_by_quota": Case was created using subscription quota
+   * "paid_intent": Case was paid for individually via Payment Intent
+   * "pending": Individual payment initiated but not completed
+   * "failed": Individual payment attempt failed
 
 ## Firestore Schema (`cases` collection update)
 
@@ -404,8 +504,9 @@ cases/{caseId}
 ├── status: string ("open", "archived", "deleted")
 ├── caseTier: number (e.g., 1, 2, 3 - indicates complexity tier)
 ├── casePrice: number (e.g., 900, 2900, 9900 - price in cents based on tier)
-├── paymentStatus: string ("paid", "pending", "failed" - for per-case payment)
-├── paymentIntentId: string (**Required** - Links to Stripe Payment Intent for this case's fee)
+├── paymentStatus: string ("paid_intent", "pending", "failed", "covered_by_quota" - indicates payment method)
+├── paymentIntentId: string (**Optional** - Links to Stripe Payment Intent for this case's fee, only present if paid via intent)
+├── attachedPartyIds: array of strings (**Optional** - List of party IDs linked to this case)
 ├── createdAt: timestamp
 ├── archivedAt: timestamp (optional)
 └── deletedAt: timestamp (optional)
@@ -463,9 +564,29 @@ users/{userId}
 ├── subscriptionPlanId: string (optional, e.g., 'personal_monthly', 'personal_yearly')
 ├── stripeSubscriptionId: string (optional, for active personal subscriptions)
 ├── subscriptionStatus: string ("active", "canceled", "past_due", "inactive", null)
+├── caseQuotaTotal: number (integer, max cases included per cycle for current plan)
+├── caseQuotaUsed: number (integer, default: 0, cases used in current cycle)
+├── billingCycleStart: timestamp (optional, start date of current billing cycle)
+├── billingCycleEnd: timestamp (optional, end date of current billing cycle)
 ├── languagePreference: string ("en", "ro", etc.) - default "en"
 ├── createdAt: timestamp
 └── updatedAt: timestamp (when profile is modified)
+```
+
+### Subscription Plans Schema
+
+The `plans` collection in Firestore stores internal configuration data for subscription plans offered by the platform:
+
+```text
+plans/{planId}
+├── planId: string (matches Document ID, e.g., 'personal_monthly', 'business_pro_yearly')
+├── name: string (user-friendly name, e.g., "Personal Monthly")
+├── stripePriceId: string (corresponding Stripe Price ID, e.g., 'price_123abc')
+├── caseQuotaTotal: number (integer, number of cases included per billing cycle)
+├── isActive: boolean (whether the plan is currently offered)
+├── type: string ('personal' or 'business')
+├── billingCycle: string ('monthly' or 'yearly')
+└── updatedAt: timestamp (when plan configuration was last modified)
 ```
 
 ### Permission Model for Profile Management
@@ -495,3 +616,58 @@ The user profile system integrates with the organization membership model:
 - Organization memberships are stored in a separate collection (`organization_memberships`)
 - This allows users to have different roles in different organizations
 - The `role` field in the user profile is separate from organization-specific roles
+
+## Party Management
+
+The Relex backend implements a party management system that handles both individual (person) and organization entities within the legal context. This system is designed to track parties involved in legal cases.
+
+### Party Types and Conditional Fields
+
+The party schema supports two types of entities:
+
+1. **Individual Parties**:
+   - Represent natural persons
+   - Identified by Romanian Personal Numeric Code (CNP)
+   - Require first name and last name
+   - CNP is a required field for individuals in the MVP
+
+2. **Organization Parties**:
+   - Represent legal entities (companies, institutions, etc.)
+   - Identified by Romanian Fiscal Code (CUI) and Registration Number (RegCom)
+   - Require company name
+   - Both CUI and RegCom are required for organizations
+
+### Conditional Requirements
+
+The schema implements conditional field requirements based on the `partyType`:
+
+- When `partyType` is "individual":
+  - `nameDetails.firstName` and `nameDetails.lastName` are required
+  - `identityCodes.cnp` is required
+  - `identityCodes.cui` and `identityCodes.regCom` are not applicable
+
+- When `partyType` is "organization":
+  - `nameDetails.companyName` is required
+  - `nameDetails.firstName` and `nameDetails.lastName` are not applicable
+  - `identityCodes.cui` and `identityCodes.regCom` are required
+  - `identityCodes.cnp` is not applicable
+
+### Party Ownership and Case Attachment
+
+Parties follow a similar ownership model to other resources in the system:
+
+1. **Party Ownership**: Each party is linked to the `userId` of the creator, establishing ownership
+2. **Case Attachment**: Parties are associated with cases through the `attachedPartyIds` array in the case document
+3. **Permission Model**: Access to party records is governed by the same permission system as other resources:
+   - Individual users can access parties they created
+   - Organization members can access parties attached to cases within their organization, based on their role
+
+### Party Usage in Legal Context
+
+In the legal context, parties represent:
+- Claimants/plaintiffs
+- Defendants/respondents
+- Involved third parties
+- Other stakeholders in a legal case
+
+Proper identification of parties with official codes (CNP, CUI, RegCom) is crucial for legal documentation and proceedings, particularly for Romanian legal requirements.

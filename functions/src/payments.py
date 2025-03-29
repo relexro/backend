@@ -158,27 +158,36 @@ def create_checkout_session(request):
         success_url = data.get("successUrl", "https://relex.ro/success")
         cancel_url = data.get("cancelUrl", "https://relex.ro/cancel")
         
-        # Map planId to Stripe priceId if planId is provided
-        plan_price_mapping = {
-            "personal_monthly": "price_personal_monthly",  # Replace with actual Stripe price IDs
-            "personal_yearly": "price_personal_yearly",
-            "business_standard_monthly": "price_business_standard_monthly",
-            "business_standard_yearly": "price_business_standard_yearly",
-            "business_pro_monthly": "price_business_pro_monthly",
-            "business_pro_yearly": "price_business_pro_yearly"
-        }
-        
         # Get metadata
         metadata = data.get("metadata", {})
         
-        # Add planId to metadata if provided
+        price_id = None
         if plan_id:
-            metadata["planId"] = plan_id
-            price_id = plan_price_mapping.get(plan_id)
-            if not price_id:
-                logging.error(f"Invalid planId: {plan_id}")
-                return ({"error": "Bad Request", "message": f"Invalid planId: {plan_id}"}, 400)
+            # Query Firestore for plan details
+            db = firestore.client()
+            plan_doc = db.collection("plans").document(plan_id).get()
+            
+            if not plan_doc.exists:
+                logging.error(f"Plan not found: {plan_id}")
+                return ({"error": "Bad Request", "message": f"Plan not found: {plan_id}"}, 400)
                 
+            plan_data = plan_doc.to_dict()
+            
+            # Check if plan is active
+            if not plan_data.get("isActive", False):
+                logging.error(f"Plan is not active: {plan_id}")
+                return ({"error": "Bad Request", "message": f"Plan is not active: {plan_id}"}, 400)
+            
+            # Get the Stripe price ID
+            price_id = plan_data.get("stripePriceId")
+            if not price_id:
+                logging.error(f"Invalid plan configuration, missing stripePriceId: {plan_id}")
+                return ({"error": "Internal Server Error", "message": "Invalid plan configuration"}, 500)
+            
+            # Add plan ID to metadata
+            metadata["planId"] = plan_id
+            metadata["caseQuotaTotal"] = plan_data.get("caseQuotaTotal", 0)
+            
             # Set mode to subscription for plan-based checkouts
             mode = "subscription"
         
@@ -196,6 +205,12 @@ def create_checkout_session(request):
         organization_id = data.get("organizationId")
         if organization_id:
             metadata["organizationId"] = organization_id
+            
+            # Ensure we're storing the organization ID explicitly for business subscriptions
+            if plan_id and plan_id.startswith("business_"):
+                if not organization_id:
+                    logging.error("Organization ID is required for business plans")
+                    return ({"error": "Bad Request", "message": "Organization ID is required for business plans"}, 400)
         
         # Define line items based on whether priceId or amount is provided
         line_items = []
@@ -270,241 +285,352 @@ def check_subscription_status(request):
 def handle_stripe_webhook(request):
     """Handle Stripe webhook events.
     
-    Processes various Stripe webhook events to update Firestore data accordingly.
-    - checkout.session.completed: Updates subscription or payment status
-    - invoice.payment_failed: Updates subscription status to past_due
-    - customer.subscription.deleted: Updates subscription status to canceled
-    - customer.subscription.updated: Updates subscription plan details if changed
-    
     Args:
-        request (flask.Request): HTTP request object with Stripe webhook payload.
+        request (flask.Request): HTTP request object with Stripe event data.
         
     Returns:
         tuple: (response, status_code)
     """
     logging.info("Received Stripe webhook event")
     
+    # Get the webhook secret from environment variables
+    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
+    if not webhook_secret:
+        logging.error("Webhook secret not configured")
+        return ({"error": "Configuration Error", "message": "Webhook secret not configured"}, 500)
+    
+    # Get the request body and signature header
+    payload = request.data
+    sig_header = request.headers.get('Stripe-Signature')
+    
+    if not sig_header:
+        logging.error("No Stripe signature header in request")
+        return ({"error": "Bad Request", "message": "No Stripe signature header"}, 400)
+    
+    # Verify the event came from Stripe
     try:
-        # Get the webhook payload
-        payload = request.data.decode("utf-8")
-        sig_header = request.headers.get("Stripe-Signature")
-        
-        if not sig_header:
-            logging.error("Missing Stripe-Signature header")
-            return ({"error": "Unauthorized", "message": "Missing Stripe-Signature header"}, 401)
-        
-        # Retrieve the webhook secret from environment variables
-        webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
-        if not webhook_secret:
-            logging.error("STRIPE_WEBHOOK_SECRET environment variable not set")
-            return ({"error": "Configuration Error", "message": "Webhook secret not configured"}, 500)
-        
-        # Verify the webhook signature
-        try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, webhook_secret
-            )
-        except ValueError as e:
-            # Invalid payload
-            logging.error(f"Invalid payload: {str(e)}")
-            return ({"error": "Bad Request", "message": "Invalid payload"}, 400)
-        except stripe.error.SignatureVerificationError as e:
-            # Invalid signature
-            logging.error(f"Invalid signature: {str(e)}")
-            return ({"error": "Unauthorized", "message": "Invalid signature"}, 401)
-        
-        # Log the event type
-        event_type = event['type']
-        logging.info(f"Processing Stripe event: {event_type}")
-        
-        # Initialize Firestore client
-        db = firestore.client()
-        
-        # Handle different event types
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+    except ValueError as e:
+        logging.error(f"Invalid payload: {str(e)}")
+        return ({"error": "Bad Request", "message": "Invalid payload"}, 400)
+    except stripe.error.SignatureVerificationError as e:
+        logging.error(f"Invalid signature: {str(e)}")
+        return ({"error": "Unauthorized", "message": "Invalid signature"}, 401)
+    
+    # Initialize Firestore
+    db = firestore.client()
+    
+    # Handle specific event types
+    event_type = event['type']
+    logging.info(f"Processing Stripe event: {event_type}")
+    
+    try:
+        # Handle checkout.session.completed event
         if event_type == 'checkout.session.completed':
-            # Get the session from the event
             session = event['data']['object']
-            session_id = session['id']
-            mode = session['mode']
-            metadata = session.get('metadata', {})
             
-            # Get relevant IDs from metadata
-            user_id = metadata.get('userId')
-            organization_id = metadata.get('organizationId')
-            case_id = metadata.get('caseId')
-            plan_id = metadata.get('planId')
-            
-            # Update the checkout session in Firestore
-            session_ref = db.collection("checkoutSessions").document(session_id)
-            session_ref.update({
-                "status": session['status'],
-                "updatedDate": firestore.SERVER_TIMESTAMP
-            })
-            
-            if mode == 'subscription':
-                # This is a subscription checkout
-                customer_id = session.get('customer')
+            # Process based on the session mode
+            if session.get('mode') == 'subscription':
+                # Extract metadata
+                metadata = session.get('metadata', {})
+                plan_id = metadata.get('planId')
+                user_id = metadata.get('userId')
+                organization_id = metadata.get('organizationId')
+                
+                # Get subscription details
                 subscription_id = session.get('subscription')
+                if not subscription_id:
+                    logging.error("No subscription ID in completed session")
+                    return ({"error": "Processing Error", "message": "No subscription ID found"}, 400)
                 
-                if not customer_id or not subscription_id:
-                    logging.error(f"Missing customer or subscription ID in session {session_id}")
-                    return ({"error": "Processing Error", "message": "Missing subscription data"}, 400)
-                
-                # Fetch subscription details if needed
+                # Fetch subscription to get billing period details
                 subscription = stripe.Subscription.retrieve(subscription_id)
+                customer_id = subscription.get('customer')
+                
+                # Get plan details from Firestore
+                if not plan_id:
+                    logging.error("No plan ID in session metadata")
+                    return ({"error": "Processing Error", "message": "No plan ID in metadata"}, 400)
+                
+                plan_doc = db.collection("plans").document(plan_id).get()
+                if not plan_doc.exists:
+                    logging.error(f"Plan not found: {plan_id}")
+                    return ({"error": "Processing Error", "message": f"Plan not found: {plan_id}"}, 400)
+                
+                plan_data = plan_doc.to_dict()
+                case_quota_total = plan_data.get("caseQuotaTotal", 0)
+                
+                # Determine current billing period
+                current_period_start = subscription.get('current_period_start')
                 current_period_end = subscription.get('current_period_end')
                 
-                if user_id:
-                    # Personal subscription - update user's subscription status
-                    user_ref = db.collection("users").document(user_id)
-                    user_ref.update({
-                        "subscriptionStatus": "active",
-                        "stripeCustomerId": customer_id,
-                        "stripeSubscriptionId": subscription_id,
-                        "planId": plan_id,
-                        "subscriptionCurrentPeriodEnd": current_period_end,
-                        "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
-                    })
-                    logging.info(f"Updated user {user_id} with subscription {subscription_id}")
-                
-                elif organization_id:
-                    # Business subscription - update organization's subscription status
+                # Update user or organization document based on the subscription
+                if organization_id:
+                    # This is a business subscription - update organization
                     org_ref = db.collection("organizations").document(organization_id)
                     org_ref.update({
-                        "subscriptionStatus": "active",
                         "stripeCustomerId": customer_id,
                         "stripeSubscriptionId": subscription_id,
-                        "planId": plan_id,
-                        "subscriptionCurrentPeriodEnd": current_period_end,
-                        "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
+                        "subscriptionPlanId": plan_id,
+                        "subscriptionStatus": "active",
+                        "caseQuotaTotal": case_quota_total,
+                        "caseQuotaUsed": 0,
+                        "billingCycleStart": firestore.Timestamp.from_seconds(current_period_start),
+                        "billingCycleEnd": firestore.Timestamp.from_seconds(current_period_end),
+                        "updatedAt": firestore.SERVER_TIMESTAMP
                     })
-                    logging.info(f"Updated organization {organization_id} with subscription {subscription_id}")
+                    logging.info(f"Updated organization {organization_id} with new subscription {subscription_id}")
+                elif user_id:
+                    # This is a personal subscription - update user
+                    user_ref = db.collection("users").document(user_id)
+                    user_ref.update({
+                        "stripeCustomerId": customer_id,
+                        "stripeSubscriptionId": subscription_id,
+                        "subscriptionPlanId": plan_id,
+                        "subscriptionStatus": "active",
+                        "caseQuotaTotal": case_quota_total,
+                        "caseQuotaUsed": 0,
+                        "billingCycleStart": firestore.Timestamp.from_seconds(current_period_start),
+                        "billingCycleEnd": firestore.Timestamp.from_seconds(current_period_end),
+                        "updatedAt": firestore.SERVER_TIMESTAMP
+                    })
+                    logging.info(f"Updated user {user_id} with new subscription {subscription_id}")
+                else:
+                    logging.error("Neither user_id nor organization_id found in session metadata")
+                    return ({"error": "Processing Error", "message": "No user or organization ID in metadata"}, 400)
+            
+            elif session.get('mode') == 'payment':
+                # This is a one-time payment (e.g., for an individual case)
+                metadata = session.get('metadata', {})
+                case_id = metadata.get('caseId')
                 
-            elif mode == 'payment' and case_id:
-                # This is a one-time payment for a case
-                # Update the case payment status
-                case_ref = db.collection("cases").document(case_id)
-                case_ref.update({
-                    "paymentStatus": "paid",
-                    "paymentDate": firestore.SERVER_TIMESTAMP,
-                    "paymentSessionId": session_id
-                })
-                logging.info(f"Updated case {case_id} with payment session {session_id}")
-            
-        elif event_type == 'invoice.payment_failed':
-            # Get the invoice from the event
+                if case_id:
+                    # Update the case payment status
+                    case_ref = db.collection("cases").document(case_id)
+                    case_ref.update({
+                        "paymentStatus": "paid_intent",
+                        "updatedAt": firestore.SERVER_TIMESTAMP
+                    })
+                    logging.info(f"Updated case {case_id} payment status to 'paid_intent'")
+        
+        # Handle invoice.paid event (subscription renewals)
+        elif event_type == 'invoice.paid':
             invoice = event['data']['object']
-            customer_id = invoice.get('customer')
-            subscription_id = invoice.get('subscription')
             
-            if not customer_id or not subscription_id:
-                logging.error("Missing customer or subscription ID in invoice")
-                return ({"error": "Processing Error", "message": "Missing subscription data"}, 400)
+            # Only process subscription invoices
+            if invoice.get('subscription'):
+                subscription_id = invoice.get('subscription')
+                customer_id = invoice.get('customer')
+                
+                # Fetch subscription to get the latest details
+                subscription = stripe.Subscription.retrieve(subscription_id)
+                current_period_start = subscription.get('current_period_start')
+                current_period_end = subscription.get('current_period_end')
+                
+                # Find user or organization by subscription ID
+                # First check organizations
+                org_query = db.collection("organizations").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+                if len(org_query) > 0:
+                    # Reset quota for organization
+                    org_doc = org_query[0]
+                    org_ref = db.collection("organizations").document(org_doc.id)
+                    
+                    # Get plan ID from organization to fetch current quota
+                    plan_id = org_doc.get("subscriptionPlanId")
+                    case_quota_total = org_doc.get("caseQuotaTotal", 0)
+                    
+                    # If plan ID exists, try to get the latest quota from the plan
+                    if plan_id:
+                        plan_doc = db.collection("plans").document(plan_id).get()
+                        if plan_doc.exists:
+                            case_quota_total = plan_doc.to_dict().get("caseQuotaTotal", case_quota_total)
+                    
+                    # Update organization with new billing period and reset quota
+                    org_ref.update({
+                        "subscriptionStatus": "active",
+                        "caseQuotaUsed": 0,
+                        "caseQuotaTotal": case_quota_total,
+                        "billingCycleStart": firestore.Timestamp.from_seconds(current_period_start),
+                        "billingCycleEnd": firestore.Timestamp.from_seconds(current_period_end),
+                        "updatedAt": firestore.SERVER_TIMESTAMP
+                    })
+                    logging.info(f"Reset quota for organization {org_doc.id} with subscription {subscription_id}")
+                else:
+                    # Check users if not found in organizations
+                    user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+                    if len(user_query) > 0:
+                        # Reset quota for user
+                        user_doc = user_query[0]
+                        user_ref = db.collection("users").document(user_doc.id)
+                        
+                        # Get plan ID from user to fetch current quota
+                        plan_id = user_doc.get("subscriptionPlanId")
+                        case_quota_total = user_doc.get("caseQuotaTotal", 0)
+                        
+                        # If plan ID exists, try to get the latest quota from the plan
+                        if plan_id:
+                            plan_doc = db.collection("plans").document(plan_id).get()
+                            if plan_doc.exists:
+                                case_quota_total = plan_doc.to_dict().get("caseQuotaTotal", case_quota_total)
+                        
+                        # Update user with new billing period and reset quota
+                        user_ref.update({
+                            "subscriptionStatus": "active",
+                            "caseQuotaUsed": 0,
+                            "caseQuotaTotal": case_quota_total,
+                            "billingCycleStart": firestore.Timestamp.from_seconds(current_period_start),
+                            "billingCycleEnd": firestore.Timestamp.from_seconds(current_period_end),
+                            "updatedAt": firestore.SERVER_TIMESTAMP
+                        })
+                        logging.info(f"Reset quota for user {user_doc.id} with subscription {subscription_id}")
+        
+        # Handle invoice.payment_failed
+        elif event_type == 'invoice.payment_failed':
+            invoice = event['data']['object']
             
-            # Find the associated user or organization by customer ID
-            user_query = db.collection("users").where("stripeCustomerId", "==", customer_id).limit(1).get()
-            org_query = db.collection("organizations").where("stripeCustomerId", "==", customer_id).limit(1).get()
-            
-            if not user_query.empty:
-                # Update user subscription status
-                user_ref = db.collection("users").document(user_query[0].id)
-                user_ref.update({
-                    "subscriptionStatus": "past_due",
-                    "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
-                })
-                logging.info(f"Updated user {user_query[0].id} subscription status to past_due")
-            
-            elif not org_query.empty:
-                # Update organization subscription status
-                org_ref = db.collection("organizations").document(org_query[0].id)
-                org_ref.update({
-                    "subscriptionStatus": "past_due",
-                    "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
-                })
-                logging.info(f"Updated organization {org_query[0].id} subscription status to past_due")
-            
+            # Only process subscription invoices
+            if invoice.get('subscription'):
+                subscription_id = invoice.get('subscription')
+                
+                # Mark subscription as past_due in Firestore
+                # Check organizations first
+                org_query = db.collection("organizations").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+                if len(org_query) > 0:
+                    org_doc = org_query[0]
+                    org_ref = db.collection("organizations").document(org_doc.id)
+                    org_ref.update({
+                        "subscriptionStatus": "past_due",
+                        "updatedAt": firestore.SERVER_TIMESTAMP
+                    })
+                    logging.info(f"Updated organization {org_doc.id} subscription status to 'past_due'")
+                else:
+                    # Check users
+                    user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+                    if len(user_query) > 0:
+                        user_doc = user_query[0]
+                        user_ref = db.collection("users").document(user_doc.id)
+                        user_ref.update({
+                            "subscriptionStatus": "past_due",
+                            "updatedAt": firestore.SERVER_TIMESTAMP
+                        })
+                        logging.info(f"Updated user {user_doc.id} subscription status to 'past_due'")
+        
+        # Handle customer.subscription.deleted
         elif event_type == 'customer.subscription.deleted':
-            # Get the subscription from the event
             subscription = event['data']['object']
-            customer_id = subscription.get('customer')
             subscription_id = subscription.get('id')
             
-            if not customer_id or not subscription_id:
-                logging.error("Missing customer or subscription ID")
-                return ({"error": "Processing Error", "message": "Missing subscription data"}, 400)
-            
-            # Find the associated user or organization by subscription ID
-            user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+            # Mark subscription as canceled in Firestore
+            # Check organizations first
             org_query = db.collection("organizations").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
-            
-            if not user_query.empty:
-                # Update user subscription status
-                user_ref = db.collection("users").document(user_query[0].id)
-                user_ref.update({
-                    "subscriptionStatus": "canceled",
-                    "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
-                })
-                logging.info(f"Updated user {user_query[0].id} subscription status to canceled")
-            
-            elif not org_query.empty:
-                # Update organization subscription status
-                org_ref = db.collection("organizations").document(org_query[0].id)
+            if len(org_query) > 0:
+                org_doc = org_query[0]
+                org_ref = db.collection("organizations").document(org_doc.id)
                 org_ref.update({
-                    "subscriptionStatus": "canceled",
-                    "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
+                    "subscriptionStatus": "inactive",
+                    "updatedAt": firestore.SERVER_TIMESTAMP
                 })
-                logging.info(f"Updated organization {org_query[0].id} subscription status to canceled")
-            
+                logging.info(f"Updated organization {org_doc.id} subscription status to 'inactive'")
+            else:
+                # Check users
+                user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+                if len(user_query) > 0:
+                    user_doc = user_query[0]
+                    user_ref = db.collection("users").document(user_doc.id)
+                    user_ref.update({
+                        "subscriptionStatus": "inactive",
+                        "updatedAt": firestore.SERVER_TIMESTAMP
+                    })
+                    logging.info(f"Updated user {user_doc.id} subscription status to 'inactive'")
+        
+        # Handle customer.subscription.updated
         elif event_type == 'customer.subscription.updated':
-            # Get the subscription from the event
             subscription = event['data']['object']
-            customer_id = subscription.get('customer')
             subscription_id = subscription.get('id')
-            current_period_end = subscription.get('current_period_end')
             status = subscription.get('status')
             
-            if not customer_id or not subscription_id:
-                logging.error("Missing customer or subscription ID")
-                return ({"error": "Processing Error", "message": "Missing subscription data"}, 400)
-            
-            # Find the associated user or organization by subscription ID
-            user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+            # Only update if subscription found
             org_query = db.collection("organizations").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
-            
-            if not user_query.empty:
-                # Update user subscription details
+            if len(org_query) > 0:
+                org_doc = org_query[0]
+                org_ref = db.collection("organizations").document(org_doc.id)
+                
+                # Map Stripe status to our status
+                subscription_status = "active"
+                if status == "canceled" or status == "unpaid":
+                    subscription_status = "inactive"
+                elif status == "past_due":
+                    subscription_status = "past_due"
+                elif status == "active" and subscription.get('cancel_at_period_end'):
+                    subscription_status = "canceled"
+                
+                # Update organization with new status
                 update_data = {
-                    "subscriptionStatus": status,
-                    "subscriptionCurrentPeriodEnd": current_period_end,
-                    "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
+                    "subscriptionStatus": subscription_status,
+                    "updatedAt": firestore.SERVER_TIMESTAMP
                 }
                 
-                user_ref = db.collection("users").document(user_query[0].id)
-                user_ref.update(update_data)
-                logging.info(f"Updated user {user_query[0].id} subscription details")
-            
-            elif not org_query.empty:
-                # Update organization subscription details
-                update_data = {
-                    "subscriptionStatus": status,
-                    "subscriptionCurrentPeriodEnd": current_period_end,
-                    "subscriptionUpdatedDate": firestore.SERVER_TIMESTAMP
-                }
+                # If cancel_at_period_end is true, update billingCycleEnd
+                if subscription.get('cancel_at_period_end'):
+                    update_data["billingCycleEnd"] = firestore.Timestamp.from_seconds(subscription.get('current_period_end'))
                 
-                org_ref = db.collection("organizations").document(org_query[0].id)
                 org_ref.update(update_data)
-                logging.info(f"Updated organization {org_query[0].id} subscription details")
+                logging.info(f"Updated organization {org_doc.id} subscription status to '{subscription_status}'")
+            else:
+                # Check users
+                user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+                if len(user_query) > 0:
+                    user_doc = user_query[0]
+                    user_ref = db.collection("users").document(user_doc.id)
+                    
+                    # Map Stripe status to our status
+                    subscription_status = "active"
+                    if status == "canceled" or status == "unpaid":
+                        subscription_status = "inactive"
+                    elif status == "past_due":
+                        subscription_status = "past_due"
+                    elif status == "active" and subscription.get('cancel_at_period_end'):
+                        subscription_status = "canceled"
+                    
+                    # Update user with new status
+                    update_data = {
+                        "subscriptionStatus": subscription_status,
+                        "updatedAt": firestore.SERVER_TIMESTAMP
+                    }
+                    
+                    # If cancel_at_period_end is true, update billingCycleEnd
+                    if subscription.get('cancel_at_period_end'):
+                        update_data["billingCycleEnd"] = firestore.Timestamp.from_seconds(subscription.get('current_period_end'))
+                    
+                    user_ref.update(update_data)
+                    logging.info(f"Updated user {user_doc.id} subscription status to '{subscription_status}'")
         
-        # Return a success response
+        # Handle payment_intent events for individual case payments
+        elif event_type == 'payment_intent.succeeded':
+            payment_intent = event['data']['object']
+            payment_intent_id = payment_intent.get('id')
+            metadata = payment_intent.get('metadata', {})
+            
+            # Check if this is for a case payment
+            if 'caseId' in metadata:
+                case_id = metadata.get('caseId')
+                case_ref = db.collection("cases").document(case_id)
+                case_ref.update({
+                    "paymentStatus": "paid_intent",
+                    "updatedAt": firestore.SERVER_TIMESTAMP
+                })
+                logging.info(f"Updated case {case_id} payment status to 'paid_intent'")
+        
+        # Return success for any processed event
         return ({"success": True, "message": f"Webhook processed: {event_type}"}, 200)
         
     except Exception as e:
-        logging.error(f"Error processing webhook: {str(e)}")
-        return ({"error": "Internal Server Error", "message": "Failed to process webhook"}, 500)
+        logging.error(f"Error processing webhook event: {str(e)}")
+        return ({"error": "Processing Error", "message": f"Failed to process webhook event: {str(e)}"}, 500)
 
 @functions_framework.http
 def cancel_subscription(request):
-    """Cancel a Stripe subscription.
+    """Cancel a Stripe subscription at the end of the current billing period.
     
     Args:
         request (flask.Request): HTTP request object with subscription ID.
@@ -512,15 +638,9 @@ def cancel_subscription(request):
     Returns:
         tuple: (response, status_code)
     """
-    logging.info("Received request to cancel a subscription")
+    logging.info("Received request to cancel subscription")
     
     try:
-        # Get authenticated user
-        user_id = getattr(request, 'user_id', None)
-        if not user_id:
-            logging.error("Unauthorized: No authenticated user")
-            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
-        
         # Extract data from request
         data = request.get_json(silent=True)
         if not data:
@@ -531,75 +651,66 @@ def cancel_subscription(request):
         if "subscriptionId" not in data:
             logging.error("Bad Request: Missing subscriptionId")
             return ({"error": "Bad Request", "message": "subscriptionId is required"}, 400)
-            
+        
+        # Get authenticated user ID
+        user_id = getattr(request, 'user_id', None)
+        if not user_id:
+            logging.error("Unauthorized: User not authenticated")
+            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
+        
         subscription_id = data["subscriptionId"]
         
-        # Initialize Firestore client
+        # Initialize Firestore
         db = firestore.client()
         
-        # Check permission to cancel this subscription
-        # Look for the subscription in both user and organization records
-        user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
-        org_query = db.collection("organizations").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+        # Check if the subscription exists in Stripe
+        try:
+            subscription = stripe.Subscription.retrieve(subscription_id)
+        except stripe.error.StripeError as e:
+            logging.error(f"Stripe error retrieving subscription: {str(e)}")
+            return ({"error": "Payment Processing Error", "message": str(e)}, 400)
         
-        cancellation_allowed = False
-        
-        if not user_query.empty:
-            # This is a user's personal subscription
-            subscription_user_id = user_query[0].id
-            
-            # Only the subscription owner can cancel it
-            if subscription_user_id == user_id:
-                cancellation_allowed = True
-            else:
-                logging.error(f"Permission denied: User {user_id} cannot cancel subscription for user {subscription_user_id}")
-                return ({"error": "Forbidden", "message": "You don't have permission to cancel this subscription"}, 403)
-                
-        elif not org_query.empty:
-            # This is an organization subscription
-            organization_id = org_query[0].id
-            
-            # Check if user is an admin of the organization
-            member_query = db.collection("organizationMembers").where("organizationId", "==", organization_id).where("userId", "==", user_id).limit(1).get()
-            
-            if not member_query.empty:
-                member_role = member_query[0].to_dict().get("role")
-                
-                # Only organization admins can cancel organization subscriptions
-                if member_role == "admin":
-                    cancellation_allowed = True
-                else:
-                    logging.error(f"Permission denied: User {user_id} has role {member_role}, not admin for organization {organization_id}")
-                    return ({"error": "Forbidden", "message": "Only organization admins can cancel the subscription"}, 403)
-            else:
-                logging.error(f"Permission denied: User {user_id} is not a member of organization {organization_id}")
-                return ({"error": "Forbidden", "message": "You don't have permission to cancel this subscription"}, 403)
+        # First, check if this is a personal subscription for the current user
+        user_doc = db.collection("users").document(user_id).get()
+        if user_doc.exists and user_doc.get("stripeSubscriptionId") == subscription_id:
+            # User is canceling their own subscription - allowed
+            pass
         else:
-            logging.error(f"Subscription not found: {subscription_id}")
-            return ({"error": "Not Found", "message": "Subscription not found"}, 404)
+            # Check if it's an organization subscription
+            org_query = db.collection("organizations").where("stripeSubscriptionId", "==", subscription_id).limit(1).get()
+            
+            if not org_query:
+                logging.error(f"Subscription {subscription_id} not found in database")
+                return ({"error": "Not Found", "message": "Subscription not found"}, 404)
+            
+            org_doc = org_query[0]
+            organization_id = org_doc.id
+            
+            # Check if user is an administrator of the organization
+            membership_query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", user_id).where("role", "==", "administrator").limit(1).get()
+            
+            if not membership_query:
+                logging.error(f"User {user_id} not authorized to cancel organization subscription")
+                return ({"error": "Forbidden", "message": "You must be an administrator to cancel an organization subscription"}, 403)
         
-        # Cancel the subscription if permission is granted
-        if cancellation_allowed:
-            try:
-                # Cancel subscription at period end (better UX than immediate cancellation)
-                stripe.Subscription.modify(
-                    subscription_id,
-                    cancel_at_period_end=True
-                )
-                
-                # Log the cancellation request
-                # Note: We don't update the status here - the webhook will handle that when 
-                # the cancellation is processed by Stripe
-                logging.info(f"Subscription {subscription_id} marked for cancellation at period end")
-                
-                return ({
-                    "success": True,
-                    "message": "Subscription has been scheduled for cancellation at the end of the current billing period"
-                }, 200)
-                
-            except stripe.error.StripeError as e:
-                logging.error(f"Stripe error canceling subscription: {str(e)}")
-                return ({"error": "Payment Processing Error", "message": str(e)}, 400)
+        # User is authorized to cancel the subscription, proceed with cancellation
+        try:
+            # Cancel the subscription at the end of the current period
+            stripe.Subscription.modify(
+                subscription_id,
+                cancel_at_period_end=True
+            )
+            
+            # Return success response
+            # Note: We don't update the status in Firestore here. The webhook handler will
+            # catch the subscription.updated event from Stripe and update the status accordingly.
+            return ({
+                "success": True,
+                "message": "Subscription has been scheduled for cancellation at the end of the current billing period"
+            }, 200)
+        except stripe.error.StripeError as e:
+            logging.error(f"Stripe error canceling subscription: {str(e)}")
+            return ({"error": "Payment Processing Error", "message": str(e)}, 400)
     except Exception as e:
         logging.error(f"Error canceling subscription: {str(e)}")
         return ({"error": "Internal Server Error", "message": "Failed to cancel subscription"}, 500) 

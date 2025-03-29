@@ -207,7 +207,6 @@ paths:
             required:
               - title
               - description
-              - paymentIntentId
               - caseTier
             properties:
               title:
@@ -218,7 +217,7 @@ paths:
                 description: Description of the case
               paymentIntentId:
                 type: string
-                description: Stripe payment intent ID
+                description: Stripe payment intent ID (optional if user has an active subscription with available quota)
               caseTier:
                 type: integer
                 enum: [1, 2, 3]
@@ -233,7 +232,10 @@ paths:
         '401':
           $ref: '#/definitions/Unauthorized'
         '402':
+          description: Payment required (quota exhausted or no active subscription)
           $ref: '#/definitions/PaymentRequired'
+        '403':
+          $ref: '#/definitions/Forbidden'
         '500':
           $ref: '#/definitions/InternalServerError'
 
@@ -260,7 +262,6 @@ paths:
             required:
               - title
               - description
-              - paymentIntentId
               - caseTier
             properties:
               title:
@@ -271,7 +272,7 @@ paths:
                 description: Description of the case
               paymentIntentId:
                 type: string
-                description: Stripe payment intent ID
+                description: Stripe payment intent ID (optional if organization has an active subscription with available quota)
               caseTier:
                 type: integer
                 enum: [1, 2, 3]
@@ -286,6 +287,7 @@ paths:
         '401':
           $ref: '#/definitions/Unauthorized'
         '402':
+          description: Payment required (quota exhausted or no active subscription)
           $ref: '#/definitions/PaymentRequired'
         '403':
           $ref: '#/definitions/Forbidden'
@@ -788,6 +790,730 @@ paths:
         '500':
           $ref: '#/definitions/InternalServerError'
 
+  # Party endpoints
+  /parties:
+    post:
+      summary: Create a new party
+      operationId: createParty
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-party
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - partyType
+              - nameDetails
+              - identityCodes
+              - contactInfo
+            properties:
+              partyType:
+                type: string
+                enum: [individual, organization]
+                description: Type of the party - determines required fields in nameDetails and identityCodes
+              nameDetails:
+                type: object
+                description: "Name details with conditional required fields: firstName+lastName required for individuals, companyName required for organizations"
+                properties:
+                  firstName:
+                    type: string
+                    description: Required for individual parties
+                  lastName:
+                    type: string
+                    description: Required for individual parties
+                  companyName:
+                    type: string
+                    description: Required for organization parties
+              identityCodes:
+                type: object
+                description: "Identity codes with conditional required fields: CNP required for individuals, CUI+RegCom required for organizations"
+                properties:
+                  cnp:
+                    type: string
+                    description: Romanian Personal Numeric Code (13 digits) - required for individual parties
+                  cui:
+                    type: string
+                    description: Romanian Company Fiscal Code - required for organization parties
+                  regCom:
+                    type: string
+                    description: Romanian Company Registration Number (format Jxx/xxx/xxxx) - required for organization parties
+              contactInfo:
+                type: object
+                required:
+                  - address
+                properties:
+                  address:
+                    type: string
+                    description: Required for all party types
+                  email:
+                    type: string
+                    description: Optional email contact
+                  phone:
+                    type: string
+                    description: Optional phone contact
+              signatureData:
+                type: object
+                properties:
+                  storagePath:
+                    type: string
+                    description: Path to signature image in storage
+      responses:
+        '201':
+          description: Party created successfully
+          schema:
+            $ref: '#/definitions/Party'
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+    get:
+      summary: List parties
+      operationId: listParties
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-parties
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: partyType
+          in: query
+          required: false
+          type: string
+          enum: [individual, organization]
+          description: Filter parties by type
+      responses:
+        '200':
+          description: List of parties
+          schema:
+            type: object
+            properties:
+              parties:
+                type: array
+                items:
+                  $ref: '#/definitions/Party'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /parties/{partyId}:
+    get:
+      summary: Get a party by ID
+      operationId: getParty
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-party
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Party details
+          schema:
+            $ref: '#/definitions/Party'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+    put:
+      summary: Update a party
+      operationId: updateParty
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-update-party
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - partyId
+            properties:
+              partyId:
+                type: string
+                description: ID of the party to update
+              nameDetails:
+                type: object
+                description: "Name details - fields must match the existing partyType (firstName/lastName for individual, companyName for organization)"
+                properties:
+                  firstName:
+                    type: string
+                    description: Only valid for individual parties
+                  lastName:
+                    type: string
+                    description: Only valid for individual parties
+                  companyName:
+                    type: string
+                    description: Only valid for organization parties
+              identityCodes:
+                type: object
+                description: "Identity codes - fields must match the existing partyType (cnp for individual, cui/regCom for organization)"
+                properties:
+                  cnp:
+                    type: string
+                    description: Romanian Personal Numeric Code - only valid for individual parties
+                  cui:
+                    type: string
+                    description: Romanian Company Fiscal Code - only valid for organization parties
+                  regCom:
+                    type: string
+                    description: Romanian Company Registration Number - only valid for organization parties
+              contactInfo:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  email:
+                    type: string
+                  phone:
+                    type: string
+              signatureData:
+                type: object
+                properties:
+                  storagePath:
+                    type: string
+                    description: Path to signature image in storage
+      responses:
+        '200':
+          description: Party updated successfully
+          schema:
+            $ref: '#/definitions/Party'
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+    delete:
+      summary: Delete a party
+      operationId: deleteParty
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-party
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          type: string
+      responses:
+        '204':
+          description: Party deleted successfully
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '409':
+          description: Conflict - Party cannot be deleted (e.g., attached to cases)
+          schema:
+            $ref: '#/definitions/Conflict'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /cases/{caseId}/parties:
+    post:
+      summary: Attach a party to a case
+      operationId: attachPartyToCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-attach-party-to-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - partyId
+            properties:
+              partyId:
+                type: string
+                description: ID of the party to attach to the case
+      responses:
+        '200':
+          description: Party attached successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              caseId:
+                type: string
+              partyId:
+                type: string
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /cases/{caseId}/parties/{partyId}:
+    delete:
+      summary: Detach a party from a case
+      operationId: detachPartyFromCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-detach-party-from-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+        - name: partyId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Party detached successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              caseId:
+                type: string
+              partyId:
+                type: string
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /api/stripe/webhook:
+    post:
+      tags:
+        - Subscriptions
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: header
+          name: stripe-signature
+          type: string
+          required: true
+        - in: body
+          name: event
+          schema:
+            type: object
+      responses:
+        200:
+          description: Webhook event processed successfully
+        400:
+          $ref: '#/responses/BadRequest'
+        401:
+          $ref: '#/responses/Unauthorized'
+        500:
+          $ref: '#/responses/InternalServerError'
+
+  /api/parties:
+    post:
+      tags:
+        - Parties
+      security:
+        - firebaseAuth: []
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: party
+          required: true
+          schema:
+            type: object
+            required:
+              - partyType
+              - nameDetails
+              - identityCodes
+              - contactInfo
+            properties:
+              partyType:
+                type: string
+                enum:
+                  - individual
+                  - organization
+                description: Type of party (individual or organization) that determines required fields
+              nameDetails:
+                type: object
+                description: Name information depending on party type
+                properties:
+                  firstName:
+                    type: string
+                    description: Required for individual parties
+                  lastName:
+                    type: string
+                    description: Required for individual parties
+                  companyName:
+                    type: string
+                    description: Required for organization parties
+              identityCodes:
+                type: object
+                description: Identification codes depending on party type
+                properties:
+                  cnp:
+                    type: string
+                    description: Romanian Personal Numeric Code (13 digits). Required for individual parties
+                  cui:
+                    type: string
+                    description: Romanian Fiscal Code. Required for organization parties
+                  regCom:
+                    type: string
+                    description: Romanian Company Registration Number. Required for organization parties
+              contactInfo:
+                type: object
+                required:
+                  - address
+                properties:
+                  address:
+                    type: string
+                    description: Required physical address for all party types
+                  email:
+                    type: string
+                    format: email
+                    description: Optional contact email
+                  phone:
+                    type: string
+                    description: Optional contact phone number
+              signatureData:
+                type: object
+                properties:
+                  storagePath:
+                    type: string
+                    description: Path to the signature image/data in storage
+      responses:
+        201:
+          description: Party created successfully
+          schema:
+            $ref: '#/definitions/Party'
+        400:
+          $ref: '#/responses/BadRequest'
+        401:
+          $ref: '#/responses/Unauthorized'
+        500:
+          $ref: '#/responses/InternalServerError'
+    
+    get:
+      tags:
+        - Parties
+      security:
+        - firebaseAuth: []
+      produces:
+        - application/json
+      parameters:
+        - in: query
+          name: partyType
+          required: false
+          type: string
+          enum:
+            - individual
+            - organization
+          description: Filter parties by type
+      responses:
+        200:
+          description: List of parties
+          schema:
+            type: object
+            properties:
+              parties:
+                type: array
+                items:
+                  $ref: '#/definitions/Party'
+        401:
+          $ref: '#/responses/Unauthorized'
+        500:
+          $ref: '#/responses/InternalServerError'
+
+  /api/parties/{partyId}:
+    get:
+      tags:
+        - Parties
+      security:
+        - firebaseAuth: []
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: partyId
+          required: true
+          type: string
+          description: Unique identifier for the party
+      responses:
+        200:
+          description: Party details
+          schema:
+            $ref: '#/definitions/Party'
+        400:
+          $ref: '#/responses/BadRequest'
+        401:
+          $ref: '#/responses/Unauthorized'
+        404:
+          $ref: '#/responses/NotFound'
+        500:
+          $ref: '#/responses/InternalServerError'
+    
+    put:
+      tags:
+        - Parties
+      security:
+        - firebaseAuth: []
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: partyId
+          required: true
+          type: string
+          description: Unique identifier for the party
+        - in: body
+          name: party
+          required: true
+          schema:
+            type: object
+            required:
+              - partyId
+            properties:
+              partyId:
+                type: string
+                description: Must match the URL partyId
+              nameDetails:
+                type: object
+                description: Name information must comply with existing partyType
+                properties:
+                  firstName:
+                    type: string
+                    description: Only valid for individual parties
+                  lastName:
+                    type: string
+                    description: Only valid for individual parties
+                  companyName:
+                    type: string
+                    description: Only valid for organization parties
+              identityCodes:
+                type: object
+                description: Identification codes must comply with existing partyType
+                properties:
+                  cnp:
+                    type: string
+                    description: Only valid for individual parties
+                  cui:
+                    type: string
+                    description: Only valid for organization parties
+                  regCom:
+                    type: string
+                    description: Only valid for organization parties
+              contactInfo:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  email:
+                    type: string
+                    format: email
+                  phone:
+                    type: string
+              signatureData:
+                type: object
+                properties:
+                  storagePath:
+                    type: string
+      responses:
+        200:
+          description: Party updated successfully
+          schema:
+            $ref: '#/definitions/Party'
+        400:
+          $ref: '#/responses/BadRequest'
+        401:
+          $ref: '#/responses/Unauthorized'
+        404:
+          $ref: '#/responses/NotFound'
+        500:
+          $ref: '#/responses/InternalServerError'
+    
+    delete:
+      tags:
+        - Parties
+      security:
+        - firebaseAuth: []
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: partyId
+          required: true
+          type: string
+          description: Unique identifier for the party
+      responses:
+        204:
+          description: Party deleted successfully
+        400:
+          $ref: '#/responses/BadRequest'
+        401:
+          $ref: '#/responses/Unauthorized'
+        404:
+          $ref: '#/responses/NotFound'
+        409:
+          description: Conflict - Party cannot be deleted (e.g., attached to cases)
+          schema:
+            $ref: '#/definitions/Conflict'
+        500:
+          $ref: '#/responses/InternalServerError'
+
+  /api/cases/{caseId}/parties:
+    post:
+      tags:
+        - Parties
+        - Cases
+      security:
+        - firebaseAuth: []
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          type: string
+          description: Unique identifier for the case
+        - in: body
+          name: partyAssociation
+          required: true
+          schema:
+            type: object
+            required:
+              - partyId
+            properties:
+              partyId:
+                type: string
+                description: Unique identifier for the party to attach
+      responses:
+        200:
+          description: Party successfully attached to case
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              caseId:
+                type: string
+              partyId:
+                type: string
+        400:
+          $ref: '#/responses/BadRequest'
+        401:
+          $ref: '#/responses/Unauthorized'
+        404:
+          $ref: '#/responses/NotFound'
+        500:
+          $ref: '#/responses/InternalServerError'
+
+  /api/cases/{caseId}/parties/{partyId}:
+    delete:
+      tags:
+        - Parties
+        - Cases
+      security:
+        - firebaseAuth: []
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          type: string
+          description: Unique identifier for the case
+        - in: path
+          name: partyId
+          required: true
+          type: string
+          description: Unique identifier for the party
+      responses:
+        200:
+          description: Party successfully detached from case
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              caseId:
+                type: string
+              partyId:
+                type: string
+        400:
+          $ref: '#/responses/BadRequest'
+        401:
+          $ref: '#/responses/Unauthorized'
+        404:
+          $ref: '#/responses/NotFound'
+        500:
+          $ref: '#/responses/InternalServerError'
+
 definitions:
   UserProfile:
     type: object
@@ -806,6 +1532,29 @@ definitions:
       subscriptionStatus:
         type: string
         enum: [active, inactive]
+      subscriptionPlanId:
+        type: string
+        description: ID of the subscription plan
+      billingCycleStart:
+        type: string
+        format: date-time
+        description: Start date of the current billing cycle
+      billingCycleEnd:
+        type: string
+        format: date-time
+        description: End date of the current billing cycle
+      caseQuotaTotal:
+        type: integer
+        description: Total number of cases included in the subscription for the current billing cycle
+      caseQuotaUsed:
+        type: integer
+        description: Number of cases used from the quota in the current billing cycle
+      stripeCustomerId:
+        type: string
+        description: Stripe customer ID for payment processing
+      stripeSubscriptionId:
+        type: string
+        description: Stripe subscription ID
       languagePreference:
         type: string
         enum: [en, ro]
@@ -836,6 +1585,33 @@ definitions:
         format: date-time
       ownerId:
         type: string
+      subscriptionStatus:
+        type: string
+        enum: [active, inactive]
+        description: Current subscription status
+      subscriptionPlanId:
+        type: string
+        description: ID of the subscription plan
+      billingCycleStart:
+        type: string
+        format: date-time
+        description: Start date of the current billing cycle
+      billingCycleEnd:
+        type: string
+        format: date-time
+        description: End date of the current billing cycle
+      caseQuotaTotal:
+        type: integer
+        description: Total number of cases included in the subscription for the current billing cycle
+      caseQuotaUsed:
+        type: integer
+        description: Number of cases used from the quota in the current billing cycle
+      stripeCustomerId:
+        type: string
+        description: Stripe customer ID for payment processing
+      stripeSubscriptionId:
+        type: string
+        description: Stripe subscription ID
     
   OrganizationSummary:
     type: object
@@ -904,10 +1680,18 @@ definitions:
         format: date-time
       paymentStatus:
         type: string
-        enum: [paid, pending]
+        enum: [paid_intent, covered_by_quota, pending]
+        description: Payment status of the case (paid_intent = paid individually, covered_by_quota = covered by subscription)
       paymentIntentId:
         type: string
-    
+      caseTier:
+        type: integer
+        enum: [1, 2, 3]
+        description: Case tier level determining the complexity (1=Basic, 2=Standard, 3=Complex)
+      casePrice:
+        type: integer
+        description: Price of the case in cents
+
   FileResponse:
     type: object
     properties:
@@ -979,4 +1763,129 @@ definitions:
       error:
         type: string
       message:
-        type: string 
+        type: string
+
+  Plan:
+    type: object
+    properties:
+      planId:
+        type: string
+        description: Unique identifier for the plan
+      name:
+        type: string
+        description: Display name of the plan
+      description:
+        type: string
+        description: Description of what the plan includes
+      type:
+        type: string
+        enum: [personal, business]
+        description: Type of plan
+      interval:
+        type: string
+        enum: [monthly, yearly]
+        description: Billing interval
+      price:
+        type: integer
+        description: Price of the plan in cents
+      currency:
+        type: string
+        default: "eur"
+        description: Currency of the plan
+      caseQuotaTotal:
+        type: integer
+        description: Number of cases included in the plan per billing cycle
+      active:
+        type: boolean
+        description: Whether the plan is currently active
+      stripePriceId:
+        type: string
+        description: Stripe price ID for this plan
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  Party:
+    type: object
+    properties:
+      partyId:
+        type: string
+        description: Unique identifier for the party
+      userId:
+        type: string
+        description: Firebase user ID of the party owner
+      partyType:
+        type: string
+        enum:
+          - individual
+          - organization
+        description: Type of party that determines required fields
+      nameDetails:
+        type: object
+        description: Name information depending on party type
+        properties:
+          firstName:
+            type: string
+            description: Only present for individual parties
+          lastName:
+            type: string
+            description: Only present for individual parties
+          companyName:
+            type: string
+            description: Only present for organization parties
+      identityCodes:
+        type: object
+        description: Identification codes depending on party type
+        properties:
+          cnp:
+            type: string
+            description: Romanian Personal Numeric Code. Only present for individual parties
+          cui:
+            type: string
+            description: Romanian Fiscal Code. Only present for organization parties
+          regCom:
+            type: string
+            description: Romanian Company Registration Number. Only present for organization parties
+      contactInfo:
+        type: object
+        properties:
+          address:
+            type: string
+            description: Physical address for all party types
+          email:
+            type: string
+            format: email
+            description: Contact email if available
+          phone:
+            type: string
+            description: Contact phone number if available
+      signatureData:
+        type: object
+        properties:
+          storagePath:
+            type: string
+            description: Path to the signature image/data in storage
+          capturedAt:
+            type: string
+            format: date-time
+            description: When the signature was captured
+      createdAt:
+        type: string
+        format: date-time
+        description: When the party was created
+      updatedAt:
+        type: string
+        format: date-time
+        description: When the party was last updated
+    required:
+      - partyId
+      - userId
+      - partyType
+      - nameDetails
+      - identityCodes
+      - contactInfo
+      - createdAt
+      - updatedAt 

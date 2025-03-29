@@ -45,6 +45,43 @@ Split across multiple files for different aspects:
 - `get_user_profile`: Profile retrieval
 - `update_user_profile`: Profile updates
 
+### Party Management (`party.py`)
+- `create_party`: 
+  - Creates parties with conditional field validation based on partyType
+  - Supports 'individual' type with firstName, lastName, and CNP validation
+  - Supports 'organization' type with companyName, CUI, and RegCom validation
+  - Verifies proper format for Romanian identification codes (CNP, CUI, RegCom)
+  - Handles optional contact and signature data
+
+- `get_party`: 
+  - Retrieves party details with ownership verification
+  - Only allows the creator/owner to access their parties
+
+- `update_party`: 
+  - Updates party details while maintaining type constraints
+  - Ensures updates comply with the existing partyType schema
+  - Prevents mixing of individual and organization fields
+
+- `delete_party`: 
+  - Removes parties after ownership verification
+  - Blocks deletion if the party is attached to any cases
+
+- `list_parties`: 
+  - Lists parties owned by the authenticated user
+  - Supports filtering by partyType
+
+### Case-Party Relationship (`cases.py`)
+- `attach_party_to_case`:
+  - Attaches an existing party to a case 
+  - Verifies case update permission
+  - Verifies party ownership
+  - Updates the case's attachedPartyIds array using ArrayUnion
+
+- `detach_party_from_case`:
+  - Removes a party from a case
+  - Verifies case update permission
+  - Updates the case's attachedPartyIds array using ArrayRemove
+
 ### Payment Processing (`payments.py`)
 - `create_payment_intent`: 
   - Creates Stripe payment intent based on case tier (1, 2, 3)
@@ -88,8 +125,10 @@ def check_permissions(request):
     """Check if a user can perform an action on a resource."""
     # Extract request data
     # Validate action type
-    # Check organization membership if applicable
-    # Verify role permissions or individual case ownership
+    # Handle different resource types:
+    # - Case: Check ownership or organization role permissions
+    # - Organization: Check membership and roles
+    # - Party: Verify ownership (only creator can read/update/delete)
     # Return permission status
 ```
 
@@ -124,6 +163,27 @@ def add_organization_member(request):
     # Check admin permissions
     # Create membership record
     # Return membership details
+```
+
+### Party Management
+```python
+def create_party(request):
+    """Create a new party with conditional field validation based on partyType."""
+    # Validate input data
+    # Check partyType constraints
+    # Create party document
+    # Return party details
+```
+
+### Case-Party Relationship
+```python
+def attach_party_to_case(request):
+    """Attach an existing party to a case."""
+    # Validate input
+    # Verify case update permission
+    # Verify party ownership
+    # Update case's attachedPartyIds array
+    # Return success message
 ```
 
 ## Error Handling

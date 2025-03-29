@@ -40,6 +40,15 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] Advanced search
 - [ ] Batch operations
 
+### Party Management
+- [x] Party schema implementation
+- [x] Individual party creation
+- [x] Organization party creation
+- [x] Party attachment to cases
+- [x] Party management API endpoints
+- [x] Party validation (CNP, CUI, RegCom)
+- [ ] Party search and filtering
+
 ### Chat Integration
 - [x] Vertex AI integration
 - [x] Prompt handling
@@ -129,6 +138,7 @@ This document tracks the implementation status of the Relex backend components.
 3. Set up comprehensive monitoring
 4. Implement rate limiting
 5. Add security headers
+6. Implement party management system
 
 ### Medium Priority
 1. Implement advanced search
