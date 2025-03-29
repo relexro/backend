@@ -1,94 +1,85 @@
 import functions_framework
 import logging
 import firebase_admin
-from firebase_admin import auth as firebase_auth_admin  # Renamed to avoid conflict
+from firebase_admin import auth as firebase_auth_admin
 from firebase_admin import firestore
 import flask
 from pydantic import BaseModel, ValidationError, field_validator, Field
 from typing import Dict, Set, Tuple, Any, Literal, Optional
 
-# Initialize logging
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Firebase Admin SDK (if not already initialized)
 try:
     firebase_admin.get_app()
 except ValueError:
-    # Use the application default credentials
     firebase_admin.initialize_app()
 
-# --- Constants and Configuration ---
-
-# Define roles
 ROLE_ADMIN = "administrator"
 ROLE_STAFF = "staff"
-ROLE_OWNER = "owner"  # Implicit role based on userId match
+ROLE_OWNER = "owner"
 
-# Define resource types
 TYPE_CASE = "case"
-TYPE_ORGANIZATION = "organization" 
+TYPE_ORGANIZATION = "organization"
 TYPE_PARTY = "party"
 TYPE_DOCUMENT = "document"
 
-# Define permissions mapping: resourceType -> role -> set(allowed_actions)
 PERMISSIONS: Dict[str, Dict[str, Set[str]]] = {
     TYPE_CASE: {
-        # Owner implicitly gets all relevant actions if they own the case
         ROLE_ADMIN: {
             "read", "update", "delete", "archive",
             "upload_file", "download_file",
             "attach_party", "detach_party",
-            "assign_case",  # Admin can assign any org case
+            "assign_case",
+            "create", # Added create permission
+            "list" # Added list permission
         },
         ROLE_STAFF: {
-            # Staff permissions are further restricted by assignment
             "read", "update",
             "upload_file", "download_file",
             "attach_party", "detach_party",
+            "create",
+            "list"
         },
-        ROLE_OWNER: {  # Actions owner can perform even if just Staff in org
+        ROLE_OWNER: {
             "read", "update", "delete", "archive",
             "upload_file", "download_file",
             "attach_party", "detach_party",
+            "create",
+            "list"
         }
     },
     TYPE_ORGANIZATION: {
-        # Actions performed on the organization itself
         ROLE_ADMIN: {
-            "read", "update", "delete",  # Org details
-            "manage_members",  # Add/remove/change roles
-            "create_case",  # Create a case belonging to this org
-            "list_cases",  # List cases belonging to this org
-            "assign_case",  # Assign org cases to staff
+            "read", "update", "delete",
+            "manage_members", "addUser", "setRole", "removeUser", "listUsers", # Consolidated member actions
+            "create_case",
+            "list_cases",
+            "assign_case",
         },
         ROLE_STAFF: {
-            "read",  # Read basic org details
+            "read",
             "create_case",
-            "list_cases",  # List cases (filtered by assignment later)
+            "list_cases",
+            "listUsers" # Allow staff to see other members
         },
-        # No owner concept for org actions, based on membership role
     },
     TYPE_PARTY: {
-        # Only owner has permissions for parties they created
-        ROLE_OWNER: {"read", "update", "delete"},
+        ROLE_OWNER: {"read", "update", "delete", "create", "list"}, # Added create/list for consistency
     },
     TYPE_DOCUMENT: {
-        # Document permissions are derived from case permissions
-        ROLE_ADMIN: {"read", "delete"},  # Requires corresponding case permission
-        ROLE_STAFF: {"read"},          # Requires corresponding case permission (and assignment)
-        ROLE_OWNER: {"read", "delete"},  # Requires corresponding case permission
+        ROLE_ADMIN: {"read", "delete"},
+        ROLE_STAFF: {"read"},
+        ROLE_OWNER: {"read", "delete"},
     }
 }
 
 VALID_RESOURCE_TYPES = set(PERMISSIONS.keys())
 
-# --- Input Validation Schema ---
-
 class PermissionCheckRequest(BaseModel):
-    resourceId: str
+    resourceId: Optional[str] = None # Made optional for creation/listing actions
     action: str
     resourceType: str
-    organizationId: Optional[str] = None  # Relevant for org cases/actions
+    organizationId: Optional[str] = None
 
     @field_validator('resourceType')
     @classmethod
@@ -97,14 +88,10 @@ class PermissionCheckRequest(BaseModel):
             raise ValueError(f"Invalid resourceType. Must be one of: {', '.join(VALID_RESOURCE_TYPES)}")
         return v
 
-# --- Firestore Interaction Helpers ---
-
 def _get_firestore_client() -> firestore.Client:
-    """Returns an initialized Firestore client."""
     return firestore.client()
 
 def get_document_data(db: firestore.Client, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
-    """Fetches a Firestore document safely."""
     try:
         doc_ref = db.collection(collection).document(doc_id)
         doc = doc_ref.get()
@@ -119,10 +106,8 @@ def get_document_data(db: firestore.Client, collection: str, doc_id: str) -> Opt
         raise
 
 def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Optional[Dict[str, Any]]:
-    """Fetches organization membership for a user."""
-    # TODO: Optimize with custom claims once implemented
     try:
-        query = db.collection("organization_memberships").where(
+        query = db.collection("organizationMembers").where( # Corrected collection name
             "organizationId", "==", org_id).where(
             "userId", "==", user_id).limit(1)
         memberships = list(query.stream())
@@ -136,42 +121,20 @@ def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Opti
         logging.error(f"Firestore error fetching membership for user {user_id} in org {org_id}: {e}", exc_info=True)
         raise
 
-# --- Authentication Helper ---
-
 def get_authenticated_user(request):
-    """Helper function to validate a user's authentication token and return user info.
-    
-    Args:
-        request (flask.Request): HTTP request object with Authorization header.
-        
-    Returns:
-        dict: User information if authenticated, None otherwise
-        int: HTTP status code
-        str: Error message (if any)
-    """
     try:
-        # Extract the Authorization header
         auth_header = request.headers.get('Authorization')
         if not auth_header:
             return None, 401, "No authorization token provided"
-        
-        # Check if the header starts with 'Bearer '
         if not auth_header.startswith('Bearer '):
             return None, 401, "Invalid authorization header format"
-        
-        # Extract the token
         token = auth_header.split('Bearer ')[1]
         if not token:
             return None, 401, "Empty token"
-        
-        # Verify the token
         try:
             decoded_token = firebase_auth_admin.verify_id_token(token)
-            
-            # Get user ID from the token
             user_id = decoded_token.get('uid')
             email = decoded_token.get('email', '')
-            
             logging.info(f"Successfully validated token for user: {user_id}")
             return {"userId": user_id, "email": email}, 200, None
         except firebase_auth_admin.InvalidIdTokenError as e:
@@ -184,137 +147,182 @@ def get_authenticated_user(request):
         except firebase_auth_admin.CertificateFetchError:
             return None, 401, "Certificate fetch error"
         except ValueError as e:
-            return None, 401, str(e)
+            # Handle potential errors during token decoding not caught by specific exceptions
+            logging.error(f"Token verification value error: {str(e)}")
+            return None, 401, f"Token verification error: {str(e)}"
     except Exception as e:
-        logging.error(f"Error validating user: {str(e)}")
+        logging.error(f"Error validating user: {str(e)}", exc_info=True)
         return None, 500, f"Failed to validate token: {str(e)}"
 
-# --- Permission Checking Logic ---
 
 def _is_action_allowed(
-    permissions_map: Dict[str, Set[str]],  # PERMISSIONS[resource_type]
+    permissions_map: Dict[str, Set[str]],
     role: str,
     action: str
 ) -> bool:
-    """Checks if a role has permission for a specific action."""
     allowed_actions = permissions_map.get(role, set())
     return action in allowed_actions
 
-def _check_case_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> bool:
-    """Checks permissions for 'case' resources."""
+def _check_case_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+    # Handle creation/listing first (no resourceId)
+    if req.action in ["create", "list"] and req.resourceType == TYPE_CASE:
+        if not req.organizationId: # Individual case creation/listing
+            logging.info(f"Individual Case: Owner {user_id} attempting action '{req.action}'. Allowed.")
+            return True, "" # User can always create/list their own individual cases
+
+        # Organization case creation/listing
+        membership = get_membership_data(db, user_id, req.organizationId)
+        user_role_in_org = membership.get("role") if membership else None
+        if not user_role_in_org:
+             return False, f"User {user_id} is not a member of organization {req.organizationId}."
+
+        allowed_by_role = _is_action_allowed(PERMISSIONS[TYPE_CASE], user_role_in_org, req.action)
+        if allowed_by_role:
+            logging.info(f"Org Case: User {user_id} (Role: {user_role_in_org}) allowed action '{req.action}' in org {req.organizationId}.")
+            return True, ""
+        else:
+            return False, f"User {user_id} (Role: {user_role_in_org}) does not have permission for action '{req.action}' on cases in org {req.organizationId}."
+
+    # --- Existing Resource Checks (Requires resourceId) ---
+    if not req.resourceId:
+         return False, "resourceId is required for this action."
+
     case_data = get_document_data(db, "cases", req.resourceId)
     if not case_data:
-        logging.warning(f"Permission denied: Case {req.resourceId} not found.")
-        return False
+        return False, f"Case {req.resourceId} not found."
 
     is_owner = case_data.get("userId") == user_id
-    case_org_id = case_data.get("organizationId")  # Can be None for individual cases
+    case_org_id = case_data.get("organizationId")
 
-    # 1. Check Individual Case Ownership (if orgId is None)
+    # 1. Individual Case (no orgId)
     if not case_org_id:
         if is_owner:
-            # Owner of individual case can perform party owner actions + upload/download
             allowed = _is_action_allowed(PERMISSIONS[TYPE_CASE], ROLE_OWNER, req.action)
-            logging.info(f"Individual Case: Owner {user_id} attempting action '{req.action}' on {req.resourceId}. Allowed: {allowed}")
-            return allowed
+            if allowed:
+                 return True, ""
+            else:
+                 return False, f"Action '{req.action}' not permitted for owner on individual case {req.resourceId}."
         else:
-            logging.info(f"Individual Case: User {user_id} is not owner of {req.resourceId}. Denied.")
-            return False  # Only owner can access individual cases
+            return False, f"User {user_id} is not the owner of individual case {req.resourceId}."
 
-    # 2. Check Organization Case Permissions (orgId is present)
+    # 2. Organization Case (has orgId)
     membership = get_membership_data(db, user_id, case_org_id)
     user_role_in_org = membership.get("role") if membership else None
 
-    # Owner check (even within an org context, owner might have specific rights)
+    # Check Owner permissions first (might override role limits)
     if is_owner:
-        allowed = _is_action_allowed(PERMISSIONS[TYPE_CASE], ROLE_OWNER, req.action)
-        if allowed:
+        owner_allowed = _is_action_allowed(PERMISSIONS[TYPE_CASE], ROLE_OWNER, req.action)
+        if owner_allowed:
             logging.info(f"Org Case: Owner {user_id} allowed action '{req.action}' on {req.resourceId}.")
-            return True
-        # If owner check fails, fall through to role check
+            return True, ""
 
-    # Role check (Admin / Staff)
+    # Check Role permissions
     if user_role_in_org:
-        allowed_by_role = _is_action_allowed(PERMISSIONS[TYPE_CASE], user_role_in_org, req.action)
+        role_allowed = _is_action_allowed(PERMISSIONS[TYPE_CASE], user_role_in_org, req.action)
 
-        # Additional check for Staff: Must be assigned to the case
-        if user_role_in_org == ROLE_STAFF and allowed_by_role:
-            assigned_user_id = case_data.get("assignedUserId")
-            is_assigned = assigned_user_id == user_id
-            if not is_assigned:
-                logging.info(f"Org Case: Staff {user_id} allowed action '{req.action}' by role, but not assigned to case {req.resourceId}. Denied.")
-                return False  # Staff not assigned, deny access
-            else:
-                logging.info(f"Org Case: Assigned Staff {user_id} allowed action '{req.action}' on {req.resourceId}.")
-                return True  # Staff assigned and action allowed by role
-        elif allowed_by_role:
-            # Admin doesn't need assignment check
-            logging.info(f"Org Case: User {user_id} (Role: {user_role_in_org}) allowed action '{req.action}' on {req.resourceId}.")
-            return True
-        else:
-            # Role doesn't grant permission
-            logging.info(f"Org Case: User {user_id} (Role: {user_role_in_org}) denied action '{req.action}' on {req.resourceId}.")
-            return False
-    else:
-        # User is not the owner and not a member of the organization
-        logging.info(f"Org Case: User {user_id} is not owner and not member of org {case_org_id} for case {req.resourceId}. Denied.")
-        return False
+        if not role_allowed:
+             return False, f"User {user_id} (Role: {user_role_in_org}) denied action '{req.action}' by role on org case {req.resourceId}."
 
-def _check_organization_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> bool:
-    """Checks permissions for 'organization' resources."""
-    org_id = req.resourceId  # For org resource, resourceId *is* the organizationId
+        # Additional check for Staff: Must be assigned (unless it's read/list)
+        if user_role_in_org == ROLE_STAFF and req.action not in ["read", "list", "create"]: # Allow reading/listing/creating assigned or unassigned
+             assigned_user_id = case_data.get("assignedUserId")
+             is_assigned = assigned_user_id == user_id
+             if not is_assigned:
+                 return False, f"Staff user {user_id} must be assigned to case {req.resourceId} for action '{req.action}'."
+             else:
+                 logging.info(f"Org Case: Assigned Staff {user_id} allowed action '{req.action}' on {req.resourceId}.")
+                 return True, "" # Staff assigned and action allowed
+
+        # Admin or other roles don't need assignment check if action is allowed by role
+        logging.info(f"Org Case: User {user_id} (Role: {user_role_in_org}) allowed action '{req.action}' on {req.resourceId}.")
+        return True, "" # Role grants permission
+
+    # User is not owner and not member
+    return False, f"User {user_id} is not owner or member of org {case_org_id} for case {req.resourceId}."
+
+
+def _check_organization_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+    org_id = req.resourceId if req.resourceId else req.organizationId # Use organizationId for create/list actions
+
+    if not org_id:
+        return False, "organizationId is required for this action."
 
     membership = get_membership_data(db, user_id, org_id)
     if not membership:
-        logging.info(f"Permission denied: User {user_id} is not a member of organization {org_id}.")
-        return False
+        return False, f"User {user_id} is not a member of organization {org_id}."
 
     user_role = membership.get("role")
     if not user_role:
-        logging.warning(f"User {user_id} is member of {org_id} but has no role assigned. Denying access.")
-        return False
+        logging.warning(f"User {user_id} in org {org_id} has no role. Denying.")
+        return False, f"User {user_id} has no role assigned in organization {org_id}."
 
-    allowed = _is_action_allowed(PERMISSIONS[TYPE_ORGANIZATION], user_role, req.action)
+    # Map potentially more granular user-facing actions to internal permission flags
+    action_map = {
+        "manage_members": ["addUser", "setRole", "removeUser", "listUsers"],
+         "addUser": ["manage_members"],
+         "setRole": ["manage_members"],
+         "removeUser": ["manage_members"],
+         "listUsers": ["manage_members", "read"], # Admins can manage, staff can read (view members)
+         "create_case": ["create_case"],
+         "list_cases": ["list_cases", "read"], # Staff can list cases if they can read org details
+         "assign_case": ["assign_case"],
+         "read": ["read"],
+         "update": ["update"],
+         "delete": ["delete"],
+    }
 
-    if allowed:
-        logging.info(f"User {user_id} (Role: {user_role}) allowed action '{req.action}' on organization {org_id}.")
+    required_permissions = action_map.get(req.action, [req.action]) # Default to action itself if not mapped
+
+    has_permission = False
+    for perm in required_permissions:
+        if _is_action_allowed(PERMISSIONS[TYPE_ORGANIZATION], user_role, perm):
+            has_permission = True
+            break # Found one required permission
+
+    if has_permission:
+        return True, ""
     else:
-        logging.warning(f"Permission denied: User {user_id} (Role: {user_role}) denied action '{req.action}' on organization {org_id}.")
+        return False, f"User {user_id} (Role: {user_role}) denied action '{req.action}' on organization {org_id}."
 
-    return allowed
 
-def _check_party_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> bool:
-    """Checks permissions for 'party' resources."""
+def _check_party_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+     # Handle creation/listing first (no resourceId)
+    if req.action in ["create", "list"] and req.resourceType == TYPE_PARTY:
+         # User can always create/list their own parties
+         return True, ""
+
+    # --- Existing Resource Checks (Requires resourceId) ---
+    if not req.resourceId:
+        return False, "resourceId is required for this action."
+
     party_data = get_document_data(db, "parties", req.resourceId)
     if not party_data:
-        logging.warning(f"Permission denied: Party {req.resourceId} not found.")
-        return False
+        return False, f"Party {req.resourceId} not found."
 
     is_owner = party_data.get("userId") == user_id
     allowed = is_owner and _is_action_allowed(PERMISSIONS[TYPE_PARTY], ROLE_OWNER, req.action)
 
     if allowed:
-        logging.info(f"User {user_id} is owner of party {req.resourceId}. Action '{req.action}' allowed.")
+        return True, ""
     elif is_owner:
-        logging.warning(f"User {user_id} is owner of party {req.resourceId}, but action '{req.action}' is invalid for resource type '{req.resourceType}'.")
+        return False, f"Action '{req.action}' is invalid for resource type '{req.resourceType}' even for the owner."
     else:
-        logging.info(f"Permission denied: User {user_id} is not the owner of party {req.resourceId}.")
+        return False, f"User {user_id} is not the owner of party {req.resourceId}."
 
-    return allowed
 
-def _check_document_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> bool:
-    """Checks permissions for 'document' resources by checking permissions on the parent case."""
+def _check_document_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+    if not req.resourceId:
+         return False, "resourceId is required for this action."
+
     document_data = get_document_data(db, "documents", req.resourceId)
     if not document_data:
-        logging.warning(f"Permission denied: Document {req.resourceId} not found.")
-        return False
+        return False, f"Document {req.resourceId} not found."
 
     case_id = document_data.get("caseId")
     if not case_id:
-        logging.error(f"Document {req.resourceId} has no associated caseId. Denying access.")
-        return False
+        logging.error(f"Document {req.resourceId} has no caseId. Denying.")
+        return False, "Document has no associated case ID."
 
-    # Map document action to required case action
     action_map = {
         "read": "read",
         "delete": "delete"
@@ -322,145 +330,156 @@ def _check_document_permissions(db: firestore.Client, user_id: str, req: Permiss
     required_case_action = action_map.get(req.action)
 
     if not required_case_action:
-        logging.warning(f"Action '{req.action}' on document type is not mapped to a case action. Denying.")
-        return False
+        return False, f"Action '{req.action}' on document type is not mapped to a case action."
 
-    # Create a modified request object to check permissions on the *case*
+    # Check permissions on the parent *case*
+    case_ref = db.collection("cases").document(case_id)
+    case_doc = case_ref.get()
+    if not case_doc.exists:
+        return False, f"Parent case {case_id} for document {req.resourceId} not found."
+
     case_permission_req = PermissionCheckRequest(
         resourceId=case_id,
         action=required_case_action,
-        resourceType=TYPE_CASE
+        resourceType=TYPE_CASE,
+        organizationId=case_doc.to_dict().get("organizationId") # Pass orgId for case check
     )
 
-    logging.info(f"Checking permission for document {req.resourceId} by checking action '{required_case_action}' on parent case {case_id}.")
+    logging.info(f"Checking doc perm by checking case perm: action='{required_case_action}' on case='{case_id}'")
     return _check_case_permissions(db, user_id, case_permission_req)
 
-# --- Main Permission Check Function ---
 
-@functions_framework.http
-def check_permissions(request):
-    """HTTP Cloud Function to check if a user can perform an action on a resource."""
-    logging.info("Received request to check permissions")
-    
+def check_permission(user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+    """Checks if a user has permission to perform an action. Returns (allowed, message)."""
+    permission_check_functions = {
+        TYPE_CASE: _check_case_permissions,
+        TYPE_ORGANIZATION: _check_organization_permissions,
+        TYPE_PARTY: _check_party_permissions,
+        TYPE_DOCUMENT: _check_document_permissions,
+    }
     try:
-        # Extract data from request
+        db = _get_firestore_client()
+        checker_func = permission_check_functions[req.resourceType]
+        allowed, message = checker_func(db=db, user_id=user_id, req=req)
+
+        log_message = (
+            f"Permission check result: "
+            f"userId={user_id}, resourceId={req.resourceId}, "
+            f"resourceType={req.resourceType}, action={req.action}, "
+            f"orgId={req.organizationId}, allowed={allowed}, message='{message}'"
+        )
+        logging.info(log_message)
+        return allowed, message
+    except KeyError:
+        msg = f"No permission checker configured for resource type '{req.resourceType}'."
+        logging.error(msg)
+        return False, msg
+    except Exception as e:
+        logging.error(f"Error during permission check: {e}", exc_info=True)
+        return False, f"An internal error occurred during permission check: {e}"
+
+
+# Note: This function is designed to be called by the main.py entry point
+# The main.py entry point handles the HTTP request/response and calls this logic.
+def check_permissions(request: flask.Request):
+    logging.info("Logic function check_permissions called")
+    try:
         data = request.get_json(silent=True)
         if not data:
-            logging.error("Bad Request: No JSON data provided")
             return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
-        
-        # Authenticate user
+
         user_data, status_code, error_message = get_authenticated_user(request)
         if status_code != 200:
             return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
-
         user_id = user_data["userId"]
-        
-        # Validate input data using Pydantic
+
         try:
-            # Add userId from token to request data - this ensures we check permissions
-            # for the authenticated user, not an arbitrary userId that could be passed
             req_data = PermissionCheckRequest.model_validate(data)
             logging.info(f"Validated permission check request for user {user_id}")
         except ValidationError as e:
             logging.error(f"Bad Request: Validation failed: {e}")
             return flask.jsonify({"error": "Bad Request", "message": "Validation Failed", "details": e.errors()}), 400
-        
-        # Map resource types to their permission check functions
-        permission_check_functions = {
-            TYPE_CASE: _check_case_permissions,
-            TYPE_ORGANIZATION: _check_organization_permissions,
-            TYPE_PARTY: _check_party_permissions,
-            TYPE_DOCUMENT: _check_document_permissions,
-        }
-        
-        # Execute permission check
-        try:
-            db = _get_firestore_client()
-            checker_func = permission_check_functions[req_data.resourceType]
-            
-            # Pass db client, authenticated user_id, and validated request data
-            allowed = checker_func(db=db, user_id=user_id, req=req_data)
-            
-            log_message = (
-                f"Permission check result: "
-                f"userId={user_id}, resourceId={req_data.resourceId}, "
-                f"resourceType={req_data.resourceType}, action={req_data.action}, "
-                f"orgId={req_data.organizationId}, allowed={allowed}"
-            )
-            logging.info(log_message)
-            return flask.jsonify({"allowed": allowed}), 200
-            
-        except KeyError:
-            # Should not happen due to Pydantic validation
-            logging.error(f"Internal Error: No permission checker for validated resource type '{req_data.resourceType}'.")
-            return flask.jsonify({"error": "Internal Server Error", "message": "Invalid resource type configuration"}), 500
+
+        allowed, message = check_permission(user_id=user_id, req=req_data)
+
+        return flask.jsonify({"allowed": allowed, "message": message}), 200
+
     except Exception as e:
-        logging.error(f"Error checking permissions: {str(e)}")
+        logging.error(f"Error checking permissions: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": "Failed to check permissions"}), 500
 
-# --- Other Auth Functions ---
 
-@functions_framework.http
-def validate_user(request):
-    """HTTP Cloud Function to validate a user's token."""
-    # Handle CORS preflight request
+# Note: This function is designed to be called by the main.py entry point
+def validate_user(request: flask.Request):
     if request.method == 'OPTIONS':
         headers = {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Max-Age': '3600'
         }
         return ('', 204, headers)
 
-    # Set CORS headers for the main request
-    headers = {
-        'Access-Control-Allow-Origin': '*'
-    }
-    
+    headers = {'Access-Control-Allow-Origin': '*'}
     user_data, status_code, error_message = get_authenticated_user(request)
+
     if status_code != 200:
         return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code, headers
-    
+
+    # Optionally fetch more user details from Firestore if needed
+    # db = _get_firestore_client()
+    # user_profile = get_document_data(db, "users", user_data["userId"])
+    # combined_data = {**user_data, **(user_profile or {})}
+
     return flask.jsonify(user_data), 200, headers
 
-@functions_framework.http
-def get_user_role(request):
-    """Retrieve a user's role in an organization."""
-    logging.info("Received request to get user role")
-    
+# Note: This function is designed to be called by the main.py entry point
+def get_user_role(request: flask.Request):
+    logging.info("Logic function get_user_role called")
     try:
-        # Extract data from request
         data = request.get_json(silent=True)
         if not data:
-            logging.error("Bad Request: No JSON data provided")
-            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
-        
-        # Validate required fields
-        if "userId" not in data:
-            logging.error("Bad Request: Missing userId")
-            return flask.jsonify({"error": "Bad Request", "message": "userId is required"}), 400
-        
-        if "organizationId" not in data:
-            logging.error("Bad Request: Missing organizationId")
+             return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
+
+        target_user_id = data.get("userId") # User whose role we want to check
+        organization_id = data.get("organizationId")
+
+        if not target_user_id:
+             return flask.jsonify({"error": "Bad Request", "message": "userId is required"}), 400
+        if not organization_id:
             return flask.jsonify({"error": "Bad Request", "message": "organizationId is required"}), 400
-        
-        # Extract fields
-        user_id = data["userId"]
-        organization_id = data["organizationId"]
-        
-        # Get the user's role in the organization
+
+        # Authenticate the *requesting* user
+        requesting_user_data, status_code, error_message = get_authenticated_user(request)
+        if status_code != 200:
+            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+        requesting_user_id = requesting_user_data["userId"]
+
+        # Check if requesting user has permission to view roles in this org
+        # (Unless they are checking their own role)
+        if requesting_user_id != target_user_id:
+             perm_check_req = PermissionCheckRequest(
+                 resourceType=TYPE_ORGANIZATION,
+                 resourceId=organization_id,
+                 action="listUsers", # If user can list users, they can see roles
+                 organizationId=organization_id
+             )
+             allowed, message = check_permission(requesting_user_id, perm_check_req)
+             if not allowed:
+                 logging.warning(f"User {requesting_user_id} tried to get role for {target_user_id} in org {organization_id} without permission.")
+                 # Return a less specific error to the client
+                 return flask.jsonify({"error": "Forbidden", "message": "Permission denied to view user roles for this organization."}), 403
+
+
         db = _get_firestore_client()
-        membership_data = get_membership_data(db, user_id, organization_id)
-        
+        membership_data = get_membership_data(db, target_user_id, organization_id)
+
         role = None
         if membership_data:
             role = membership_data.get("role")
-        
-        # Return the user's role
-        logging.info(f"Successfully retrieved role for user {user_id} in organization {organization_id}: {role}")
+
+        logging.info(f"Successfully retrieved role for user {target_user_id} in organization {organization_id}: {role}")
         return flask.jsonify({"role": role}), 200
     except Exception as e:
-        logging.error(f"Error getting user role: {e}")
-        return flask.jsonify({"error": "Internal Server Error", "message": "Failed to get user role"}), 500 
+        logging.error(f"Error getting user role: {e}", exc_info=True)
+        return flask.jsonify({"error": "Internal Server Error", "message": "Failed to get user role"}), 500

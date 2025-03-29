@@ -8,380 +8,253 @@ import datetime
 from google.cloud import aiplatform
 import google.auth
 import os
+from flask import Request
+from auth import get_authenticated_user, check_permission, PermissionCheckRequest, TYPE_CASE # Corrected import
 
-# Initialize logging
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Firebase Admin SDK (if not already initialized)
 try:
     firebase_admin.get_app()
 except ValueError:
-    # Use the application default credentials
     firebase_admin.initialize_app()
 
-@functions_framework.http
-def receive_prompt(request):
-    """Receive a prompt from the user.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to receive a prompt")
-    
+db = firestore.client()
+
+def receive_prompt(request: Request):
+    logging.info("Logic function receive_prompt called")
     try:
-        # Extract data from request
         data = request.get_json(silent=True)
         if not data:
-            logging.error("Bad Request: No JSON data provided")
             return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
-        
-        # Validate required fields
-        if "caseId" not in data:
-            logging.error("Bad Request: Missing caseId")
-            return ({"error": "Bad Request", "message": "caseId is required"}, 400)
-            
-        if not isinstance(data["caseId"], str):
-            logging.error("Bad Request: caseId must be a string")
-            return ({"error": "Bad Request", "message": "caseId must be a string"}, 400)
-            
-        if not data["caseId"].strip():
-            logging.error("Bad Request: caseId cannot be empty")
-            return ({"error": "Bad Request", "message": "caseId cannot be empty"}, 400)
-        
-        if "prompt" not in data:
-            logging.error("Bad Request: Missing prompt")
-            return ({"error": "Bad Request", "message": "prompt is required"}, 400)
-            
-        if not isinstance(data["prompt"], str):
-            logging.error("Bad Request: prompt must be a string")
-            return ({"error": "Bad Request", "message": "prompt must be a string"}, 400)
-            
-        if not data["prompt"].strip():
-            logging.error("Bad Request: prompt cannot be empty")
-            return ({"error": "Bad Request", "message": "prompt cannot be empty"}, 400)
-        
-        # Extract fields
-        case_id = data["caseId"].strip()
-        prompt = data["prompt"].strip()
-        
-        # Initialize Firestore client
-        db = firestore.client()
-        
-        # Verify the case exists
-        case_doc = db.collection("cases").document(case_id).get()
+
+        if not hasattr(request, 'user_id'):
+             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
+        user_id = request.user_id
+
+        case_id = data.get("caseId")
+        prompt_text = data.get("prompt")
+
+        if not case_id or not isinstance(case_id, str) or not case_id.strip():
+             return ({"error": "Bad Request", "message": "Valid caseId is required"}, 400)
+        if not prompt_text or not isinstance(prompt_text, str) or not prompt_text.strip():
+            return ({"error": "Bad Request", "message": "Valid prompt is required"}, 400)
+
+        case_ref = db.collection("cases").document(case_id)
+        case_doc = case_ref.get()
         if not case_doc.exists:
-            logging.error(f"Not Found: Case with ID {case_id} not found")
             return ({"error": "Not Found", "message": "Case not found"}, 404)
-        
-        # Generate a unique prompt ID
+
+        case_data = case_doc.to_dict()
+        permission_request = PermissionCheckRequest(
+            resourceType=TYPE_CASE,
+            resourceId=case_id,
+            action="update", # Sending a prompt implies updating the case conversation
+            organizationId=case_data.get("organizationId")
+        )
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
+            return ({"error": "Forbidden", "message": error_message}), 403
+
         prompt_id = str(uuid.uuid4())
-        
-        # Store the prompt in Firestore temporarily
-        prompt_ref = db.collection("cases").document(case_id).collection("prompts").document(prompt_id)
+        prompt_ref = case_ref.collection("prompts").document(prompt_id)
         prompt_data = {
-            "prompt": prompt,
-            "userId": "test-user",  # Placeholder until auth is implemented
+            "promptId": prompt_id,
+            "prompt": prompt_text.strip(),
+            "userId": user_id,
             "timestamp": firestore.SERVER_TIMESTAMP,
             "status": "received"
         }
         prompt_ref.set(prompt_data)
-        
-        # Return success response with prompt ID
-        logging.info(f"Prompt received for case {case_id} with ID {prompt_id}")
+
+        # Trigger enrichment and AI processing asynchronously?
+        # For now, just return prompt ID
+
         return ({"message": "Prompt received", "promptId": prompt_id}, 200)
     except Exception as e:
-        logging.error(f"Error receiving prompt: {str(e)}")
+        logging.error(f"Error receiving prompt: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "Failed to process prompt"}, 500)
 
-@functions_framework.http
-def enrich_prompt(request):
-    """Enrich the prompt with context before sending to Vertex AI.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to enrich a prompt with context")
-    
+
+def enrich_prompt(request: Request):
+    logging.info("Logic function enrich_prompt called")
     try:
-        # Extract data from request
         data = request.get_json(silent=True)
         if not data:
-            logging.error("Bad Request: No JSON data provided")
             return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
-        
-        # Validate required fields
-        if "prompt" not in data:
-            logging.error("Bad Request: Missing prompt")
-            return ({"error": "Bad Request", "message": "prompt is required"}, 400)
-            
-        if not isinstance(data["prompt"], str):
-            logging.error("Bad Request: prompt must be a string")
-            return ({"error": "Bad Request", "message": "prompt must be a string"}, 400)
-            
-        if not data["prompt"].strip():
-            logging.error("Bad Request: prompt cannot be empty")
-            return ({"error": "Bad Request", "message": "prompt cannot be empty"}, 400)
-        
-        # Extract fields
-        prompt = data["prompt"].strip()
+
+        # No user auth check needed if called internally? If called externally, add auth check.
+        # if not hasattr(request, 'user_id'):
+        #      return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
+        # user_id = request.user_id
+
+        prompt_text = data.get("prompt")
         case_id = data.get("caseId")
-        
-        # If no case ID provided, return the original prompt
-        if not case_id:
-            logging.info("No case ID provided, returning original prompt")
-            return ({"enrichedPrompt": prompt, "originalPrompt": prompt}, 200)
-        
-        # Initialize Firestore client
-        db = firestore.client()
-        
-        # Get the case document
-        case_doc = db.collection("cases").document(case_id).get()
-        
-        # If case doesn't exist, return the original prompt
-        if not case_doc.exists:
-            logging.warning(f"Case with ID {case_id} not found, returning original prompt")
-            return ({"enrichedPrompt": prompt, "originalPrompt": prompt}, 200)
-        
-        # Extract case data
-        case_data = case_doc.to_dict()
-        
-        # Build context from case data
-        context = []
-        context.append(f"Case ID: {case_id}")
-        
-        if "title" in case_data:
-            context.append(f"Title: {case_data['title']}")
-        
-        if "description" in case_data:
-            context.append(f"Description: {case_data['description']}")
-        
-        if "status" in case_data:
-            context.append(f"Status: {case_data['status']}")
-        
-        # Get most recent documents (up to 3)
-        try:
-            docs_query = db.collection("documents").where("caseId", "==", case_id).order_by("uploadDate", direction=firestore.Query.DESCENDING).limit(3).get()
-            if docs_query:
-                doc_names = [doc.to_dict().get("originalFilename", "Unknown file") for doc in docs_query]
-                if doc_names:
-                    context.append(f"Recent documents: {', '.join(doc_names)}")
-        except Exception as e:
-            logging.warning(f"Error fetching documents for case {case_id}: {str(e)}")
-        
-        # Get most recent messages (up to 5)
-        try:
-            messages_query = db.collection("cases").document(case_id).collection("messages").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(5).get()
-            if messages_query:
-                recent_messages = []
-                for msg in messages_query:
-                    msg_data = msg.to_dict()
-                    if "content" in msg_data and "sender" in msg_data:
-                        recent_messages.append(f"{msg_data['sender']}: {msg_data['content']}")
-                
-                if recent_messages:
-                    context.append("Recent messages:")
-                    context.extend(recent_messages)
-        except Exception as e:
-            logging.warning(f"Error fetching messages for case {case_id}: {str(e)}")
-        
-        # Combine context and prompt
-        context_str = "\n".join(context)
-        enriched_prompt = f"Context:\n{context_str}\n\nUser query: {prompt}"
-        
-        # Return the enriched prompt
-        logging.info(f"Successfully enriched prompt for case {case_id}")
-        return ({"enrichedPrompt": enriched_prompt, "originalPrompt": prompt}, 200)
+
+        if not prompt_text or not isinstance(prompt_text, str) or not prompt_text.strip():
+            return ({"error": "Bad Request", "message": "Valid prompt is required"}, 400)
+        if case_id and (not isinstance(case_id, str) or not case_id.strip()):
+             return ({"error": "Bad Request", "message": "caseId must be a non-empty string if provided"}, 400)
+
+        enriched_prompt_text = prompt_text # Start with original
+
+        if case_id:
+            case_doc = db.collection("cases").document(case_id).get()
+            if case_doc.exists:
+                case_data = case_doc.to_dict()
+                context = []
+                context.append(f"Case ID: {case_id}")
+                if "title" in case_data: context.append(f"Title: {case_data['title']}")
+                if "description" in case_data: context.append(f"Description: {case_data['description']}")
+                if "status" in case_data: context.append(f"Status: {case_data['status']}")
+
+                # Fetch recent documents (limit 3)
+                try:
+                    docs_query = db.collection("documents").where("caseId", "==", case_id).order_by("uploadDate", direction=firestore.Query.DESCENDING).limit(3).stream()
+                    doc_names = [doc.to_dict().get("originalFilename", "file") for doc in docs_query]
+                    if doc_names: context.append(f"Recent docs: {', '.join(doc_names)}")
+                except Exception as e:
+                    logging.warning(f"Error fetching docs for case {case_id}: {e}")
+
+                # Fetch recent messages (limit 5, consider sender/receiver)
+                try:
+                    msg_query = db.collection("cases").document(case_id).collection("conversations").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(5).stream()
+                    recent_msgs = []
+                    for msg in reversed(list(msg_query)): # Reverse to get chronological order
+                         msg_data = msg.to_dict()
+                         sender = "User" if msg_data.get("userId") else "AI" # Adjust based on actual structure
+                         content = msg_data.get("prompt") or msg_data.get("response") # Get relevant content
+                         if content: recent_msgs.append(f"{sender}: {content}")
+                    if recent_msgs:
+                         context.append("\nRecent Conversation:")
+                         context.extend(recent_msgs)
+                except Exception as e:
+                     logging.warning(f"Error fetching messages for case {case_id}: {e}")
+
+                context_str = "\n".join(context)
+                enriched_prompt_text = f"Context:\n---\n{context_str}\n---\n\nUser query: {prompt_text}"
+            else:
+                 logging.warning(f"Case {case_id} not found for enrichment.")
+
+        return ({"enrichedPrompt": enriched_prompt_text, "originalPrompt": prompt_text}, 200)
     except Exception as e:
-        logging.error(f"Error enriching prompt: {str(e)}")
+        logging.error(f"Error enriching prompt: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "Failed to enrich prompt"}, 500)
 
-@functions_framework.http
-def send_to_vertex_ai(request):
-    """Send prompt to Vertex AI Conversational Agent.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to send prompt to Vertex AI")
-    
-    try:
-        # Extract data from request
-        data = request.get_json(silent=True)
-        if not data:
-            logging.error("Bad Request: No JSON data provided")
-            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
-        
-        # Validate required fields
-        if "promptId" not in data:
-            logging.error("Bad Request: Missing promptId")
-            return ({"error": "Bad Request", "message": "promptId is required"}, 400)
-            
-        if not isinstance(data["promptId"], str):
-            logging.error("Bad Request: promptId must be a string")
-            return ({"error": "Bad Request", "message": "promptId must be a string"}, 400)
-            
-        if not data["promptId"].strip():
-            logging.error("Bad Request: promptId cannot be empty")
-            return ({"error": "Bad Request", "message": "promptId cannot be empty"}, 400)
-        
-        if "prompt" not in data:
-            logging.error("Bad Request: Missing prompt")
-            return ({"error": "Bad Request", "message": "prompt is required"}, 400)
-            
-        if not isinstance(data["prompt"], str):
-            logging.error("Bad Request: prompt must be a string")
-            return ({"error": "Bad Request", "message": "prompt must be a string"}, 400)
-            
-        if not data["prompt"].strip():
-            logging.error("Bad Request: prompt cannot be empty")
-            return ({"error": "Bad Request", "message": "prompt cannot be empty"}, 400)
-        
-        if "caseId" not in data:
-            logging.error("Bad Request: Missing caseId")
-            return ({"error": "Bad Request", "message": "caseId is required"}, 400)
-        
-        # Extract fields
-        prompt_id = data["promptId"].strip()
-        prompt = data["prompt"].strip()
-        case_id = data["caseId"].strip()
-        
-        # Initialize Vertex AI
-        try:
-            # Initialize Vertex AI client
-            # Get default project from credentials
-            credentials, project_id = google.auth.default()
-            # Override project_id with explicitly set value (relexro)
-            project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "relexro")
-            location = os.environ.get("GOOGLE_CLOUD_REGION", "europe-west3")
-            
-            logging.info(f"Initializing Vertex AI client with project={project_id}, location={location}")
-            
-            # Initialize Vertex AI API client
-            aiplatform.init(project=project_id, location=location)
-            
-            # For demo purposes, we'll return a mock response
-            # In production, we'd actually call the Vertex AI API using:
-            # endpoint = aiplatform.Endpoint("your-endpoint-id")
-            # response = endpoint.predict(instances=[prompt])
-            
-            # Mock Vertex AI response for testing
-            ai_response = f"This is a mock response from Vertex AI in response to: '{prompt}'. In a real implementation, this would be from the actual Vertex AI service. As you continue building this module, you'll integrate with a specific Vertex AI model endpoint."
-            
-            # Update prompt status in Firestore
-            db = firestore.client()
-            prompt_ref = db.collection("cases").document(case_id).collection("prompts").document(prompt_id)
-            prompt_ref.update({
-                "status": "processed",
-                "responseTimestamp": firestore.SERVER_TIMESTAMP
-            })
-            
-            # Return the response
-            logging.info(f"Successfully processed prompt {prompt_id} with Vertex AI")
-            return ({"response": ai_response}, 200)
-        except Exception as e:
-            logging.error(f"Error processing prompt with Vertex AI: {str(e)}")
-            return ({"error": "Internal Server Error", "message": f"Failed to process prompt with Vertex AI: {str(e)}"}, 500)
-    except Exception as e:
-        logging.error(f"Error sending prompt to Vertex AI: {str(e)}")
-        return ({"error": "Internal Server Error", "message": "Failed to send prompt to Vertex AI"}, 500)
 
-@functions_framework.http
-def store_conversation(request):
-    """Store the conversation in Firestore.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to store conversation")
-    
+def send_to_vertex_ai(request: Request):
+    logging.info("Logic function send_to_vertex_ai called")
     try:
-        # Extract data from request
         data = request.get_json(silent=True)
         if not data:
-            logging.error("Bad Request: No JSON data provided")
             return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
-        
-        # Validate required fields
-        if "caseId" not in data:
-            logging.error("Bad Request: Missing caseId")
-            return ({"error": "Bad Request", "message": "caseId is required"}, 400)
-            
-        if not isinstance(data["caseId"], str):
-            logging.error("Bad Request: caseId must be a string")
-            return ({"error": "Bad Request", "message": "caseId must be a string"}, 400)
-            
-        if not data["caseId"].strip():
-            logging.error("Bad Request: caseId cannot be empty")
-            return ({"error": "Bad Request", "message": "caseId cannot be empty"}, 400)
-        
-        if "promptId" not in data:
-            logging.error("Bad Request: Missing promptId")
-            return ({"error": "Bad Request", "message": "promptId is required"}, 400)
-            
-        if not isinstance(data["promptId"], str):
-            logging.error("Bad Request: promptId must be a string")
-            return ({"error": "Bad Request", "message": "promptId must be a string"}, 400)
-            
-        if not data["promptId"].strip():
-            logging.error("Bad Request: promptId cannot be empty")
-            return ({"error": "Bad Request", "message": "promptId cannot be empty"}, 400)
-        
-        if "prompt" not in data:
-            logging.error("Bad Request: Missing prompt")
-            return ({"error": "Bad Request", "message": "prompt is required"}, 400)
-            
-        if not isinstance(data["prompt"], str):
-            logging.error("Bad Request: prompt must be a string")
-            return ({"error": "Bad Request", "message": "prompt must be a string"}, 400)
-        
-        if "response" not in data:
-            logging.error("Bad Request: Missing response")
-            return ({"error": "Bad Request", "message": "response is required"}, 400)
-            
-        if not isinstance(data["response"], str):
-            logging.error("Bad Request: response must be a string")
-            return ({"error": "Bad Request", "message": "response must be a string"}, 400)
-        
-        # Extract fields
-        case_id = data["caseId"].strip()
-        prompt_id = data["promptId"].strip()
-        prompt = data["prompt"]
-        response = data["response"]
-        
-        # Initialize Firestore client
-        db = firestore.client()
-        
-        # Verify the case exists
-        case_doc = db.collection("cases").document(case_id).get()
-        if not case_doc.exists:
-            logging.error(f"Not Found: Case with ID {case_id} not found")
+
+        # No user auth check needed if called internally? If called externally, add auth check.
+
+        prompt_id = data.get("promptId")
+        prompt_text = data.get("prompt") # Expecting enriched prompt here
+        case_id = data.get("caseId")
+
+        if not prompt_id or not isinstance(prompt_id, str) or not prompt_id.strip():
+             return ({"error": "Bad Request", "message": "Valid promptId is required"}, 400)
+        if not prompt_text or not isinstance(prompt_text, str) or not prompt_text.strip():
+             return ({"error": "Bad Request", "message": "Valid prompt is required"}, 400)
+        if not case_id or not isinstance(case_id, str) or not case_id.strip():
+             return ({"error": "Bad Request", "message": "Valid caseId is required"}, 400)
+
+        try:
+            credentials, default_project_id = google.auth.default()
+            project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", default_project_id)
+            location = os.environ.get("GOOGLE_CLOUD_REGION", "europe-west3")
+            endpoint_id = os.environ.get("VERTEX_AI_ENDPOINT_ID") # Needs to be configured
+
+            if not project_id or not location or not endpoint_id:
+                 logging.error("Vertex AI configuration (Project, Location, Endpoint ID) missing.")
+                 return ({"error": "Configuration Error", "message": "Vertex AI not configured"}, 500)
+
+            logging.info(f"Sending to Vertex AI: Project={project_id}, Location={location}, Endpoint={endpoint_id}")
+            aiplatform.init(project=project_id, location=location, credentials=credentials)
+
+            # TODO: Replace with actual Vertex AI endpoint call structure
+            # This likely involves creating an Endpoint instance and calling predict
+            # endpoint = aiplatform.Endpoint(endpoint_name=endpoint_id)
+            # Example payload structure (adjust based on your model)
+            # instances = [{"prompt": prompt_text}]
+            # prediction = endpoint.predict(instances=instances)
+            # ai_response_content = prediction.predictions[0]['content'] # Adjust based on actual response structure
+
+            # --- Mock Response ---
+            ai_response_content = f"Mock Vertex AI response for prompt: '{prompt_text[:100]}...'"
+            logging.warning("Using Mock Vertex AI response!")
+            # --- End Mock Response ---
+
+            # Update prompt status in Firestore (consider doing this after storing conversation)
+            # prompt_ref = db.collection("cases").document(case_id).collection("prompts").document(prompt_id)
+            # prompt_ref.update({"status": "processed", "responseTimestamp": firestore.SERVER_TIMESTAMP})
+
+            return ({"response": ai_response_content, "promptId": prompt_id, "caseId": case_id }, 200)
+        except Exception as e:
+            logging.error(f"Vertex AI interaction error: {str(e)}", exc_info=True)
+            return ({"error": "Vertex AI Error", "message": f"Failed to get response from Vertex AI: {str(e)}"}, 500)
+
+    except Exception as e:
+        logging.error(f"Error sending to Vertex AI: {str(e)}", exc_info=True)
+        return ({"error": "Internal Server Error", "message": "Failed to process request"}, 500)
+
+
+def store_conversation(request: Request):
+    logging.info("Logic function store_conversation called")
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
+
+        # Auth check: Should the user who initiated the prompt be the one storing it?
+        if not hasattr(request, 'user_id'):
+             # If called internally without auth context, get user_id from data? Less secure.
+             user_id = data.get("userId")
+             if not user_id:
+                  return {"error": "Bad Request", "message": "userId missing in request body (or auth failed)"}, 400
+        else:
+             user_id = request.user_id
+
+        case_id = data.get("caseId")
+        prompt_id = data.get("promptId")
+        prompt_text = data.get("prompt") # Original or enriched prompt? Store original?
+        response_text = data.get("response")
+
+        if not case_id or not isinstance(case_id, str) or not case_id.strip():
+             return ({"error": "Bad Request", "message": "Valid caseId is required"}, 400)
+        if not prompt_id or not isinstance(prompt_id, str) or not prompt_id.strip():
+             return ({"error": "Bad Request", "message": "Valid promptId is required"}, 400)
+        if not prompt_text or not isinstance(prompt_text, str): # Allow empty prompt?
+             return ({"error": "Bad Request", "message": "Valid prompt is required"}, 400)
+        if not response_text or not isinstance(response_text, str): # Allow empty response?
+            return ({"error": "Bad Request", "message": "Valid response is required"}, 400)
+
+        case_ref = db.collection("cases").document(case_id)
+        if not case_ref.get().exists:
             return ({"error": "Not Found", "message": "Case not found"}, 404)
-        
-        # Store the conversation in a conversations subcollection
-        conversation_ref = db.collection("cases").document(case_id).collection("conversations").document(prompt_id)
+
+        # Use prompt_id as the document ID for the conversation turn
+        conversation_ref = case_ref.collection("conversations").document(prompt_id)
+
+        # Consider storing original prompt from prompt collection if needed
+        # prompt_doc = case_ref.collection("prompts").document(prompt_id).get()
+        # original_prompt = prompt_doc.to_dict().get("prompt") if prompt_doc.exists else prompt_text
+
         conversation_data = {
-            "prompt": prompt,
-            "response": response,
+            "promptId": prompt_id,
+            "prompt": prompt_text, # Storing the prompt text received by this function
+            "response": response_text,
             "timestamp": firestore.SERVER_TIMESTAMP,
-            "userId": "test-user"  # Placeholder until auth is implemented
+            "userId": user_id # User who initiated the prompt
         }
         conversation_ref.set(conversation_data)
-        
-        # Return success response
-        logging.info(f"Conversation stored for case {case_id} with prompt ID {prompt_id}")
-        return ({"message": "Conversation stored"}, 200)
+
+        # Optionally update case's updatedAt timestamp
+        case_ref.update({"updatedAt": firestore.SERVER_TIMESTAMP})
+
+        return ({"message": "Conversation stored", "conversationId": prompt_id}, 200)
     except Exception as e:
-        logging.error(f"Error storing conversation: {str(e)}")
-        return ({"error": "Internal Server Error", "message": "Failed to store conversation"}, 500) 
+        logging.error(f"Error storing conversation: {str(e)}", exc_info=True)
+        return ({"error": "Internal Server Error", "message": "Failed to store conversation"}, 500)
