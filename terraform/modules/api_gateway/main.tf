@@ -1,15 +1,15 @@
 # Create the API Gateway service account
-resource "google_service_account" "api_gateway" {
-  account_id   = "api-gateway-sa"
-  display_name = "API Gateway Service Account"
-  
-  lifecycle {
-    ignore_changes = [
-      display_name,
-      description
-    ]
-  }
-}
+# resource "google_service_account" "api_gateway" {
+#   account_id   = "api-gateway-sa"
+#   display_name = "API Gateway Service Account"
+#   
+#   lifecycle {
+#     ignore_changes = [
+#       display_name,
+#       description
+#     ]
+#   }
+# }
 
 # Create the API resource
 resource "google_api_gateway_api" "api" {
@@ -59,7 +59,7 @@ resource "google_api_gateway_api_config" "api_config" {
 
   gateway_config {
     backend_config {
-      google_service_account = google_service_account.api_gateway.email
+      google_service_account = var.api_gateway_sa_email
     }
   }
 

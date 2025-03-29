@@ -87,4 +87,10 @@ variable "stripe_webhook_secret" {
   type        = string
   sensitive   = true
   # Will use TF_VAR_stripe_webhook_secret environment variable
+}
+
+variable "project_number" {
+  description = "The Google Cloud project number"
+  type        = string
+  default     = "49787884280"
 } 

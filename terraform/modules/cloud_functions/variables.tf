@@ -1,40 +1,47 @@
 variable "project_id" {
-  description = "The Google Cloud project ID"
+  description = "The Google Cloud project ID."
   type        = string
 }
 
 variable "region" {
-  description = "The region for resources deployment"
-  type        = string
-}
-
-variable "functions_bucket_name" {
-  description = "Name of the bucket for function source code"
+  description = "The Google Cloud region for resources."
   type        = string
 }
 
 variable "functions_source_path" {
-  description = "Path to the directory containing the Cloud Functions source code"
+  description = "The local path to the directory containing Cloud Functions source code."
   type        = string
+  default     = "../functions/src" # Default relative path
 }
 
 variable "functions_zip_path" {
-  description = "Path to the zip file containing the Cloud Functions source code"
+  description = "The temporary local path where the functions source code ZIP file will be created."
+  type        = string
+  default     = "/tmp/functions-source.zip"
+}
+
+variable "functions_bucket_name" {
+  description = "The name of the GCS bucket used to store the functions source code ZIP."
+  type        = string
+}
+
+variable "functions_service_account_email" {
+  description = "The email address of the dedicated service account to run the functions as."
   type        = string
 }
 
 variable "api_gateway_sa_email" {
-  description = "Email of the API Gateway service account"
+  description = "The email address of the service account used by API Gateway."
   type        = string
 }
 
-variable "stripe_secret_key" {
-  description = "Stripe secret key"
+variable "stripe_secret_key_name" {
+  description = "The name (secret_id) of the Stripe secret key in Secret Manager."
   type        = string
 }
 
-variable "stripe_webhook_secret" {
-  description = "Stripe webhook secret"
+variable "stripe_webhook_secret_name" {
+  description = "The name (secret_id) of the Stripe webhook secret in Secret Manager."
   type        = string
 }
 

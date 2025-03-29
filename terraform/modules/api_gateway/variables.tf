@@ -1,12 +1,11 @@
 variable "project_id" {
-  description = "The Google Cloud project ID"
+  description = "The project ID to deploy to"
   type        = string
 }
 
 variable "region" {
-  description = "The region where resources will be created"
+  description = "The region to deploy to"
   type        = string
-  default     = "europe-west1"
 }
 
 variable "openapi_spec_path" {
@@ -17,4 +16,9 @@ variable "openapi_spec_path" {
 variable "function_uris" {
   description = "Map of function names to their URIs"
   type        = map(string)
+}
+
+variable "api_gateway_sa_email" {
+  description = "Email of the API Gateway service account"
+  type        = string
 } 

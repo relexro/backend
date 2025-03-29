@@ -11,45 +11,28 @@ resource "google_firebase_web_app" "default" {
   depends_on   = [google_firebase_project.default]
 }
 
-# Firestore Security Rules Deployment
-resource "random_id" "ruleset_suffix" {
-  byte_length = 4
-  keepers = {
-    # Generate a new ID when the rules file changes
-    rules_hash = filemd5("${path.module}/rules/firestore.rules")
-  }
+locals {
+  firestore_rules = file("${path.module}/rules/firestore.rules")
 }
 
+# Firestore Security Rules Deployment
 resource "google_firebaserules_ruleset" "rules" {
   provider = google-beta
   project  = var.project_id
-  
   source {
     files {
-      # Use consistent naming without any suffix or variables
-      name    = "firestore.rules" 
-      content = file("${path.module}/rules/firestore.rules")
+      content = local.firestore_rules
+      name    = "firestore.rules"
     }
   }
-  
-  # Ensure Firebase is fully initialized
   depends_on = [google_firebase_project.default]
-  
-  # Add lifecycle to prevent recreation unless content changes
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 # Release the ruleset for Firestore
 resource "google_firebaserules_release" "firestore" {
   provider     = google-beta
   project      = var.project_id
-  name         = "cloud.firestore"  # Must be cloud.firestore for Firestore rules
+  name         = "cloud.firestore"
   ruleset_name = google_firebaserules_ruleset.rules.name
   depends_on   = [google_firebaserules_ruleset.rules]
-  
-  lifecycle {
-    create_before_destroy = true
-  }
 } 
