@@ -4,6 +4,11 @@ from datetime import datetime
 import re
 import json
 from flask import Request, jsonify
+import flask
+import logging
+import uuid
+import google.cloud.firestore
+from auth import check_permission, PermissionCheckRequest, RESOURCE_TYPE_PARTY
 
 # Get Firestore client
 db = firestore.client()
@@ -36,6 +41,20 @@ def create_party(request: Request):
         
         if party_type not in ["individual", "organization"]:
             return {"error": "Bad Request", "message": "partyType must be 'individual' or 'organization'"}, 400
+        
+        # Check if user has permission to create a party in the organization
+        organization_id = request_data.get("organizationId")
+        if organization_id:
+            permission_request = PermissionCheckRequest(
+                resourceType=RESOURCE_TYPE_PARTY,
+                resourceId=None,  # No specific resource ID for creation
+                action="create",
+                organizationId=organization_id
+            )
+            
+            has_permission, error_message = check_permission(user["userId"], permission_request)
+            if not has_permission:
+                return {"error": "Forbidden", "message": error_message}, 403
         
         # Initialize data structure
         party_data = {

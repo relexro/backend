@@ -68,6 +68,7 @@ The Relex backend implements a comprehensive role-based permission system that c
 2. **Role-Based Access Control**: Organization access is determined by user roles
 3. **Least Privilege**: Users are granted only the permissions necessary for their role
 4. **Individual Ownership**: Users have full control over their individual cases
+5. **Resource-Specific Permissions**: Each resource type has dedicated permission logic
 
 ### User Roles
 
@@ -82,8 +83,8 @@ The system defines the following roles within organizations:
 
 2. **Staff**
    - Can create cases for the organization
-   - Can view all cases within the organization
-   - Can upload files to organization cases
+   - Can view cases they're explicitly assigned to
+   - Can update and upload files to assigned cases
    - Cannot archive or delete organization cases (unless they are the case owner)
    - Cannot manage organization settings or members
 
@@ -93,6 +94,59 @@ The system defines the following roles within organizations:
    - Has additional permissions for organization cases they created
    - Can archive or delete their own cases regardless of organization role
 
+### Centralized Permission Definitions
+
+The permission model uses a centralized permissions map that defines allowed actions for each role and resource type:
+
+```python
+PERMISSIONS = {
+    "case": {
+        "administrator": {"read", "update", "delete", "archive", "upload_file", 
+                         "download_file", "attach_party", "detach_party", "assign_case"},
+        "staff": {"read", "update", "upload_file", "download_file", 
+                 "attach_party", "detach_party"},
+        "owner": {"read", "update", "delete", "archive", "upload_file", 
+                 "download_file", "attach_party", "detach_party"}
+    },
+    "organization": {
+        "administrator": {"read", "update", "delete", "manage_members", 
+                         "create_case", "list_cases", "assign_case"},
+        "staff": {"read", "create_case", "list_cases"}
+    },
+    "party": {
+        "owner": {"read", "update", "delete"}
+    },
+    "document": {
+        "administrator": {"read", "delete"},
+        "staff": {"read"},
+        "owner": {"read", "delete"}
+    }
+}
+```
+
+### Resource-Specific Permission Checkers
+
+The system implements modular, resource-specific permission checkers:
+
+1. **Case Permissions**:
+   - Checks for individual case ownership
+   - For organization cases, checks membership role
+   - For staff members, verifies case assignment
+   - Owners have full permissions on their own cases
+
+2. **Organization Permissions**:
+   - Checks user membership and role
+   - Administrators have full permissions
+   - Staff have limited read/create permissions
+
+3. **Party Permissions**:
+   - Only the creator/owner can manage their parties
+   - Strict ownership model
+
+4. **Document Permissions**:
+   - Maps document actions to parent case permissions
+   - Access to documents is controlled through case access
+
 ### Permission Implementation
 
 The permission model is implemented through the `check_permissions` function in the `auth.py` module. This function verifies that the authenticated user has the necessary permissions to perform the requested action.
@@ -100,26 +154,24 @@ The permission model is implemented through the `check_permissions` function in 
 The permission checks follow this process:
 
 1. Authenticate the user making the request
-2. Determine the resource type (case, file, organization)
-3. For organization resources:
-   - Check the user's role within the organization
-   - Verify if the action is permitted based on the role
-4. For individual cases:
-   - Verify case ownership
-5. Allow or deny the request accordingly
+2. Validate the request data using Pydantic
+3. Determine the resource type (case, organization, party, document)
+4. Dispatch to the appropriate resource-specific checker
+5. The resource checker performs relevant database lookups
+6. Allow or deny the request based on role, ownership, and assignment (for staff)
 
 For cases and files, the following permissions apply:
 
-| Action | Administrator | Staff | Case Owner | Individual Owner |
-|--------|---------------|-------|------------|------------------|
-| Create Case | ✅ | ✅ | N/A | ✅ |
-| Read Case | ✅ | ✅ | ✅ | ✅ |
-| Update Case | ✅ | ❌ | ✅ | ✅ |
-| Archive Case | ✅ | ❌ | ✅ | ✅ |
-| Delete Case | ✅ | ❌ | ✅ | ✅ |
-| Upload File | ✅ | ✅ | ✅ | ✅ |
-| Download File | ✅ | ✅ | ✅ | ✅ |
-| List Cases | ✅ | ✅ | ✅ | ✅ |
+| Action | Administrator | Staff (Assigned) | Staff (Unassigned) | Case Owner | Individual Owner |
+|--------|---------------|------------------|-------------------|------------|------------------|
+| Create Case | ✅ | ✅ | ✅ | N/A | ✅ |
+| Read Case | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Update Case | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Archive Case | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Delete Case | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Upload File | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Download File | ✅ | ✅ | ❌ | ✅ | ✅ |
+| List Cases | ✅ | ✅ (Only assigned) | ✅ (Only assigned) | ✅ | ✅ |
 
 ## Data Model
 
@@ -147,6 +199,7 @@ For cases and files, the following permissions apply:
    - Case metadata (title, description)
    - Created by user reference
    - Optional organization reference
+   - Optional assignedUserId (for staff assignment)
    - Case tier and price information
    - Status (open, archived, deleted)
    - Payment status and payment intent ID
@@ -285,9 +338,10 @@ The system implements several security measures:
 
 1. **Authentication**: All API endpoints require valid authentication
 2. **Authorization**: Role-based access control for all operations
-3. **Data Validation**: Input validation for all API calls
+3. **Data Validation**: Input validation for all API calls with Pydantic
 4. **Secure Storage**: Encrypted storage for files and sensitive data
 5. **Logging**: Comprehensive logging for security audits
+6. **Staff Assignment Checks**: Verification that staff only access assigned cases
 
 ## Conclusion
 

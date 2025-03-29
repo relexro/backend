@@ -7,7 +7,7 @@ import json
 import os
 import uuid
 import datetime
-from auth import get_authenticated_user
+from auth import get_authenticated_user, check_permission, PermissionCheckRequest, RESOURCE_TYPE_CASE
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -110,20 +110,17 @@ def create_case(request):
                 return ({"error": "Bad Request", "message": "Organization ID must be a non-empty string"}, 400)
             
             # Check if user has permission to create a case for this organization
-            permission_check = {
-                "userId": user_id,
-                "resourceId": organization_id,
-                "action": "create_case",
-                "resourceType": "organization"
-            }
+            permission_request = PermissionCheckRequest(
+                resourceType=RESOURCE_TYPE_CASE,
+                resourceId=None,  # No specific resource ID for creation
+                action="create",
+                organizationId=organization_id
+            )
             
-            # Call check_permissions function
-            from auth import check_permissions as check_permissions_func
-            permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-            
-            if permission_status != 200 or not permission_response.get("allowed", False):
+            has_permission, error_message = check_permission(user_id, permission_request)
+            if not has_permission:
                 logging.error(f"Forbidden: User {user_id} does not have permission to create a case for organization {organization_id}")
-                return ({"error": "Forbidden", "message": "You do not have permission to create a case for this organization"}, 403)
+                return ({"error": "Forbidden", "message": error_message}), 403
                 
         # Determine if we should check subscription for organization or user
         if organization_id:
@@ -380,6 +377,19 @@ def get_case(request):
         case_data = case_doc.to_dict()
         case_data["caseId"] = case_id
         
+        # Check if user has permission to view this case
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_CASE,
+            resourceId=case_id,
+            action="read",
+            organizationId=case_data.get("organizationId")
+        )
+        
+        has_permission, error_message = check_permission(request.user_id, permission_request)
+        if not has_permission:
+            logging.error(f"Forbidden: User {request.user_id} does not have permission to view case {case_id}")
+            return ({"error": "Forbidden", "message": error_message}), 403
+        
         # Return the case data
         logging.info(f"Successfully retrieved case with ID: {case_id}")
         return (case_data, 200)
@@ -442,20 +452,17 @@ def list_cases(request):
             logging.info(f"Listing cases for organization: {organization_id}")
             
             # Check if user has permission to list cases for this organization
-            permission_check = {
-                "userId": user_id,
-                "resourceId": organization_id,
-                "action": "read",
-                "resourceType": "organization"
-            }
+            permission_request = PermissionCheckRequest(
+                resourceType=RESOURCE_TYPE_CASE,
+                resourceId=None,  # No specific resource ID for listing
+                action="list",
+                organizationId=organization_id
+            )
             
-            # Call check_permissions function
-            from auth import check_permissions as check_permissions_func
-            permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-            
-            if permission_status != 200 or not permission_response.get("allowed", False):
+            has_permission, error_message = check_permission(user_id, permission_request)
+            if not has_permission:
                 logging.error(f"Forbidden: User {user_id} does not have permission to list cases for organization {organization_id}")
-                return ({"error": "Forbidden", "message": "You do not have permission to list cases for this organization"}, 403)
+                return ({"error": "Forbidden", "message": error_message}), 403
             
             # Create query that filters by organization ID
             query = db.collection("cases").where("organizationId", "==", organization_id)
@@ -561,21 +568,17 @@ def archive_case(request):
             return ({"error": "Bad Request", "message": "Case does not have an associated organization"}, 400)
         
         # Check if user has permission to archive this case
-        permission_check = {
-            "userId": user_id,
-            "resourceId": case_id,
-            "action": "delete",  # archive is considered a delete action for permissions
-            "resourceType": "case",
-            "organizationId": organization_id
-        }
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_CASE,
+            resourceId=case_id,
+            action="update",
+            organizationId=organization_id
+        )
         
-        # Call check_permissions function
-        from auth import check_permissions as check_permissions_func
-        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-        
-        if permission_status != 200 or not permission_response.get("allowed", False):
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
             logging.error(f"Forbidden: User {user_id} does not have permission to archive case {case_id}")
-            return ({"error": "Forbidden", "message": "You do not have permission to archive this case"}, 403)
+            return ({"error": "Forbidden", "message": error_message}), 403
         
         # Update the case status to archived
         case_ref.update({
@@ -642,21 +645,17 @@ def delete_case(request):
             return ({"error": "Bad Request", "message": "Case does not have an associated organization"}, 400)
         
         # Check if user has permission to delete this case
-        permission_check = {
-            "userId": user_id,
-            "resourceId": case_id,
-            "action": "delete",
-            "resourceType": "case",
-            "organizationId": organization_id
-        }
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_CASE,
+            resourceId=case_id,
+            action="delete",
+            organizationId=organization_id
+        )
         
-        # Call check_permissions function
-        from auth import check_permissions as check_permissions_func
-        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-        
-        if permission_status != 200 or not permission_response.get("allowed", False):
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
             logging.error(f"Forbidden: User {user_id} does not have permission to delete case {case_id}")
-            return ({"error": "Forbidden", "message": "You do not have permission to delete this case"}, 403)
+            return ({"error": "Forbidden", "message": error_message}), 403
         
         # Update the case status to deleted (soft delete)
         case_ref.update({
@@ -732,21 +731,17 @@ def upload_file(request):
             return ({"error": "Bad Request", "message": "Case does not have an associated organization"}, 400)
         
         # Check if user has permission to upload files to this case
-        permission_check = {
-            "userId": user_id,
-            "resourceId": case_id,
-            "action": "upload_file",
-            "resourceType": "case",
-            "organizationId": organization_id
-        }
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_CASE,
+            resourceId=case_id,
+            action="update",
+            organizationId=organization_id
+        )
         
-        # Call check_permissions function
-        from auth import check_permissions as check_permissions_func
-        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-        
-        if permission_status != 200 or not permission_response.get("allowed", False):
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
             logging.error(f"Forbidden: User {user_id} does not have permission to upload files to case {case_id}")
-            return ({"error": "Forbidden", "message": "You do not have permission to upload files to this case"}, 403)
+            return ({"error": "Forbidden", "message": error_message}), 403
         
         # Generate a unique filename
         unique_id = uuid.uuid4().hex
@@ -937,21 +932,17 @@ def attach_party_to_case(request):
         organization_id = case_data.get("organizationId")
         
         # Check if the user has permission to update this case
-        permission_check = {
-            "userId": user_id,
-            "resourceId": case_id,
-            "action": "update",
-            "resourceType": "case",
-            "organizationId": organization_id
-        }
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_CASE,
+            resourceId=case_id,
+            action="update",
+            organizationId=organization_id
+        )
         
-        # Call check_permissions function
-        from auth import check_permissions as check_permissions_func
-        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-        
-        if permission_status != 200 or not permission_response.get("allowed", False):
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
             logging.error(f"Forbidden: User {user_id} does not have permission to update case {case_id}")
-            return ({"error": "Forbidden", "message": "You do not have permission to update this case"}, 403)
+            return ({"error": "Forbidden", "message": error_message}), 403
         
         # Get the party document to verify it exists and is owned by the user
         party_ref = db.collection("parties").document(party_id)
@@ -1055,21 +1046,17 @@ def detach_party_from_case(request):
         organization_id = case_data.get("organizationId")
         
         # Check if the user has permission to update this case
-        permission_check = {
-            "userId": user_id,
-            "resourceId": case_id,
-            "action": "update",
-            "resourceType": "case",
-            "organizationId": organization_id
-        }
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_CASE,
+            resourceId=case_id,
+            action="update",
+            organizationId=organization_id
+        )
         
-        # Call check_permissions function
-        from auth import check_permissions as check_permissions_func
-        permission_response, permission_status = check_permissions_func(type('obj', (object,), {'get_json': lambda silent=True: permission_check}))
-        
-        if permission_status != 200 or not permission_response.get("allowed", False):
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
             logging.error(f"Forbidden: User {user_id} does not have permission to update case {case_id}")
-            return ({"error": "Forbidden", "message": "You do not have permission to update this case"}, 403)
+            return ({"error": "Forbidden", "message": error_message}), 403
         
         # Check if the party is attached to the case
         attached_party_ids = case_data.get("attachedPartyIds", [])

@@ -11,9 +11,16 @@ The backend consists of several modules, each handling specific functionality:
 
 ### Authentication (`auth.py`)
 - `validate_user`: Token validation
-- `check_permissions`: Permission checking for resources
+- `check_permissions`: Modular permission checking for different resource types
 - `get_user_role`: Role retrieval for organizations
 - `get_authenticated_user`: Authentication helper
+
+#### Key Components in `auth.py`:
+- **Centralized Permission Map**: Defines allowed actions by role and resource type
+- **Resource-Specific Checkers**: Modular functions for each resource type
+- **Pydantic Validation**: Ensures request data meets expected schema
+- **Staff Assignment Validation**: Verifies staff members only access assigned cases
+- **Document Permission Mapping**: Maps document actions to parent case permissions
 
 ### Cases (`cases.py`)
 - `create_case`: Case creation (individual or organization)
@@ -121,14 +128,27 @@ def get_authenticated_user(request):
 
 ### Permission Model
 ```python
+# Define permissions mapping
+PERMISSIONS = {
+    "case": {
+        "administrator": {"read", "update", "delete", "archive", "upload_file", ...},
+        "staff": {"read", "update", "upload_file", ...},
+        "owner": {"read", "update", "delete", "archive", ...}
+    },
+    "organization": { ... },
+    "party": { ... },
+    "document": { ... }
+}
+
 def check_permissions(request):
     """Check if a user can perform an action on a resource."""
-    # Extract request data
-    # Validate action type
-    # Handle different resource types:
-    # - Case: Check ownership or organization role permissions
-    # - Organization: Check membership and roles
-    # - Party: Verify ownership (only creator can read/update/delete)
+    # Extract and validate request data using Pydantic
+    # Authenticate user with Firebase
+    # Dispatch to resource-specific checker based on resourceType:
+    #   - Case: Check ownership, org membership, and staff assignment
+    #   - Organization: Check membership and role
+    #   - Party: Verify ownership (only creator can manage)
+    #   - Document: Map to parent case permissions
     # Return permission status
 ```
 
@@ -148,6 +168,7 @@ def create_case(request):
 ```python
 def upload_file(request):
     """Upload a file to a case."""
+    # Check permissions using check_permissions (document:upload)
     # Validate file and permissions
     # Generate storage path
     # Upload to Firebase Storage
@@ -160,7 +181,7 @@ def upload_file(request):
 def add_organization_member(request):
     """Add a member to an organization."""
     # Validate input
-    # Check admin permissions
+    # Check admin permissions using check_permissions (organization:manage_members)
     # Create membership record
     # Return membership details
 ```
@@ -180,7 +201,7 @@ def create_party(request):
 def attach_party_to_case(request):
     """Attach an existing party to a case."""
     # Validate input
-    # Verify case update permission
+    # Verify case permission using check_permissions (case:attach_party)
     # Verify party ownership
     # Update case's attachedPartyIds array
     # Return success message
@@ -192,6 +213,9 @@ All functions implement consistent error handling:
 ```python
 try:
     # Function logic
+except ValidationError as e:
+    # Handle Pydantic validation errors with detailed messages
+    return {"error": "Bad Request", "message": str(e)}, 400
 except Exception as e:
     return {"error": str(e)}, 500
 ```
@@ -207,7 +231,9 @@ Common error responses:
 
 1. All functions require Firebase Authentication
 2. Dual case ownership model (individual/organization)
-3. Organization-based permission model
-4. Firestore for data storage
-5. Firebase Storage for files
-6. Stripe for payments (individual cases)
+3. Organization-based permission model with staff assignment checks
+4. Pydantic validation for request schemas
+5. Resource-specific permission checking
+6. Firestore for data storage
+7. Firebase Storage for files
+8. Stripe for payments (individual cases)

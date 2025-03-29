@@ -113,19 +113,30 @@ The API is organized into the following groups:
 - **Body**:
   ```json
   {
-    "resourceType": "case|organization",
+    "resourceType": "case|organization|party|document",
     "resourceId": "string",
-    "organizationId": "string",
-    "action": "read|update|delete|upload_file|manage_access|create_case"
+    "action": "read|update|delete|archive|upload_file|download_file|attach_party|detach_party|assign_case|manage_members|create_case|list_cases",
+    "organizationId": "string" // Optional, only needed for certain organization actions
   }
   ```
+- **Description**: Validates if the authenticated user has permission to perform a specific action on a resource. The system uses resource-specific permission checkers based on the resourceType:
+  - **case**: Checks ownership, organization membership, and staff assignment status
+  - **organization**: Checks membership role (administrator or staff)
+  - **party**: Checks direct ownership (only the creator can manage their parties)
+  - **document**: Maps to parent case permissions (document access follows case access)
+
 - **Response**:
   ```json
   {
-    "allowed": true,
-    "role": "string"
+    "allowed": true
   }
   ```
+
+- **Error Responses**:
+  - 400: Invalid request (missing fields or validation errors)
+  - 401: Unauthorized (invalid token)
+  - 404: Resource not found
+  - 500: Server error
 
 ### User Management
 

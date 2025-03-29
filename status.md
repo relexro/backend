@@ -17,9 +17,12 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Authentication & Authorization
 - [x] Firebase Authentication integration
-- [x] Role-based access control
-- [x] Permission checking middleware
-- [x] Token validation
+- [x] Role-based access control with centralized permission definitions
+- [x] Resource-specific permission checking with modular design
+- [x] Pydantic validation for permission requests
+- [x] Enhanced token validation with proper error handling
+- [x] Staff assignment validation for organization cases
+- [x] Document permissions based on parent case access
 - [x] User profile management
 
 ### Business/Organization Management
@@ -138,7 +141,7 @@ This document tracks the implementation status of the Relex backend components.
 3. Set up comprehensive monitoring
 4. Implement rate limiting
 5. Add security headers
-6. Implement party management system
+6. Optimize permission checks with Firebase Custom Claims
 
 ### Medium Priority
 1. Implement advanced search
@@ -174,8 +177,9 @@ This document tracks the implementation status of the Relex backend components.
 ### Implemented
 - [x] Firebase Authentication integration
 - [x] JWT token validation
-- [x] Role-based access control
-- [x] Permission checking middleware
+- [x] Role-based access control with centralized permission model
+- [x] Resource-specific permission checks (case, organization, party, document)
+- [x] Pydantic validation for permission requests
 - [x] User profile management
 - [x] API Gateway authentication
 - [x] CORS configuration
@@ -183,9 +187,10 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Security Features
 - [x] Firebase Authentication
-- [x] Role-based access
+- [x] Role-based access with clear permission definitions
+- [x] Staff assignment validation
 - [x] Secure file storage
-- [x] Input validation
+- [x] Input validation with Pydantic
 - [x] JWT validation
 - [x] API Gateway security
 - [x] Firebase security rules
@@ -195,6 +200,7 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] DDoS protection
 - [ ] Security scanning
 - [ ] Penetration testing
+- [ ] Custom claims optimization for permission checks
 
 ## Deployment Status
 
@@ -230,12 +236,13 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Implemented
 - [x] Firebase Authentication
-- [x] Role-based access
+- [x] Enhanced role-based access model
 - [x] Secure file storage
-- [x] Input validation
+- [x] Input validation with Pydantic
 
 ### Pending
 - [ ] Rate limiting
 - [ ] DDoS protection
 - [ ] Security scanning
-- [ ] Penetration testing 
+- [ ] Penetration testing
+- [ ] Custom claims optimization 

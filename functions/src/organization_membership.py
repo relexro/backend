@@ -4,6 +4,10 @@ import firebase_admin
 from firebase_admin import firestore
 from firebase_admin import auth
 import json
+import flask
+import uuid
+from datetime import datetime
+from auth import check_permission, PermissionCheckRequest, RESOURCE_TYPE_ORGANIZATION
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -14,6 +18,9 @@ try:
 except ValueError:
     # Use the application default credentials
     firebase_admin.initialize_app()
+
+# Initialize Firestore client
+db = firestore.client()
 
 @functions_framework.http
 def add_organization_member(request):
@@ -28,114 +35,87 @@ def add_organization_member(request):
     logging.info("Received request to add a member to an organization")
     
     try:
-        # Extract data from request
-        data = request.get_json(silent=True)
-        if not data:
-            logging.error("Bad Request: No JSON data provided")
-            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
+        # Parse request JSON data
+        request_json = request.get_json(silent=True)
         
-        # Extract the authenticated user ID from the request
-        authenticated_user_id = getattr(request, 'user_id', None)
-        if not authenticated_user_id:
-            logging.error("Unauthorized: User ID not provided in request")
-            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
+        user_id = request.user_id
+        if not user_id:
+            return flask.jsonify({"error": "Unauthorized", "message": "User ID not provided"}), 401
         
         # Validate required fields
-        if "organizationId" not in data:
-            logging.error("Bad Request: Missing organizationId")
-            return ({"error": "Bad Request", "message": "organizationId is required"}, 400)
-            
-        if "userId" not in data:
-            logging.error("Bad Request: Missing userId")
-            return ({"error": "Bad Request", "message": "userId is required"}, 400)
+        if not request_json:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
         
-        # Extract fields
-        organization_id = data["organizationId"]
-        user_id = data["userId"]
-        role = data.get("role", "staff")  # Default to 'staff' if not provided
+        organization_id = request_json.get('organizationId')
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
         
-        # Validate role
-        valid_roles = ["administrator", "staff"]
-        if role not in valid_roles:
-            logging.error(f"Bad Request: Invalid role: {role}")
-            return ({"error": "Bad Request", "message": f"Invalid role. Supported roles: {', '.join(valid_roles)}"}, 400)
+        target_user_id = request_json.get('userId')
+        if not target_user_id:
+            return flask.jsonify({"error": "Bad Request", "message": "User ID is required"}), 400
         
-        # Initialize Firestore client
-        db = firestore.client()
+        role = request_json.get('role', 'member')  # Default role is 'member'
+        
+        logging.info(f"Adding user {target_user_id} to organization {organization_id}")
         
         # Check if the organization exists
-        organization_doc = db.collection("organizations").document(organization_id).get()
-        if not organization_doc.exists:
-            logging.error(f"Not Found: Organization with ID {organization_id} not found")
-            return ({"error": "Not Found", "message": "Organization not found"}, 404)
+        org_ref = db.collection('organizations').document(organization_id)
+        org_doc = org_ref.get()
         
-        # Check if the authenticated user has admin permissions (is an administrator of the organization)
-        # Query the organization_memberships collection
-        query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", authenticated_user_id).where("role", "==", "administrator").limit(1)
-        admin_memberships = list(query.stream())
+        if not org_doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"Organization with ID {organization_id} not found"}), 404
         
-        if not admin_memberships:
-            logging.error(f"Forbidden: User {authenticated_user_id} does not have administrator permissions for organization {organization_id}")
-            return ({"error": "Forbidden", "message": "You must be an administrator to add members to this organization"}, 403)
+        # Check if the target user exists
+        user_ref = db.collection('users').document(target_user_id)
+        user_doc = user_ref.get()
         
-        # Verify the user exists in Firebase Auth
-        try:
-            user = auth.get_user(user_id)
-        except auth.UserNotFoundError:
-            logging.error(f"Bad Request: User with ID {user_id} not found")
-            return ({"error": "Bad Request", "message": f"User with ID {user_id} not found"}, 400)
-        except Exception as e:
-            logging.error(f"Error verifying user: {str(e)}")
-            # For testing purposes, we'll allow this to pass even if there's an error verifying the user
-            # In production, this should be handled differently
-            logging.warning("Skipping user verification due to error")
+        if not user_doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"User with ID {target_user_id} not found"}), 404
         
-        # Check if the membership already exists
-        query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", user_id).limit(1)
-        existing_memberships = list(query.stream())
+        # Check if user has permission to add members to this organization
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_ORGANIZATION,
+            resourceId=organization_id,
+            action="addUser",
+            organizationId=organization_id
+        )
         
-        if existing_memberships:
-            logging.error(f"Conflict: User with ID {user_id} is already a member of organization with ID {organization_id}")
-            return ({"error": "Conflict", "message": "User is already a member of the organization"}, 409)
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
+            return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
         
-        # Add the membership
-        membership_data = {
-            "userId": user_id,
-            "organizationId": organization_id,
-            "role": role,
-            "addedAt": firestore.SERVER_TIMESTAMP
+        # Check if user is already a member of the organization
+        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id)
+        existing_members = list(members_query.stream())
+        
+        if existing_members:
+            return flask.jsonify({"error": "Conflict", "message": "User is already a member of this organization"}), 409
+        
+        # Generate a unique ID for the membership
+        member_id = str(uuid.uuid4())
+        
+        # Create the membership document
+        member_ref = db.collection('organizationMembers').document(member_id)
+        
+        # Prepare the membership data
+        member_data = {
+            'id': member_id,
+            'organizationId': organization_id,
+            'userId': target_user_id,
+            'role': role,
+            'addedBy': user_id,
+            'joinedAt': datetime.utcnow()
         }
         
-        # Add to the organization_memberships collection
-        membership_ref = db.collection("organization_memberships").document()
-        membership_ref.set(membership_data)
+        # Create the membership in Firestore
+        member_ref.set(member_data)
         
-        # Return success response
-        logging.info(f"User {user_id} added to organization {organization_id} with role {role}")
-        
-        # Get user email for the response
-        email = None
-        display_name = None
-        try:
-            email = user.email
-            display_name = user.display_name
-        except:
-            logging.warning(f"Could not get email for user {user_id}")
-        
-        response_data = {
-            "success": True,
-            "membershipId": membership_ref.id,
-            "userId": user_id,
-            "organizationId": organization_id,
-            "role": role,
-            "email": email,
-            "displayName": display_name
-        }
-        
-        return (response_data, 200)
+        # Return the created membership data
+        return flask.jsonify(member_data), 201
+    
     except Exception as e:
         logging.error(f"Error adding member to organization: {str(e)}")
-        return ({"error": "Internal Server Error", "message": f"Failed to add member to organization: {str(e)}"}, 500)
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 @functions_framework.http
 def set_organization_member_role(request):
@@ -150,409 +130,339 @@ def set_organization_member_role(request):
     logging.info("Received request to update a member's role in an organization")
     
     try:
-        # Extract data from request
-        data = request.get_json(silent=True)
-        if not data:
-            logging.error("Bad Request: No JSON data provided")
-            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
+        # Parse request JSON data
+        request_json = request.get_json(silent=True)
         
-        # Extract the authenticated user ID from the request
-        authenticated_user_id = getattr(request, 'user_id', None)
-        if not authenticated_user_id:
-            logging.error("Unauthorized: User ID not provided in request")
-            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
+        user_id = request.user_id
+        if not user_id:
+            return flask.jsonify({"error": "Unauthorized", "message": "User ID not provided"}), 401
         
         # Validate required fields
-        if "organizationId" not in data:
-            logging.error("Bad Request: Missing organizationId")
-            return ({"error": "Bad Request", "message": "organizationId is required"}, 400)
-            
-        if "userId" not in data:
-            logging.error("Bad Request: Missing userId")
-            return ({"error": "Bad Request", "message": "userId is required"}, 400)
-            
-        if "newRole" not in data:
-            logging.error("Bad Request: Missing newRole")
-            return ({"error": "Bad Request", "message": "newRole is required"}, 400)
+        if not request_json:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
         
-        # Extract fields
-        organization_id = data["organizationId"]
-        user_id = data["userId"]
-        new_role = data["newRole"]
+        organization_id = request_json.get('organizationId')
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
         
-        # Validate role
-        valid_roles = ["administrator", "staff"]
-        if new_role not in valid_roles:
-            logging.error(f"Bad Request: Invalid role: {new_role}")
-            return ({"error": "Bad Request", "message": f"Invalid role. Supported roles: {', '.join(valid_roles)}"}, 400)
+        target_user_id = request_json.get('userId')
+        if not target_user_id:
+            return flask.jsonify({"error": "Bad Request", "message": "User ID is required"}), 400
         
-        # Initialize Firestore client
-        db = firestore.client()
+        role = request_json.get('role')
+        if not role:
+            return flask.jsonify({"error": "Bad Request", "message": "Role is required"}), 400
+        
+        logging.info(f"Setting role for user {target_user_id} in organization {organization_id} to {role}")
         
         # Check if the organization exists
-        organization_doc = db.collection("organizations").document(organization_id).get()
-        if not organization_doc.exists:
-            logging.error(f"Not Found: Organization with ID {organization_id} not found")
-            return ({"error": "Not Found", "message": "Organization not found"}, 404)
+        org_ref = db.collection('organizations').document(organization_id)
+        org_doc = org_ref.get()
         
-        # Check if the authenticated user has admin permissions (is an administrator of the organization)
-        # Query the organization_memberships collection
-        admin_query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", authenticated_user_id).where("role", "==", "administrator").limit(1)
-        admin_memberships = list(admin_query.stream())
+        if not org_doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"Organization with ID {organization_id} not found"}), 404
         
-        if not admin_memberships:
-            logging.error(f"Forbidden: User {authenticated_user_id} does not have administrator permissions for organization {organization_id}")
-            return ({"error": "Forbidden", "message": "You must be an administrator to change member roles in this organization"}, 403)
+        # Check if user has permission to set roles in this organization
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_ORGANIZATION,
+            resourceId=organization_id,
+            action="setRole",
+            organizationId=organization_id
+        )
         
-        # Find the membership to update
-        query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", user_id).limit(1)
-        memberships = list(query.stream())
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
+            return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
         
-        if not memberships:
-            logging.error(f"Not Found: User with ID {user_id} is not a member of organization with ID {organization_id}")
-            return ({"error": "Not Found", "message": "User is not a member of the organization"}, 404)
+        # Find the membership document
+        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id)
+        existing_members = list(members_query.stream())
         
-        membership_doc = memberships[0]
-        membership_data = membership_doc.to_dict()
+        if not existing_members:
+            return flask.jsonify({"error": "Not Found", "message": "User is not a member of this organization"}), 404
         
-        # Prevent changing the role of the last administrator
-        if membership_data.get("role") == "administrator" and new_role != "administrator":
-            # Check if this is the last administrator
-            admin_count_query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("role", "==", "administrator")
-            admin_count = len(list(admin_count_query.stream()))
-            
-            if admin_count <= 1:
-                logging.error(f"Forbidden: Cannot change the role of the last administrator")
-                return ({"error": "Forbidden", "message": "Cannot change the role of the last administrator"}, 403)
+        # Update the role of the membership
+        member_ref = existing_members[0].reference
         
-        # Update the membership role
-        membership_ref = db.collection("organization_memberships").document(membership_doc.id)
-        membership_ref.update({
-            "role": new_role,
-            "updatedAt": firestore.SERVER_TIMESTAMP
+        # Update the role
+        member_ref.update({
+            'role': role,
+            'updatedAt': datetime.utcnow(),
+            'updatedBy': user_id
         })
         
-        # Return success response
-        logging.info(f"Updated role for user {user_id} in organization {organization_id} to {new_role}")
+        # Get the updated membership data
+        updated_member = member_ref.get().to_dict()
         
-        # Get user email for the response
-        email = None
-        display_name = None
-        try:
-            user = auth.get_user(user_id)
-            email = user.email
-            display_name = user.display_name
-        except:
-            logging.warning(f"Could not get email for user {user_id}")
-        
-        response_data = {
-            "success": True,
-            "membershipId": membership_doc.id,
-            "userId": user_id,
-            "organizationId": organization_id,
-            "role": new_role,
-            "email": email,
-            "displayName": display_name
-        }
-        
-        return (response_data, 200)
+        # Return the updated membership data
+        return flask.jsonify(updated_member), 200
+    
     except Exception as e:
-        logging.error(f"Error updating member role: {str(e)}")
-        return ({"error": "Internal Server Error", "message": f"Failed to update member role: {str(e)}"}, 500)
+        logging.error(f"Error setting member role: {str(e)}")
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 @functions_framework.http
 def list_organization_members(request):
-    """List members of an organization.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to list organization members")
-    
+    """List all members in an organization."""
     try:
-        # Extract organization ID from query parameters
+        # Get organization ID from request
         organization_id = request.args.get('organizationId')
-        
-        # Validate organization ID
         if not organization_id:
-            logging.error("Bad Request: Missing organizationId")
-            return ({"error": "Bad Request", "message": "organizationId is required"}, 400)
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
         
-        # Extract the authenticated user ID from the request
-        authenticated_user_id = getattr(request, 'user_id', None)
-        if not authenticated_user_id:
-            logging.error("Unauthorized: User ID not provided in request")
-            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
+        user_id = request.user_id
+        if not user_id:
+            return flask.jsonify({"error": "Unauthorized", "message": "User ID not provided"}), 401
         
-        # Initialize Firestore client
-        db = firestore.client()
+        logging.info(f"Listing members in organization {organization_id}")
         
         # Check if the organization exists
-        organization_doc = db.collection("organizations").document(organization_id).get()
-        if not organization_doc.exists:
-            logging.error(f"Not Found: Organization with ID {organization_id} not found")
-            return ({"error": "Not Found", "message": "Organization not found"}, 404)
+        org_ref = db.collection('organizations').document(organization_id)
+        org_doc = org_ref.get()
         
-        # Check if the authenticated user is a member of the organization
-        auth_query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", authenticated_user_id).limit(1)
-        auth_memberships = list(auth_query.stream())
+        if not org_doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"Organization with ID {organization_id} not found"}), 404
         
-        if not auth_memberships:
-            logging.error(f"Forbidden: User {authenticated_user_id} is not a member of organization {organization_id}")
-            return ({"error": "Forbidden", "message": "You must be a member of the organization to view its members"}, 403)
+        # Check if user has permission to list members in this organization
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_ORGANIZATION,
+            resourceId=organization_id,
+            action="listUsers",
+            organizationId=organization_id
+        )
         
-        # Get all members of the organization
-        query = db.collection("organization_memberships").where("organizationId", "==", organization_id)
-        memberships = list(query.stream())
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
+            return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
         
-        # Prepare the response
+        # Get all memberships for the organization
+        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id)
+        
+        # Execute the query
+        members_docs = members_query.stream()
+        
+        # Process the results
         members = []
-        for membership_doc in memberships:
-            membership_data = membership_doc.to_dict()
-            member_id = membership_data.get("userId")
+        for doc in members_docs:
+            member_data = doc.to_dict()
+            member_user_id = member_data.get('userId')
             
-            member_info = {
-                "userId": member_id,
-                "role": membership_data.get("role"),
-                "addedAt": membership_data.get("addedAt")
-            }
+            # Fetch basic user info
+            user_ref = db.collection('users').document(member_user_id)
+            user_doc = user_ref.get()
             
-            # Try to get additional user info from Firebase Auth
-            try:
-                auth_user = auth.get_user(member_id)
-                member_info["email"] = auth_user.email
-                member_info["displayName"] = auth_user.display_name
-            except Exception as e:
-                logging.warning(f"Could not get auth info for user {member_id}: {str(e)}")
-            
-            members.append(member_info)
+            if user_doc.exists:
+                user_data = user_doc.to_dict()
+                
+                # Include only necessary user information
+                user_info = {
+                    'userId': member_user_id,
+                    'displayName': user_data.get('displayName', ''),
+                    'email': user_data.get('email', ''),
+                    'role': member_data.get('role', 'member'),
+                    'joinedAt': member_data.get('joinedAt')
+                }
+                
+                members.append(user_info)
         
         # Return the list of members
-        logging.info(f"Successfully retrieved {len(members)} members for organization {organization_id}")
-        return ({"members": members}, 200)
+        return flask.jsonify({"members": members}), 200
+    
     except Exception as e:
         logging.error(f"Error listing organization members: {str(e)}")
-        return ({"error": "Internal Server Error", "message": f"Failed to list organization members: {str(e)}"}, 500)
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 @functions_framework.http
 def remove_organization_member(request):
-    """Remove a member from an organization.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to remove a member from an organization")
-    
+    """Remove a member from an organization."""
     try:
-        # Extract data from request
-        data = request.get_json(silent=True)
-        if not data:
-            logging.error("Bad Request: No JSON data provided")
-            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
+        # Parse request JSON data
+        request_json = request.get_json(silent=True)
         
-        # Extract the authenticated user ID from the request
-        authenticated_user_id = getattr(request, 'user_id', None)
-        if not authenticated_user_id:
-            logging.error("Unauthorized: User ID not provided in request")
-            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
+        user_id = request.user_id
+        if not user_id:
+            return flask.jsonify({"error": "Unauthorized", "message": "User ID not provided"}), 401
         
         # Validate required fields
-        if "organizationId" not in data:
-            logging.error("Bad Request: Missing organizationId")
-            return ({"error": "Bad Request", "message": "organizationId is required"}, 400)
-            
-        if "userId" not in data:
-            logging.error("Bad Request: Missing userId")
-            return ({"error": "Bad Request", "message": "userId is required"}, 400)
+        if not request_json:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
         
-        # Extract fields
-        organization_id = data["organizationId"]
-        user_id = data["userId"]
+        organization_id = request_json.get('organizationId')
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
         
-        # Prevent removing yourself
-        if authenticated_user_id == user_id:
-            logging.error("Bad Request: Cannot remove yourself from the organization")
-            return ({"error": "Bad Request", "message": "Cannot remove yourself from the organization"}, 400)
+        target_user_id = request_json.get('userId')
+        if not target_user_id:
+            return flask.jsonify({"error": "Bad Request", "message": "User ID is required"}), 400
         
-        # Initialize Firestore client
-        db = firestore.client()
+        logging.info(f"Removing user {target_user_id} from organization {organization_id}")
         
         # Check if the organization exists
-        organization_doc = db.collection("organizations").document(organization_id).get()
-        if not organization_doc.exists:
-            logging.error(f"Not Found: Organization with ID {organization_id} not found")
-            return ({"error": "Not Found", "message": "Organization not found"}, 404)
+        org_ref = db.collection('organizations').document(organization_id)
+        org_doc = org_ref.get()
         
-        # Check if the authenticated user has admin permissions
-        admin_query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", authenticated_user_id).where("role", "==", "administrator").limit(1)
-        admin_memberships = list(admin_query.stream())
+        if not org_doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"Organization with ID {organization_id} not found"}), 404
         
-        if not admin_memberships:
-            logging.error(f"Forbidden: User {authenticated_user_id} does not have administrator permissions for organization {organization_id}")
-            return ({"error": "Forbidden", "message": "You must be an administrator to remove members from this organization"}, 403)
+        # Check if user has permission to remove members from this organization
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_ORGANIZATION,
+            resourceId=organization_id,
+            action="removeUser",
+            organizationId=organization_id
+        )
         
-        # Find the membership to remove
-        query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", user_id).limit(1)
-        memberships = list(query.stream())
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
+            return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
         
-        if not memberships:
-            logging.error(f"Not Found: User with ID {user_id} is not a member of organization with ID {organization_id}")
-            return ({"error": "Not Found", "message": "User is not a member of the organization"}, 404)
+        # Find the membership document
+        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id)
+        existing_members = list(members_query.stream())
         
-        membership_doc = memberships[0]
-        membership_data = membership_doc.to_dict()
+        if not existing_members:
+            return flask.jsonify({"error": "Not Found", "message": "User is not a member of this organization"}), 404
         
-        # Prevent removing the last administrator
-        if membership_data.get("role") == "administrator":
-            # Check if this is the last administrator
-            admin_count_query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("role", "==", "administrator")
-            admin_count = len(list(admin_count_query.stream()))
+        # Get the member role to make sure we're not removing the last admin
+        member_role = existing_members[0].to_dict().get('role')
+        
+        # If we're removing an admin, check if there are other admins
+        if member_role == 'admin':
+            # Count the number of admins in the organization
+            admins_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('role', '==', 'admin')
+            admin_count = len(list(admins_query.stream()))
             
             if admin_count <= 1:
-                logging.error(f"Forbidden: Cannot remove the last administrator")
-                return ({"error": "Forbidden", "message": "Cannot remove the last administrator"}, 403)
+                return flask.jsonify({
+                    "error": "Bad Request", 
+                    "message": "Cannot remove the last admin of an organization. Promote another user to admin first."
+                }), 400
         
-        # Remove the membership
-        db.collection("organization_memberships").document(membership_doc.id).delete()
+        # Remove the user from the organization
+        for member in existing_members:
+            member.reference.delete()
         
         # Return success response
-        logging.info(f"User {user_id} removed from organization {organization_id}")
-        return ({"success": True, "userId": user_id, "organizationId": organization_id}, 200)
+        return flask.jsonify({"message": f"User {target_user_id} has been removed from organization {organization_id}"}), 200
+    
     except Exception as e:
         logging.error(f"Error removing member from organization: {str(e)}")
-        return ({"error": "Internal Server Error", "message": f"Failed to remove member from organization: {str(e)}"}, 500)
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 @functions_framework.http
 def get_user_organization_role(request):
-    """Get a user's role in an organization.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to get a user's role in an organization")
-    
+    """Get a user's role in an organization."""
     try:
-        # Extract data from request
-        data = request.get_json(silent=True)
-        if not data:
-            logging.error("Bad Request: No JSON data provided")
-            return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
+        # Get parameters from request
+        organization_id = request.args.get('organizationId')
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
         
-        # Validate required fields
-        if "userId" not in data:
-            logging.error("Bad Request: Missing userId")
-            return ({"error": "Bad Request", "message": "userId is required"}, 400)
-            
-        if "organizationId" not in data:
-            logging.error("Bad Request: Missing organizationId")
-            return ({"error": "Bad Request", "message": "organizationId is required"}, 400)
+        target_user_id = request.args.get('userId')
         
-        # Extract fields
-        user_id = data["userId"]
-        organization_id = data["organizationId"]
+        user_id = request.user_id
+        if not user_id:
+            return flask.jsonify({"error": "Unauthorized", "message": "User ID not provided"}), 401
         
-        # Initialize Firestore client
-        db = firestore.client()
+        # If no target user ID is provided, use the requesting user's ID
+        if not target_user_id:
+            target_user_id = user_id
+        
+        logging.info(f"Getting role for user {target_user_id} in organization {organization_id}")
         
         # Check if the organization exists
-        organization_doc = db.collection("organizations").document(organization_id).get()
-        if not organization_doc.exists:
-            logging.error(f"Not Found: Organization with ID {organization_id} not found")
-            return ({"error": "Not Found", "message": "Organization not found"}, 404)
+        org_ref = db.collection('organizations').document(organization_id)
+        org_doc = org_ref.get()
         
-        # Find the membership
-        query = db.collection("organization_memberships").where("organizationId", "==", organization_id).where("userId", "==", user_id).limit(1)
-        memberships = list(query.stream())
+        if not org_doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"Organization with ID {organization_id} not found"}), 404
         
-        # If user is not a member of the organization
-        if not memberships:
-            logging.info(f"User {user_id} has no role in organization {organization_id}")
-            return ({"error": "Not Found", "message": "User is not a member of the organization"}, 404)
+        # Check if user has permission to view organization roles
+        if user_id != target_user_id:
+            permission_request = PermissionCheckRequest(
+                resourceType=RESOURCE_TYPE_ORGANIZATION,
+                resourceId=organization_id,
+                action="listUsers",
+                organizationId=organization_id
+            )
+            
+            has_permission, error_message = check_permission(user_id, permission_request)
+            if not has_permission:
+                return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
         
-        membership_doc = memberships[0]
-        membership_data = membership_doc.to_dict()
+        # Find the membership document
+        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id)
+        existing_members = list(members_query.stream())
+        
+        if not existing_members:
+            return flask.jsonify({"role": None, "isMember": False}), 200
+        
+        # Get the role from the membership
+        member_data = existing_members[0].to_dict()
+        role = member_data.get('role', 'member')
         
         # Return the role
-        role = membership_data.get("role", "staff")  # Default to staff if role not specified
-        logging.info(f"User {user_id} has role {role} in organization {organization_id}")
-        return ({"role": role}, 200)
+        return flask.jsonify({"role": role, "isMember": True}), 200
+    
     except Exception as e:
         logging.error(f"Error getting user role: {str(e)}")
-        return ({"error": "Internal Server Error", "message": f"Failed to get user role: {str(e)}"}, 500)
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 @functions_framework.http
 def list_user_organizations(request):
-    """List organizations a user belongs to.
-    
-    Args:
-        request (flask.Request): HTTP request object.
-        
-    Returns:
-        tuple: (response, status_code)
-    """
-    logging.info("Received request to list user organizations")
-    
+    """List all organizations a user belongs to."""
     try:
-        # Extract user ID from query parameters or use the authenticated user
-        user_id = request.args.get('userId')
+        # Get the user ID from the request
+        target_user_id = request.args.get('userId')
         
-        # Extract the authenticated user ID from the request
-        authenticated_user_id = getattr(request, 'user_id', None)
-        if not authenticated_user_id:
-            logging.error("Unauthorized: User ID not provided in request")
-            return ({"error": "Unauthorized", "message": "Authentication required"}, 401)
-        
-        # If no userId specified, use the authenticated user
+        user_id = request.user_id
         if not user_id:
-            user_id = authenticated_user_id
-            logging.info(f"No userId provided, using authenticated user: {user_id}")
-        # If userId is specified but different from authenticated user, check permissions
-        elif user_id != authenticated_user_id:
-            # For now, only allow users to view their own organizations
-            # This could be extended to allow administrators to view other users' organizations
-            logging.error(f"Forbidden: User {authenticated_user_id} is not authorized to view organizations for user {user_id}")
-            return ({"error": "Forbidden", "message": "You can only view your own organizations"}, 403)
+            return flask.jsonify({"error": "Unauthorized", "message": "User ID not provided"}), 401
         
-        # Initialize Firestore client
-        db = firestore.client()
+        # If no target user ID is provided, use the requesting user's ID
+        if not target_user_id:
+            target_user_id = user_id
         
-        # Get all organization memberships for the user
-        query = db.collection("organization_memberships").where("userId", "==", user_id)
-        memberships = list(query.stream())
+        logging.info(f"Listing organizations for user {target_user_id}")
         
-        # Prepare the response
+        # Check if the requesting user is allowed to view organizations for the target user
+        if user_id != target_user_id:
+            # Only admin users should be able to view other users' organizations
+            return flask.jsonify({"error": "Forbidden", "message": "You do not have permission to view organizations for this user"}), 403
+        
+        # Get all memberships for the user
+        members_query = db.collection('organizationMembers').where('userId', '==', target_user_id)
+        
+        # Execute the query
+        members_docs = members_query.stream()
+        
+        # Process the results
         organizations = []
-        for membership_doc in memberships:
-            membership_data = membership_doc.to_dict()
-            organization_id = membership_data.get("organizationId")
+        for doc in members_docs:
+            member_data = doc.to_dict()
+            organization_id = member_data.get('organizationId')
             
-            # Get the organization details
-            organization_doc = db.collection("organizations").document(organization_id).get()
-            if organization_doc.exists:
-                organization_data = organization_doc.to_dict()
+            # Fetch the organization data
+            org_ref = db.collection('organizations').document(organization_id)
+            org_doc = org_ref.get()
+            
+            if org_doc.exists:
+                org_data = org_doc.to_dict()
                 
-                # Create a simplified organization object including the user's role
-                organization_info = {
-                    "organizationId": organization_id,
-                    "name": organization_data.get("name", ""),
-                    "type": organization_data.get("type", ""),
-                    "role": membership_data.get("role", "staff")
+                # Include only necessary organization information
+                org_info = {
+                    'id': organization_id,
+                    'name': org_data.get('name', ''),
+                    'description': org_data.get('description', ''),
+                    'role': member_data.get('role', 'member'),
+                    'joinedAt': member_data.get('joinedAt')
                 }
                 
-                organizations.append(organization_info)
+                organizations.append(org_info)
         
         # Return the list of organizations
-        logging.info(f"Successfully retrieved {len(organizations)} organizations for user {user_id}")
-        return ({"organizations": organizations}, 200)
+        return flask.jsonify({"organizations": organizations}), 200
+    
     except Exception as e:
         logging.error(f"Error listing user organizations: {str(e)}")
-        return ({"error": "Internal Server Error", "message": f"Failed to list user organizations: {str(e)}"}, 500) 
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500 

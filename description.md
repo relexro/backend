@@ -11,13 +11,15 @@ The Relex backend is a serverless application built using Python Firebase Functi
 
 * **Implemented:**
     * Firebase Authentication integration (Google provider only as requested) [cite: README.md].
-    * Token validation helper (`get_authenticated_user` in `auth.py`) [cite: functions/src/auth.py].
-    * Role checking within Org Admin functions (`organization_membership.py`) [cite: functions/src/organization_membership.py].
-    * User profile creation trigger (`create_user_profile` - defined but trigger mechanism needs confirmation/update) [cite: functions/src/user.py].
-    * `check_permissions` function defined in `auth.py` outlining RBAC logic [cite: functions/src/auth.py].
+    * Enhanced permission checking with modular, resource-specific checkers in `auth.py`.
+    * Centralized permissions map defining allowed actions by role and resource type.
+    * Pydantic validation for permission request data.
+    * Staff assignment validation for organization cases.
+    * Document permission logic that respects parent case access.
+    * Role checking within Org Admin functions (`organization_membership.py`).
+    * User profile creation trigger (`create_user_profile`).
 * **To Do:**
-    * **Implement `check_permissions` Usage:** Integrate calls to `check_permissions` within all case and file management functions (`cases.py`) and the future `parties.py` module to enforce RBAC rules (Admin vs. Staff vs. Owner) [cite: context.md].
-    * **Firebase Custom Claims:** Implement setting custom claims (`role`, `orgId`) on user tokens.
+    * **Firebase Custom Claims:** Implement setting custom claims (`role`, `orgId`) on user tokens to optimize permission checks.
     * **Firestore Security Rules:** Write and deploy comprehensive rules mirroring RBAC logic [cite: 248, context.md].
     * **Cloud Storage Security Rules:** Write and deploy rules based on case ownership and organization roles.
 
@@ -53,8 +55,15 @@ The Relex backend is a serverless application built using Python Firebase Functi
 ### 6. Function Modules Status
 
 * **`auth.py` [cite: functions/src/auth.py]:**
-    * Implemented: `get_authenticated_user`, `validate_user`, `check_permissions` (needs integration), `get_user_role` (uses old path).
-    * To Do: Integrate `check_permissions`, update `get_user_role`, implement custom claims.
+    * Implemented: 
+        * Enhanced `check_permissions` with resource-specific checkers (case, organization, party, document)
+        * Centralized permissions map with predefined actions per role
+        * Pydantic validation for request schemas
+        * Staff assignment validation for organization cases
+        * Document permissions derived from parent case access
+        * `validate_user` and `get_user_role` with improved error handling
+    * To Do: Implement Firebase custom claims for optimization.
+
 * **`user.py` [cite: functions/src/user.py]:**
     * Implemented: `get_user_profile`, `update_user_profile`, `create_user_profile`.
     * To Do: Ensure schema includes `voucherBalance`.
@@ -66,7 +75,7 @@ The Relex backend is a serverless application built using Python Firebase Functi
     * To Do: Ensure robust error handling.
 * **`cases.py` [cite: functions/src/cases.py]:**
     * Implemented: `create_case` (lacks quota check), `get_case`, `list_cases` (basic filtering), `archive_case`, `delete_case`, `upload_file`, `download_file`.
-    * To Do: **Implement Quota Check in `create_case`**, implement case assignment (`assignedUserId`), add label filtering, integrate `check_permissions`. Implement 1GB limit check.
+    * To Do: **Implement Quota Check in `create_case`**, implement case assignment (`assignedUserId`), add label filtering, integrate enhanced `check_permissions`. Implement 1GB limit check.
 * **`payments.py` [cite: functions/src/payments.py]:**
     * Implemented: `create_payment_intent`, `create_checkout_session`, `handle_stripe_webhook` (various events), `cancel_subscription`.
     * To Do: **Implement Voucher Redemption Logic**, ensure webhook correctly updates quotas/billing cycle. Configure Stripe Price IDs. Add tests.
@@ -95,7 +104,7 @@ The Relex backend is a serverless application built using Python Firebase Functi
 * ~~**Party Management API:**~~ **IMPLEMENTED** - Full CRUD operations and Attach/Detach functionality now available.
 * **Quota System:** Full Model B logic in `create_case` & webhook reset.
 * **Voucher Redemption API & Logic.**
-* ~~**RBAC Enforcement:**~~ **PARTIALLY IMPLEMENTED** - Added party resource handling to `check_permissions`, still need consistent usage across all endpoints.
+* ~~**RBAC Enforcement:**~~ **IMPLEMENTED** - Enhanced modular permission system with resource-specific checkers and staff assignment validation.
 * **Firestore/Storage Security Rules.**
 * **Case Assignment API & Logic.**
 * **Chat API:** Functional `sendChatMessage` / `getChatHistory`.
