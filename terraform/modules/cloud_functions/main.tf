@@ -1,3 +1,17 @@
+# Create ZIP file of the functions source code
+data "archive_file" "functions_source" {
+  type        = "zip"
+  source_dir  = var.functions_source_path
+  output_path = var.functions_zip_path
+}
+
+# Upload the ZIP file to Cloud Storage
+resource "google_storage_bucket_object" "functions_source" {
+  name   = "functions-source-${data.archive_file.functions_source.output_md5}.zip"
+  bucket = var.functions_bucket_name
+  source = data.archive_file.functions_source.output_path
+}
+
 # Define all cloud functions
 locals {
   # Map of all functions to deploy with their configurations
@@ -204,6 +218,131 @@ locals {
       max_instances = 10,
       memory = "256Mi",
       timeout = 60
+    },
+    
+    # Case Management Functions
+    "relex-backend-create-case" = {
+      entry_point = "cases_create_case",
+      description = "Create a new case",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-get-case" = {
+      entry_point = "cases_get_case",
+      description = "Get a case by ID",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-list-cases" = {
+      entry_point = "cases_list_cases",
+      description = "List cases",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-archive-case" = {
+      entry_point = "cases_archive_case",
+      description = "Archive a case",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-delete-case" = {
+      entry_point = "cases_delete_case",
+      description = "Delete a case",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-upload-file" = {
+      entry_point = "cases_upload_file",
+      description = "Upload a file to a case",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-download-file" = {
+      entry_point = "cases_download_file",
+      description = "Download a file from a case",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-attach-party" = {
+      entry_point = "cases_attach_party",
+      description = "Attach a party to a case",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-detach-party" = {
+      entry_point = "cases_detach_party",
+      description = "Detach a party from a case",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    
+    # Authentication Functions
+    "relex-backend-validate-user" = {
+      entry_point = "auth_validate_user",
+      description = "Validate a user's token",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-check-permissions" = {
+      entry_point = "auth_check_permissions",
+      description = "Check permissions for a user",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-get-user-role" = {
+      entry_point = "auth_get_user_role",
+      description = "Get a user's role in an organization",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    
+    # Party Management Functions
+    "relex-backend-create-party" = {
+      entry_point = "party_create_party",
+      description = "Create a new party",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-get-party" = {
+      entry_point = "party_get_party",
+      description = "Get a party by ID",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-update-party" = {
+      entry_point = "party_update_party",
+      description = "Update a party",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-delete-party" = {
+      entry_point = "party_delete_party",
+      description = "Delete a party",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
+    },
+    "relex-backend-list-parties" = {
+      entry_point = "party_list_parties",
+      description = "List parties",
+      max_instances = 10,
+      memory = "256Mi",
+      timeout = 60
     }
   }
 
@@ -223,9 +362,10 @@ locals {
   }
 }
 
-# Cloud Functions deployment using for_each to create multiple functions
+# Deploy each Cloud Function
 resource "google_cloudfunctions2_function" "functions" {
-  for_each    = var.functions
+  for_each = local.functions
+  
   name        = each.key
   location    = var.region
   description = each.value.description
@@ -236,46 +376,33 @@ resource "google_cloudfunctions2_function" "functions" {
     source {
       storage_source {
         bucket = var.functions_bucket_name
-        object = "relex-backend-functions-source-fixed.zip"
+        object = google_storage_bucket_object.functions_source.name
       }
     }
   }
 
   service_config {
-    max_instance_count             = 10
-    available_memory               = "256Mi"
-    timeout_seconds                = 120
-    ingress_settings               = "ALLOW_INTERNAL_AND_GCLB"
-    all_traffic_on_latest_revision = true
-    service_account_email          = "relexro@appspot.gserviceaccount.com"
-    environment_variables = merge({
-      "GOOGLE_CLOUD_PROJECT" = var.project_id
-      "GOOGLE_CLOUD_REGION"  = var.region
-    }, each.value.env_vars != null ? each.value.env_vars : {})
+    max_instance_count = lookup(each.value, "max_instances", 10)
+    available_memory   = lookup(each.value, "memory", "256Mi")
+    timeout_seconds    = lookup(each.value, "timeout", 60)
     
+    environment_variables = {
+      GOOGLE_CLOUD_PROJECT = var.project_id
+      GOOGLE_CLOUD_REGION = var.region
+    }
+
     dynamic "secret_environment_variables" {
-      for_each = each.value.secret_env_vars != null ? each.value.secret_env_vars : []
+      for_each = lookup(each.value, "secret_env_vars", [])
       content {
         key        = secret_environment_variables.value.key
         project_id = var.project_id
-        secret     = secret_environment_variables.value.secret
-        version    = secret_environment_variables.value.version
+        secret    = secret_environment_variables.value.secret
+        version   = secret_environment_variables.value.version
       }
     }
   }
 
-  lifecycle {
-    ignore_changes = [
-      build_config.0.source.0.storage_source.0.generation,
-      service_config.0.environment_variables,
-      service_config.0.service,
-      service_config.0.available_memory,
-      service_config.0.timeout_seconds,
-      service_config.0.max_instance_count,
-      service_config.0.secret_environment_variables
-    ]
-    create_before_destroy = true
-  }
+  depends_on = [google_storage_bucket_object.functions_source]
 }
 
 # Add IAM policy to allow API Gateway to invoke the Cloud Functions
@@ -291,6 +418,7 @@ resource "google_cloud_run_service_iam_member" "invoker" {
   depends_on = [google_cloudfunctions2_function.functions]
   
   lifecycle {
+    create_before_destroy = true
     ignore_changes = [service]
   }
 }
@@ -319,7 +447,7 @@ resource "google_secret_manager_secret" "stripe_secret_key" {
 
 resource "google_secret_manager_secret_version" "stripe_secret_key_version" {
   secret      = google_secret_manager_secret.stripe_secret_key.id
-  secret_data = var.stripe_secret_key
+  secret_data_wo = var.stripe_secret_key
 }
 
 resource "google_secret_manager_secret" "stripe_webhook_secret" {
@@ -336,5 +464,5 @@ resource "google_secret_manager_secret" "stripe_webhook_secret" {
 
 resource "google_secret_manager_secret_version" "stripe_webhook_secret_version" {
   secret      = google_secret_manager_secret.stripe_webhook_secret.id
-  secret_data = var.stripe_webhook_secret
+  secret_data_wo = var.stripe_webhook_secret
 } 

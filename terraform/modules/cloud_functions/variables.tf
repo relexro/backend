@@ -23,13 +23,18 @@ variable "functions_zip_path" {
   type        = string
 }
 
-variable "functions_zip_name" {
-  description = "Name of the zip file containing the Cloud Functions source code"
+variable "api_gateway_sa_email" {
+  description = "Email of the API Gateway service account"
   type        = string
 }
 
-variable "api_gateway_sa_email" {
-  description = "Email of the API Gateway service account"
+variable "stripe_secret_key" {
+  description = "Stripe secret key"
+  type        = string
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe webhook secret"
   type        = string
 }
 
@@ -160,18 +165,91 @@ variable "functions" {
       description = "Cancel a Stripe subscription"
       entry_point = "payments_cancel_subscription"
       env_vars    = {}
+    },
+    "relex-backend-create-case" = {
+      description = "Create a new case"
+      entry_point = "cases_create_case"
+      env_vars    = {}
+    },
+    "relex-backend-get-case" = {
+      description = "Get a case by ID"
+      entry_point = "cases_get_case"
+      env_vars    = {}
+    },
+    "relex-backend-list-cases" = {
+      description = "List cases"
+      entry_point = "cases_list_cases"
+      env_vars    = {}
+    },
+    "relex-backend-archive-case" = {
+      description = "Archive a case"
+      entry_point = "cases_archive_case"
+      env_vars    = {}
+    },
+    "relex-backend-delete-case" = {
+      description = "Delete a case"
+      entry_point = "cases_delete_case"
+      env_vars    = {}
+    },
+    "relex-backend-upload-file" = {
+      description = "Upload a file to a case"
+      entry_point = "cases_upload_file"
+      env_vars    = {}
+    },
+    "relex-backend-download-file" = {
+      description = "Download a file from a case"
+      entry_point = "cases_download_file"
+      env_vars    = {}
+    },
+    "relex-backend-attach-party" = {
+      description = "Attach a party to a case"
+      entry_point = "cases_attach_party"
+      env_vars    = {}
+    },
+    "relex-backend-detach-party" = {
+      description = "Detach a party from a case"
+      entry_point = "cases_detach_party"
+      env_vars    = {}
+    },
+    "relex-backend-validate-user" = {
+      description = "Validate a user's token"
+      entry_point = "auth_validate_user"
+      env_vars    = {}
+    },
+    "relex-backend-check-permissions" = {
+      description = "Check permissions for a user"
+      entry_point = "auth_check_permissions"
+      env_vars    = {}
+    },
+    "relex-backend-get-user-role" = {
+      description = "Get a user's role in an organization"
+      entry_point = "auth_get_user_role"
+      env_vars    = {}
+    },
+    "relex-backend-create-party" = {
+      description = "Create a new party"
+      entry_point = "party_create_party"
+      env_vars    = {}
+    },
+    "relex-backend-get-party" = {
+      description = "Get a party by ID"
+      entry_point = "party_get_party"
+      env_vars    = {}
+    },
+    "relex-backend-update-party" = {
+      description = "Update a party"
+      entry_point = "party_update_party"
+      env_vars    = {}
+    },
+    "relex-backend-delete-party" = {
+      description = "Delete a party"
+      entry_point = "party_delete_party"
+      env_vars    = {}
+    },
+    "relex-backend-list-parties" = {
+      description = "List parties"
+      entry_point = "party_list_parties"
+      env_vars    = {}
     }
   }
-}
-
-variable "stripe_secret_key" {
-  description = "Stripe Secret API key"
-  type        = string
-  sensitive   = true
-}
-
-variable "stripe_webhook_secret" {
-  description = "Stripe Webhook Secret for validating webhook events"
-  type        = string
-  sensitive   = true
 } 

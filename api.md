@@ -24,10 +24,7 @@ firebase.initializeApp(firebaseConfig);
 
 2. Sign in users using Firebase Authentication methods:
 ```javascript
-// Example with email/password
-await firebase.auth().signInWithEmailAndPassword(email, password);
-
-// Example with Google
+// Example with Google (only authentication method in MVP)
 const provider = new firebase.auth.GoogleAuthProvider();
 await firebase.auth().signInWithPopup(provider);
 ```
@@ -45,6 +42,7 @@ The API is organized into the following groups:
 ### Authentication
 - `GET /v1/auth/validate-user`
 - `POST /v1/auth/check-permissions`
+- `GET /v1/auth/user-role`
 
 ### User Management
 - `GET /v1/users/me`
@@ -62,6 +60,9 @@ The API is organized into the following groups:
 - `GET /v1/organizations/{organizationId}/members`
 - `PUT /v1/organizations/{organizationId}/members/{userId}`
 - `DELETE /v1/organizations/{organizationId}/members/{userId}`
+- `GET /v1/organizations/{organizationId}/users`
+- `POST /v1/organizations/{organizationId}/users`
+- `DELETE /v1/organizations/{organizationId}/users/{userId}`
 
 ### Cases
 - `POST /v1/cases` (individual cases)
@@ -71,16 +72,33 @@ The API is organized into the following groups:
 - `GET /v1/organizations/{organizationId}/cases` (list organization cases)
 - `POST /v1/cases/{caseId}/archive`
 - `DELETE /v1/cases/{caseId}`
+- `PUT /v1/cases/{caseId}/assign` (assign case to staff - for Organization Admin only)
+
+### Party Management
+- `POST /v1/parties` (create a new party)
+- `GET /v1/parties/{partyId}` (get a party by ID)
+- `PUT /v1/parties/{partyId}` (update a party)
+- `DELETE /v1/parties/{partyId}` (delete a party)
+- `GET /v1/parties` (list all parties for the authenticated user)
+- `POST /v1/cases/{caseId}/parties` (attach a party to a case)
+- `DELETE /v1/cases/{caseId}/parties/{partyId}` (detach a party from a case)
 
 ### Files
-- `POST /v1/cases/{caseId}/files`
-- `GET /v1/files/{fileId}`
+- `POST /v1/cases/{caseId}/files` (upload a file to a case)
+- `GET /v1/files/{fileId}` (download a file)
+
+### Chat
+- `POST /v1/cases/{caseId}/messages` (send a message in the case chat)
+- `GET /v1/cases/{caseId}/messages` (get chat history for a case)
+- `POST /v1/cases/{caseId}/enrich-prompt` (enrich a prompt with case context)
+- `POST /v1/cases/{caseId}/send-to-vertex` (send a prompt to Vertex AI)
 
 ### Payments
 - `POST /v1/payments/payment-intent` (create payment intent)
 - `POST /v1/payments/checkout-session` (create checkout session)
 - `DELETE /v1/subscriptions/{subscriptionId}` (cancel subscription)
 - `POST /v1/payments/webhook` (handle Stripe webhooks)
+- `POST /v1/vouchers/redeem` (redeem a voucher code)
 
 ## Detailed Endpoints
 
@@ -138,6 +156,23 @@ The API is organized into the following groups:
   - 404: Resource not found
   - 500: Server error
 
+#### Get User Role
+- **Method**: GET
+- **Path**: `/v1/auth/user-role`
+- **Description**: Gets the user's role within an organization
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Query Parameters**:
+  - `organizationId`: The ID of the organization
+- **Response**:
+  ```json
+  {
+    "role": "admin|staff|none"
+  }
+  ```
+
 ### User Management
 
 #### Get User Profile
@@ -156,11 +191,20 @@ The API is organized into the following groups:
     "subscriptionPlanId": "string",
     "billingCycleStart": "2023-04-01T00:00:00Z",
     "billingCycleEnd": "2023-05-01T00:00:00Z",
-    "caseQuotaTotal": 10,
-    "caseQuotaUsed": 5,
+    "caseQuotaTotal": {
+      "tier1": 5,
+      "tier2": 2,
+      "tier3": 1
+    },
+    "caseQuotaUsed": {
+      "tier1": 3,
+      "tier2": 1,
+      "tier3": 0
+    },
     "stripeCustomerId": "string",
     "stripeSubscriptionId": "string",
     "languagePreference": "en|ro",
+    "voucherBalance": 0,
     "createdAt": "string",
     "updatedAt": "string"
   }
@@ -191,8 +235,8 @@ The API is organized into the following groups:
       {
         "organizationId": "string",
         "name": "string",
-        "type": "string",
-        "role": "string"
+        "type": "law_firm|corporate|individual",
+        "role": "admin|staff"
       }
     ]
   }
@@ -224,6 +268,57 @@ The API is organized into the following groups:
   }
   ```
 
+#### Get Organization
+- **Method**: GET
+- **Path**: `/v1/organizations/{organizationId}`
+- **Description**: Get organization details
+- **Response**:
+  ```json
+  {
+    "organizationId": "string",
+    "name": "string",
+    "type": "law_firm|corporate|individual",
+    "address": "string",
+    "phone": "string",
+    "email": "string",
+    "subscriptionStatus": "active|inactive",
+    "subscriptionPlanId": "string",
+    "billingCycleStart": "2023-04-01T00:00:00Z",
+    "billingCycleEnd": "2023-05-01T00:00:00Z",
+    "caseQuotaTotal": {
+      "tier1": 20,
+      "tier2": 10,
+      "tier3": 5
+    },
+    "caseQuotaUsed": {
+      "tier1": 10,
+      "tier2": 5,
+      "tier3": 2
+    },
+    "stripeCustomerId": "string",
+    "stripeSubscriptionId": "string",
+    "createdAt": "string",
+    "updatedAt": "string",
+    "createdBy": "string"
+  }
+  ```
+
+#### Update Organization
+- **Method**: PUT
+- **Path**: `/v1/organizations/{organizationId}`
+- **Description**: Update organization details (requires admin role)
+- **Body**:
+  ```json
+  {
+    "name": "string",
+    "type": "law_firm|corporate|individual",
+    "address": "string",
+    "phone": "string",
+    "email": "string"
+  }
+  ```
+- **Response**: Same as Get Organization
+
 ### Cases
 
 #### Create Individual Case
@@ -236,7 +331,8 @@ The API is organized into the following groups:
     "title": "string",
     "description": "string",
     "caseTier": 1, // 1, 2, or 3 - REQUIRED
-    "paymentIntentId": "string" // OPTIONAL if user has subscription with quota
+    "paymentIntentId": "string", // OPTIONAL if user has subscription with quota
+    "initialPartyIds": ["string"] // OPTIONAL array of party IDs to attach initially
   }
   ```
 - **Response**:
@@ -248,7 +344,13 @@ The API is organized into the following groups:
     "createdAt": "string",
     "paymentStatus": "covered_by_quota", // or "paid_intent" if using payment
     "caseTier": 1,
-    "casePrice": 900
+    "casePrice": 900,
+    "parties": [
+      {
+        "partyId": "string",
+        "nameDisplay": "string" // Composite name based on party type
+      }
+    ]
   }
   ```
 - **Errors**:
@@ -266,7 +368,9 @@ The API is organized into the following groups:
     "title": "string",
     "description": "string",
     "caseTier": 1, // 1, 2, or 3 - REQUIRED
-    "paymentIntentId": "string" // OPTIONAL if organization has subscription with quota
+    "paymentIntentId": "string", // OPTIONAL if organization has subscription with quota
+    "initialPartyIds": ["string"], // OPTIONAL array of party IDs to attach initially
+    "assignedUserId": "string" // OPTIONAL staff user ID to assign the case to
   }
   ```
 - **Response**:
@@ -278,7 +382,15 @@ The API is organized into the following groups:
     "createdAt": "string",
     "paymentStatus": "covered_by_quota", // or "paid_intent" if using payment
     "caseTier": 1,
-    "casePrice": 900
+    "casePrice": 900,
+    "organizationId": "string",
+    "assignedUserId": "string",
+    "parties": [
+      {
+        "partyId": "string",
+        "nameDisplay": "string" // Composite name based on party type
+      }
+    ]
   }
   ```
 - **Errors**:
@@ -291,8 +403,10 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/users/me/cases`
 - **Query Parameters**:
-  - `status`: open|archived|deleted
-  - `limit`: number
+  - `status`: open|archived|deleted (default: open)
+  - `limit`: number (default: 20)
+  - `offset`: number (default: 0)
+  - `labelIds`: Array of label IDs to filter by
 - **Response**:
   ```json
   {
@@ -303,9 +417,25 @@ The API is organized into the following groups:
         "status": "string",
         "createdAt": "string",
         "paymentStatus": "covered_by_quota", // or "paid_intent"
-        "caseTier": 1
+        "caseTier": 1,
+        "labels": [
+          {
+            "labelId": "string",
+            "name": "string",
+            "color": "string"
+          }
+        ],
+        "parties": [
+          {
+            "partyId": "string",
+            "nameDisplay": "string"
+          }
+        ]
       }
-    ]
+    ],
+    "total": 25,
+    "limit": 20,
+    "offset": 0
   }
   ```
 
@@ -313,8 +443,11 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/organizations/{organizationId}/cases`
 - **Query Parameters**:
-  - `status`: open|archived|deleted
-  - `limit`: number
+  - `status`: open|archived|deleted (default: open)
+  - `limit`: number (default: 20)
+  - `offset`: number (default: 0)
+  - `labelIds`: Array of label IDs to filter by
+  - `assignedUserId`: Filter by assigned staff member (admin only)
 - **Response**:
   ```json
   {
@@ -325,171 +458,140 @@ The API is organized into the following groups:
         "status": "string",
         "createdAt": "string",
         "paymentStatus": "covered_by_quota", // or "paid_intent"
-        "caseTier": 1
+        "caseTier": 1,
+        "assignedUserId": "string",
+        "assignedUserName": "string",
+        "labels": [
+          {
+            "labelId": "string",
+            "name": "string",
+            "color": "string"
+          }
+        ],
+        "parties": [
+          {
+            "partyId": "string",
+            "nameDisplay": "string"
+          }
+        ]
+      }
+    ],
+    "total": 25,
+    "limit": 20,
+    "offset": 0
+  }
+  ```
+
+#### Get Case
+- **Method**: GET
+- **Path**: `/v1/cases/{caseId}`
+- **Description**: Get details of a specific case
+- **Response**:
+  ```json
+  {
+    "caseId": "string",
+    "title": "string",
+    "description": "string",
+    "status": "open|archived|deleted",
+    "createdAt": "string",
+    "updatedAt": "string",
+    "archivedAt": "string",
+    "caseTier": 1,
+    "paymentStatus": "covered_by_quota|paid_intent",
+    "userId": "string",
+    "organizationId": "string",
+    "assignedUserId": "string",
+    "assignedUserName": "string",
+    "parties": [
+      {
+        "partyId": "string",
+        "partyType": "individual|organization",
+        "nameDetails": {
+          // For individual parties
+          "firstName": "string",
+          "lastName": "string",
+          
+          // For organization parties
+          "companyName": "string"
+        },
+        "contactInfo": {
+          "address": "string",
+          "email": "string",
+          "phone": "string"
+        }
+      }
+    ],
+    "documents": [
+      {
+        "documentId": "string",
+        "fileName": "string",
+        "fileSize": 1024,
+        "fileType": "string",
+        "uploadedAt": "string",
+        "uploadedBy": "string"
+      }
+    ],
+    "labels": [
+      {
+        "labelId": "string",
+        "name": "string",
+        "color": "string"
       }
     ]
   }
   ```
 
-### Files
-
-#### Upload File
+#### Archive Case
 - **Method**: POST
-- **Path**: `/v1/cases/{caseId}/files`
-- **Body**: multipart/form-data
-  - `file`: File
-  - `fileName`: string
+- **Path**: `/v1/cases/{caseId}/archive`
+- **Description**: Archive a case (sets status to "archived")
 - **Response**:
   ```json
   {
-    "fileId": "string",
-    "fileName": "string",
-    "fileUrl": "string",
-    "uploadedAt": "string"
+    "success": true,
+    "message": "Case archived successfully",
+    "caseId": "string",
+    "status": "archived",
+    "archivedAt": "string"
   }
   ```
 
-#### Download File
-- **Method**: GET
-- **Path**: `/v1/files/{fileId}`
-- **Response**: File content (application/octet-stream)
-
-### Payments
-
-#### Create Payment Intent
-- **Method**: POST
-- **Path**: `/v1/payments/payment-intent`
-- **Description**: Create a Stripe Payment Intent for a case payment (used when subscription quota is exhausted or no subscription exists)
-- **Headers**: 
+#### Delete Case
+- **Method**: DELETE
+- **Path**: `/v1/cases/{caseId}`
+- **Description**: Delete a case (soft delete - sets status to "deleted")
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Case deleted successfully"
+  }
   ```
-  Authorization: Bearer <firebase_id_token>
-  ```
+
+#### Assign Case
+- **Method**: PUT
+- **Path**: `/v1/cases/{caseId}/assign`
+- **Description**: Assign a case to a staff member (organization admin only)
 - **Body**:
   ```json
   {
-    "caseTier": 1, // 1, 2, or 3
-    "currency": "eur", // optional, defaults to "eur"
-    "caseId": "string" // optional, to link the payment to a case
+    "assignedUserId": "string" // Staff user ID to assign case to, null to unassign
   }
-  ```
-- **Response**:
-  ```json
-  {
-    "clientSecret": "string",
-    "paymentIntentId": "string",
-    "message": "Payment intent created successfully"
-  }
-  ```
-
-#### Create Checkout Session
-- **Method**: POST
-- **Path**: `/v1/payments/checkout-session`
-- **Description**: Create a Stripe Checkout Session for a subscription with case quota or a one-time payment
-- **Headers**: 
-  ```
-  Authorization: Bearer <firebase_id_token>
-  ```
-- **Body** (for subscription):
-  ```json
-  {
-    "planId": "personal_monthly", // or other plan IDs
-    "mode": "subscription", // default value
-    "successUrl": "https://relex.ro/success", // optional
-    "cancelUrl": "https://relex.ro/cancel", // optional
-    "organizationId": "string" // optional, for business subscriptions
-  }
-  ```
-- **Body** (for one-time payment):
-  ```json
-  {
-    "amount": 2900, // in cents
-    "mode": "payment", // required for one-time payment
-    "currency": "eur", // optional, defaults to "eur"
-    "productName": "Relex Legal Service", // optional
-    "caseId": "string" // optional, to link the payment to a case
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "sessionId": "string",
-    "url": "string",
-    "message": "Checkout session created successfully"
-  }
-  ```
-
-#### Cancel Subscription
-- **Method**: DELETE
-- **Path**: `/v1/subscriptions/{subscriptionId}`
-- **Description**: Cancel a Stripe subscription at the end of the current billing period. The subscription will remain active until the end of the current billing cycle.
-- **Headers**: 
-  ```
-  Authorization: Bearer <firebase_id_token>
   ```
 - **Response**:
   ```json
   {
     "success": true,
-    "message": "Subscription has been scheduled for cancellation at the end of the current billing period"
+    "message": "Case assigned successfully",
+    "caseId": "string",
+    "assignedUserId": "string",
+    "assignedUserName": "string"
   }
   ```
 
-#### Handle Stripe Webhook
-- **Method**: POST
-- **Path**: `/v1/payments/webhook`
-- **Description**: Process Stripe webhook events to update subscriptions and payments. Handles events such as `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `payment_intent.succeeded`, and more.
-- **Headers**: 
-  ```
-  Stripe-Signature: <stripe_webhook_signature>
-  ```
-- **Body**: Stripe webhook event payload (raw)
-- **Response**:
-  ```json
-  {
-    "success": true,
-    "message": "Webhook processed: event_type"
-  }
-  ```
+### Party Management
 
-## Error Responses
-
-All endpoints use a consistent error format:
-```json
-{
-  "error": "string",
-  "message": "string"
-}
-```
-
-Common error codes:
-- `invalid_request`: 400
-- `unauthorized`: 401
-- `payment_required`: 402 - Subscription quota exhausted or no subscription
-- `forbidden`: 403
-- `not_found`: 404
-- `internal_error`: 500
-
-## Party Management
-
-The Relex API supports management of parties (individuals or organizations) that can be attached to cases as plaintiffs, defendants, or other stakeholders.
-
-### Party Types and Conditional Fields
-
-A key feature of the Party system is the `partyType` field, which determines what other fields are required:
-
-1. **Individual Parties** (`partyType: "individual"`):
-   - **Required in nameDetails**: `firstName`, `lastName`
-   - **Required in identityCodes**: `cnp` (Romanian Personal Numeric Code, 13 digits)
-   - Cannot have organization-specific fields (companyName, cui, regCom)
-
-2. **Organization Parties** (`partyType: "organization"`):
-   - **Required in nameDetails**: `companyName`
-   - **Required in identityCodes**: `cui` (Romanian Fiscal Code), `regCom` (Romanian Registration Number)
-   - Cannot have individual-specific fields (firstName, lastName, cnp)
-
-All party types require `contactInfo.address` (email and phone are optional).
-
-### Create Party
+#### Create Party
 - **Method**: POST
 - **Path**: `/v1/parties`
 - **Description**: Creates a new party with type-specific validation
@@ -554,26 +656,7 @@ All party types require `contactInfo.address` (email and phone are optional).
   }
   ```
 
-### Example: Creating an Organization Party
-```json
-{
-  "partyType": "organization",
-  "nameDetails": {
-    "companyName": "ABC Company SRL"
-  },
-  "identityCodes": {
-    "cui": "RO12345678",
-    "regCom": "J40/123/2020"
-  },
-  "contactInfo": {
-    "address": "123 Business Ave, Bucharest",
-    "email": "contact@abccompany.ro",
-    "phone": "+40721234567"
-  }
-}
-```
-
-### Get Party
+#### Get Party
 - **Method**: GET
 - **Path**: `/v1/parties/{partyId}`
 - **Description**: Retrieves a party by ID (requires ownership)
@@ -583,7 +666,7 @@ All party types require `contactInfo.address` (email and phone are optional).
   ```
 - **Response**: Same as Create Party response
 
-### Update Party
+#### Update Party
 - **Method**: PUT
 - **Path**: `/v1/parties/{partyId}`
 - **Description**: Updates a party with type-specific validation based on existing partyType (partyType itself cannot be changed)
@@ -594,7 +677,6 @@ All party types require `contactInfo.address` (email and phone are optional).
 - **Body**:
   ```json
   {
-    "partyId": "string", // REQUIRED
     "nameDetails": {
       // For updating individual parties - cannot add companyName to individuals
       "firstName": "John",
@@ -618,7 +700,7 @@ All party types require `contactInfo.address` (email and phone are optional).
   ```
 - **Response**: Updated party object similar to Create Party response
 
-### Delete Party
+#### Delete Party
 - **Method**: DELETE
 - **Path**: `/v1/parties/{partyId}`
 - **Description**: Deletes a party (requires ownership, fails if party is attached to any cases)
@@ -628,7 +710,7 @@ All party types require `contactInfo.address` (email and phone are optional).
   ```
 - **Response**: Status 204 No Content
 
-### List Parties
+#### List Parties
 - **Method**: GET
 - **Path**: `/v1/parties`
 - **Query Parameters**:
@@ -645,9 +727,9 @@ All party types require `contactInfo.address` (email and phone are optional).
       {
         "partyId": "string",
         "partyType": "individual",
-        "nameDetails": { ... },
-        "identityCodes": { ... },
-        "contactInfo": { ... },
+        "nameDetails": { /* ... */ },
+        "identityCodes": { /* ... */ },
+        "contactInfo": { /* ... */ },
         "createdAt": "2023-10-20T14:30:00Z",
         "updatedAt": "2023-10-20T14:30:00Z"
       }
@@ -655,7 +737,7 @@ All party types require `contactInfo.address` (email and phone are optional).
   }
   ```
 
-### Attach Party to Case
+#### Attach Party to Case
 - **Method**: POST
 - **Path**: `/v1/cases/{caseId}/parties`
 - **Description**: Attaches an existing party to a case
@@ -679,7 +761,7 @@ All party types require `contactInfo.address` (email and phone are optional).
   }
   ```
 
-### Detach Party from Case
+#### Detach Party from Case
 - **Method**: DELETE
 - **Path**: `/v1/cases/{caseId}/parties/{partyId}`
 - **Description**: Removes a party from a case
@@ -697,19 +779,286 @@ All party types require `contactInfo.address` (email and phone are optional).
   }
   ```
 
+### Files
+
+#### Upload File
+- **Method**: POST
+- **Path**: `/v1/cases/{caseId}/files`
+- **Body**: multipart/form-data
+  - `file`: File
+  - `fileName`: string
+- **Description**: Uploads a file to a case. Limited to 10MB per file. Total storage per case is limited to 2GB.
+- **Response**:
+  ```json
+  {
+    "fileId": "string",
+    "fileName": "string",
+    "fileUrl": "string",
+    "fileSize": 1024,
+    "fileType": "string",
+    "uploadedAt": "string"
+  }
+  ```
+- **Errors**:
+  - `400 Bad Request`: File too large or invalid format
+  - `403 Forbidden`: Storage limit exceeded for the case
+  - `401 Unauthorized`: Authentication error
+
+#### Download File
+- **Method**: GET
+- **Path**: `/v1/files/{fileId}`
+- **Response**: File content (application/octet-stream)
+
+### Chat
+
+#### Send Chat Message
+- **Method**: POST
+- **Path**: `/v1/cases/{caseId}/messages`
+- **Description**: Send a message in the case chat
+- **Body**:
+  ```json
+  {
+    "content": "string",
+    "messageType": "user|system"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "messageId": "string",
+    "content": "string",
+    "timestamp": "string",
+    "userId": "string",
+    "messageType": "user|system"
+  }
+  ```
+
+#### Get Chat History
+- **Method**: GET
+- **Path**: `/v1/cases/{caseId}/messages`
+- **Query Parameters**:
+  - `limit`: number (default: 50)
+  - `before`: timestamp (for pagination)
+- **Description**: Get the chat history for a case
+- **Response**:
+  ```json
+  {
+    "messages": [
+      {
+        "messageId": "string",
+        "content": "string",
+        "timestamp": "string",
+        "userId": "string",
+        "userName": "string",
+        "messageType": "user|system"
+      }
+    ],
+    "hasMore": true
+  }
+  ```
+
+#### Enrich Prompt
+- **Method**: POST
+- **Path**: `/v1/cases/{caseId}/enrich-prompt`
+- **Description**: Enrich a chat prompt with case context
+- **Body**:
+  ```json
+  {
+    "prompt": "string"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "enrichedPrompt": "string"
+  }
+  ```
+
+#### Send to Vertex AI
+- **Method**: POST
+- **Path**: `/v1/cases/{caseId}/send-to-vertex`
+- **Description**: Send a prompt to Vertex AI and get a response
+- **Body**:
+  ```json
+  {
+    "prompt": "string",
+    "enrichContext": true // whether to automatically enrich with case context
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "response": "string",
+    "messageId": "string"
+  }
+  ```
+
+### Payments
+
+#### Create Payment Intent
+- **Method**: POST
+- **Path**: `/v1/payments/payment-intent`
+- **Description**: Create a Stripe Payment Intent for a case payment (used when subscription quota is exhausted or no subscription exists)
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "caseTier": 1, // 1, 2, or 3
+    "currency": "eur", // optional, defaults to "eur"
+    "caseId": "string" // optional, to link the payment to a case
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "clientSecret": "string",
+    "paymentIntentId": "string",
+    "amount": 900, // in cents
+    "currency": "eur",
+    "message": "Payment intent created successfully"
+  }
+  ```
+
+#### Create Checkout Session
+- **Method**: POST
+- **Path**: `/v1/payments/checkout-session`
+- **Description**: Create a Stripe Checkout Session for a subscription with case quota or a one-time payment
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body** (for subscription):
+  ```json
+  {
+    "planId": "personal_monthly|personal_yearly|org_basic_monthly|org_basic_yearly|org_pro_monthly|org_pro_yearly",
+    "mode": "subscription", // default value
+    "successUrl": "https://relex.ro/success", // optional
+    "cancelUrl": "https://relex.ro/cancel", // optional
+    "organizationId": "string" // optional, for business subscriptions
+  }
+  ```
+- **Body** (for one-time payment):
+  ```json
+  {
+    "amount": 2900, // in cents
+    "mode": "payment", // required for one-time payment
+    "currency": "eur", // optional, defaults to "eur"
+    "productName": "Relex Legal Service", // optional
+    "caseId": "string" // optional, to link the payment to a case
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "sessionId": "string",
+    "url": "string",
+    "message": "Checkout session created successfully"
+  }
+  ```
+
+#### Cancel Subscription
+- **Method**: DELETE
+- **Path**: `/v1/subscriptions/{subscriptionId}`
+- **Description**: Cancel a Stripe subscription at the end of the current billing period. The subscription will remain active until the end of the current billing cycle.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Subscription has been scheduled for cancellation at the end of the current billing period"
+  }
+  ```
+
+#### Redeem Voucher
+- **Method**: POST
+- **Path**: `/v1/vouchers/redeem`
+- **Description**: Redeem a voucher code for the user or organization
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "voucherCode": "string",
+    "organizationId": "string" // optional, to apply voucher to an organization instead of the user
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Voucher redeemed successfully",
+    "voucherType": "free_case|subscription_discount|credit",
+    "value": {
+      "amount": 1000, // credit amount in cents, or discount percentage, or number of free cases
+      "caseTier": 1 // only for free_case type
+    },
+    "expiresAt": "string"
+  }
+  ```
+
+#### Handle Stripe Webhook
+- **Method**: POST
+- **Path**: `/v1/payments/webhook`
+- **Description**: Process Stripe webhook events to update subscriptions and payments. Handles events such as `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `payment_intent.succeeded`, and more.
+- **Headers**: 
+  ```
+  Stripe-Signature: <stripe_webhook_signature>
+  ```
+- **Body**: Stripe webhook event payload (raw)
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Webhook processed: event_type"
+  }
+  ```
+
 ## Subscription & Quota System
 
 The platform uses a subscription model with case quotas:
 
-1. **Subscription Plans**: Each plan includes a specific number of cases per billing cycle (caseQuotaTotal)
-2. **Quota Usage**: As cases are created, the quota is consumed (caseQuotaUsed)
+1. **Subscription Plans**: Each plan includes a specific number of cases per tier per billing cycle (`caseQuotaTotal`)
+2. **Quota Usage**: As cases are created, the quota is consumed (`caseQuotaUsed`)
 3. **Quota Reset**: When a new billing cycle begins, the quota resets
 4. **Exceeding Quota**: After exhausting quota, additional cases require individual payment
 
-Case tiers:
+Case tiers with individual pricing:
 - **Tier 1 (Basic)**: Simple cases (€9.00 each if purchased individually)
 - **Tier 2 (Standard)**: Medium complexity (€29.00 each if purchased individually)
 - **Tier 3 (Complex)**: High complexity (€99.00 each if purchased individually)
+
+Subscription plans:
+- **Individual**: €9/mo or €86.40/yr (20% discount)
+- **Organisation Basic**: €200/mo or €1920/yr (20% discount)
+- **Organisation Pro**: €500/mo or €4800/yr (20% discount)
+
+Each plan includes different quota amounts for each tier, providing approximately 70% savings compared to buying cases individually.
+
+## Error Responses
+
+All endpoints use a consistent error format:
+```json
+{
+  "error": "string",
+  "message": "string"
+}
+```
+
+Common error codes:
+- `invalid_request`: 400
+- `unauthorized`: 401
+- `payment_required`: 402 - Subscription quota exhausted or no subscription
+- `forbidden`: 403
+- `not_found`: 404
+- `internal_error`: 500
 
 ## Security
 
@@ -718,7 +1067,7 @@ Case tiers:
 3. Input validation and sanitization
 4. CORS enabled for web clients
 5. Request size limits:
-   - Files: 10MB
+   - Files: 10MB per file, 2GB per case
    - JSON payloads: 1MB
 
 ## Monitoring

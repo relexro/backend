@@ -8,6 +8,11 @@ output "firebase_web_app_id" {
 }
 
 output "firestore_security_rules" {
-  value = google_firestore_security_rule.rules.id
+  value = google_firebaserules_ruleset.rules.id
   description = "ID of the deployed Firestore security rules"
+}
+
+output "firestore_rules_release" {
+  value = google_firebaserules_release.firestore.name
+  description = "Name of the deployed Firestore security rules release"
 } 

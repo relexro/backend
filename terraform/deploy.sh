@@ -9,6 +9,7 @@ cd "$(dirname "$0")"
 BUCKET_NAME="tf-state-relex"
 BUCKET_LOCATION="europe-west3"
 STATE_PREFIX="backend"
+PROJECT_ID=$(gcloud config get-value project)
 
 # Create GCS bucket if it doesn't exist
 if ! gsutil ls -b "gs://${BUCKET_NAME}" &>/dev/null; then

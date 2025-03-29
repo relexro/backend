@@ -38,26 +38,23 @@ module "firebase" {
   depends_on = [module.apis]
 }
 
-# Create storage buckets and upload function source
+# Create storage buckets
 module "storage" {
-  source              = "./modules/storage"
-  project_id          = var.project_id
-  region              = var.region
-  functions_source_path = "${path.root}/../functions/src"
-  functions_zip_path  = "${path.root}/functions-source.zip"
+  source     = "./modules/storage"
+  project_id = var.project_id
+  region     = var.region
 
   depends_on = [module.apis]
 }
 
-# Deploy Cloud Functions first
+# Deploy Cloud Functions
 module "cloud_functions" {
-  source              = "./modules/cloud_functions"
-  project_id          = var.project_id
+  source                = "./modules/cloud_functions"
+  project_id           = var.project_id
   region              = var.region
   functions_bucket_name = module.storage.functions_bucket_name
   functions_source_path = "${path.root}/../functions/src"
   functions_zip_path    = "${path.root}/functions-source.zip"
-  functions_zip_name    = module.storage.functions_source_zip_name
   api_gateway_sa_email = "api-gateway-sa@${var.project_id}.iam.gserviceaccount.com"
   stripe_secret_key    = var.stripe_secret_key
   stripe_webhook_secret = var.stripe_webhook_secret
