@@ -26,11 +26,12 @@ This document tracks the implementation status of the Relex backend components.
 - [x] User profile management
 
 ### Business/Organization Management
-- [x] Business account creation
+- [x] Organization account creation
 - [x] Organization management
-- [x] Member management with roles (fixed collection name inconsistency)
-- [x] Business profile updates
+- [x] Member management with roles
+- [x] Organization profile updates
 - [x] Organization listing
+- [x] Organization deletion with proper cleanup
 - [ ] Advanced business analytics
 - [ ] Multi-organization support
 

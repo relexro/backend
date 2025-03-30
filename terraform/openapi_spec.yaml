@@ -203,6 +203,40 @@ paths:
         '500':
           $ref: '#/definitions/InternalServerError'
 
+  /organizations/{organizationId}:
+    delete:
+      summary: Delete an organization
+      operationId: deleteOrganization
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-organization
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Organization deleted successfully
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
   # Case endpoints
   /cases:
     post:

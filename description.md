@@ -68,7 +68,12 @@ The Relex backend is a serverless application built using Python Firebase Functi
     * To Do: Ensure schema includes `voucherBalance`.
     
 * **`organization.py` [cite: functions/src/organization.py]:**
-    * Implemented: `create_organization` (fixed collection name to `organization_memberships`), `get_organization`, `update_organization` (improved error handling).
+    * Implemented: 
+        * `create_organization` (fixed collection name to `organization_memberships`)
+        * `get_organization`
+        * `update_organization` (improved error handling)
+        * `delete_organization` (with transaction-based cleanup)
+    * Fixed: Collection name inconsistency resolved across all functions.
     * To Do: Ensure schema includes subscription/quota fields. Align/deprecate superseded functions.
     
 * **`organization_membership.py` [cite: functions/src/organization_membership.py]:**

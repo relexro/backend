@@ -26,7 +26,8 @@ from organization import (
     set_user_role as logic_set_user_role,
     update_organization as logic_update_organization,
     list_organization_users as logic_list_organization_users,
-    remove_organization_user as logic_remove_organization_user
+    remove_organization_user as logic_remove_organization_user,
+    delete_organization as logic_delete_organization
 )
 from chat import (
     receive_prompt as logic_receive_prompt,
@@ -148,6 +149,10 @@ def relex_backend_get_organization(request: Request):
 @functions_framework.http
 def relex_backend_update_organization(request: Request):
     return _authenticate_and_call(request, logic_update_organization)
+
+@functions_framework.http
+def relex_backend_delete_organization(request: Request):
+    return _authenticate_and_call(request, logic_delete_organization)
 
 @functions_framework.http
 def relex_backend_add_organization_user(request: Request):

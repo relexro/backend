@@ -234,6 +234,7 @@ The API is designed around RESTful principles, with each endpoint corresponding 
 - `create_organization`: Creates a new organization
 - `get_organization`: Retrieves organization details
 - `update_organization`: Updates organization details
+- `delete_organization`: Deletes an organization and its related data (requires admin role, no active subscription)
 - `add_organization_member`: Adds a member to an organization with a specific role
 - `remove_organization_member`: Removes a member from an organization
 - `set_organization_member_role`: Updates a member's role within an organization

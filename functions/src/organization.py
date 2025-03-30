@@ -438,3 +438,82 @@ def remove_organization_user(request: Request):
     except Exception as e:
         logging.error(f"Error removing user from organization: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+
+def delete_organization(request: Request):
+    logging.info("Logic function delete_organization called")
+    try:
+        request_json = request.get_json(silent=True)
+        if not hasattr(request, 'user_id'):
+             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
+        user_id = request.user_id
+
+        if not request_json:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
+
+        organization_id = request_json.get('organizationId')
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
+
+        org_ref = db.collection('organizations').document(organization_id)
+        org_doc = org_ref.get()
+        if not org_doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"Organization {organization_id} not found"}), 404
+
+        # Check permissions
+        permission_request = PermissionCheckRequest(
+            resourceType=RESOURCE_TYPE_ORGANIZATION,
+            resourceId=organization_id,
+            action="delete",
+            organizationId=organization_id
+        )
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
+            return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
+
+        org_data = org_doc.to_dict()
+
+        # Check if organization has an active subscription
+        if org_data.get('subscriptionStatus') == 'active' and org_data.get('stripeSubscriptionId'):
+            return flask.jsonify({
+                "error": "Bad Request",
+                "message": "Cannot delete organization with active subscription. Please cancel the subscription first."
+            }), 400
+
+        # Start a transaction to delete the organization and all related data
+        transaction = db.transaction()
+
+        @firestore.transactional
+        def delete_org_in_transaction(transaction, org_id):
+            # Delete all organization memberships
+            members_query = db.collection('organization_memberships').where('organizationId', '==', org_id)
+            members = list(members_query.stream())
+            for member in members:
+                transaction.delete(member.reference)
+
+            # Mark all organization cases as deleted
+            cases_query = db.collection('cases').where('organizationId', '==', org_id)
+            cases = list(cases_query.stream())
+            for case in cases:
+                transaction.update(case.reference, {
+                    'status': 'deleted',
+                    'deletionDate': firestore.SERVER_TIMESTAMP,
+                    'updatedAt': firestore.SERVER_TIMESTAMP
+                })
+
+            # Delete the organization document
+            transaction.delete(org_ref)
+
+        try:
+            delete_org_in_transaction(transaction, organization_id)
+            logging.info(f"Organization {organization_id} and related data deleted by user {user_id}")
+            return flask.jsonify({"message": "Organization deleted successfully"}), 200
+        except Exception as e:
+            logging.error(f"Transaction failed: {str(e)}", exc_info=True)
+            return flask.jsonify({
+                "error": "Database Error",
+                "message": f"Failed to delete organization: {str(e)}"
+            }), 500
+
+    except Exception as e:
+        logging.error(f"Error deleting organization: {str(e)}", exc_info=True)
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500

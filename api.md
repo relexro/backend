@@ -54,6 +54,7 @@ The API is organized into the following groups:
 - `POST /v1/organizations`
 - `GET /v1/organizations/{organizationId}`
 - `PUT /v1/organizations/{organizationId}`
+- `DELETE /v1/organizations/{organizationId}` (requires admin role, no active subscription)
 
 ### Organization Membership
 - `POST /v1/organizations/{organizationId}/members`
@@ -435,6 +436,33 @@ The API is organized into the following groups:
   }
   ```
 - **Response**: Same as Get Organization
+
+#### Delete Organization
+- **Method**: DELETE
+- **Path**: `/v1/organizations/{organizationId}`
+- **Description**: Delete an organization and all its related data. Only administrators can delete organizations, and the organization must not have an active subscription.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "organizationId": "string"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "message": "Organization deleted successfully"
+  }
+  ```
+- **Error Responses**:
+  - 400: Bad Request (e.g., organization has active subscription)
+  - 401: Unauthorized (invalid token)
+  - 403: Forbidden (not an administrator)
+  - 404: Organization not found
+  - 500: Server error
 
 ### Cases
 

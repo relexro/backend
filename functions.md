@@ -38,6 +38,14 @@ Split across multiple files for different aspects:
 - `create_organization`: Organization creation with proper collection naming for membership
 - `get_organization`: Organization retrieval
 - `update_organization`: Organization updates with enhanced error handling
+- `delete_organization`: Organization deletion with proper cleanup:
+  - Verifies administrator permissions
+  - Checks for active subscription (prevents deletion if active)
+  - Uses transaction to ensure atomic operations:
+    - Deletes all organization memberships
+    - Marks all organization cases as deleted
+    - Deletes the organization document
+  - Includes proper error handling and logging
 
 #### Membership Management (`organization_membership.py`)
 - `add_organization_member`: Member addition with role validation, using the correct `organization_memberships` collection

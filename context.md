@@ -359,6 +359,12 @@ Organizations represent law firms, legal departments, or other entities. Key fea
 - **Roles**: Users have roles within each organization
 - **Access Control**: Organization membership determines access to resources
 - **Hierarchical Permissions**: Administrators have more permissions than staff members
+- **Deletion Control**: Organizations can only be deleted by administrators and must not have active subscriptions
+- **Data Cleanup**: Organization deletion includes proper cleanup of all related data:
+  - Organization memberships are removed
+  - Organization cases are marked as deleted
+  - Organization document is removed
+  - All operations are performed in a transaction for data consistency
 
 ## Case Ownership Model
 
