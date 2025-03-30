@@ -258,6 +258,8 @@ def set_user_role(request: Request):
         logging.error(f"Error setting user role: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
+
+
 def update_organization(request: Request):
     logging.info("Logic function update_organization called")
     try:
