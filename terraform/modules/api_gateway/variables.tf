@@ -23,6 +23,11 @@ variable "api_gateway_sa_email" {
   type        = string
 }
 
+variable "api_domain" {
+  description = "Domain name for the API (e.g., api.relex.ro)"
+  type        = string
+}
+
 variable "implemented_functions" {
   description = "List of function names that are actually implemented (to distinguish from planned/future functions in the API spec)"
   type        = list(string)

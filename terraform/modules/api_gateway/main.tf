@@ -31,6 +31,7 @@ resource "google_api_gateway_api_config" "api_config" {
         project_id = var.project_id
         region = var.region
         function_uris = var.function_uris
+        api_domain = var.api_domain
       }))
     }
   }

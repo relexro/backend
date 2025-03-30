@@ -52,6 +52,28 @@ resource "google_secret_manager_secret" "stripe_secret_key" {
   }
 }
 
+resource "google_secret_manager_secret_version" "stripe_secret_key" {
+  secret      = google_secret_manager_secret.stripe_secret_key.id
+  secret_data = var.stripe_secret_key
+}
+
+resource "google_secret_manager_secret" "stripe_webhook_secret" {
+  secret_id = "stripe-webhook-secret"
+  
+  replication {
+    auto {}
+  }
+  
+  labels = {
+    environment = var.environment
+  }
+}
+
+resource "google_secret_manager_secret_version" "stripe_webhook_secret" {
+  secret      = google_secret_manager_secret.stripe_webhook_secret.id
+  secret_data = var.stripe_webhook_secret
+}
+
 locals {
   env_suffix = var.environment == "prod" ? "" : "-${var.environment}"
   
@@ -75,28 +97,6 @@ locals {
     managed_by  = "terraform"
     project     = "relex"
   }
-} 
-
-resource "google_secret_manager_secret_version" "stripe_secret_key" {
-  secret      = google_secret_manager_secret.stripe_secret_key.id
-  secret_data = var.stripe_secret_key
-}
-
-resource "google_secret_manager_secret" "stripe_webhook_secret" {
-  secret_id = "stripe-webhook-secret"
-  
-  replication {
-    auto {}
-  }
-  
-  labels = {
-    environment = var.environment
-  }
-}
-
-resource "google_secret_manager_secret_version" "stripe_webhook_secret" {
-  secret      = google_secret_manager_secret.stripe_webhook_secret.id
-  secret_data = var.stripe_webhook_secret
 }
 
 # --- Service Account Definition ---
@@ -175,6 +175,7 @@ module "api_gateway" {
   openapi_spec_path   = "${path.module}/openapi_spec.yaml"
   function_uris       = module.cloud_functions.function_uris
   api_gateway_sa_email = google_service_account.functions.email
+  api_domain          = local.api_domain
 
   depends_on = [
     module.apis,

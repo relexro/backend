@@ -4,7 +4,7 @@ info:
   description: RESTful API for Relex Backend
   version: 1.0.0
 # Consider making host dynamic if you have different envs: host: ${api_domain}
-host: api.relex.ro
+host: ${api_domain}
 basePath: /v1
 schemes:
   - https

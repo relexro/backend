@@ -46,15 +46,12 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       allow read: if isUser(userId);
-      allow update: if isUser(userId) && modifiesOnlyAllowedFields(getAllowedUserFields());
-
-      // Disallow direct updates to sensitive fields
-      // These should only be updated by backend functions through Admin SDK
       allow update: if isUser(userId) && 
+        (modifiesOnlyAllowedFields(getAllowedUserFields()) || 
         !(request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['role', 'stripeCustomerId', 'stripeSubscriptionId', 
                   'subscriptionStatus', 'subscriptionPlanId', 'caseQuotaTotal', 
-                  'caseQuotaUsed', 'billingCycleStart', 'billingCycleEnd']));
+                  'caseQuotaUsed', 'billingCycleStart', 'billingCycleEnd'])));
     }
 
     // Organizations collection

@@ -43,6 +43,41 @@ Backend for Relex, an AI-powered legal chat application built using Firebase Fun
    export TF_VAR_cloudflare_account_id=your_cloudflare_account_id
    ```
 
+### Secret Manager Permissions
+
+When deploying with Terraform, you may encounter Secret Manager access issues. The error typically looks like:
+```
+Error: Error reading SecretVersion: googleapi: Error 403: Permission 'secretmanager.versions.access' denied for resource 'projects/PROJECT_ID/secrets/SECRET_NAME/versions/1'
+```
+
+Here's how to resolve this:
+
+1. Identify which service account is being used by your GOOGLE_APPLICATION_CREDENTIALS:
+   ```bash
+   # Print the path to your credentials file
+   echo $GOOGLE_APPLICATION_CREDENTIALS
+   
+   # Extract the service account email from your credentials file
+   grep "client_email" $GOOGLE_APPLICATION_CREDENTIALS
+   ```
+
+2. Grant Secret Manager Admin permissions to this service account:
+   ```bash
+   gcloud projects add-iam-policy-binding $(gcloud config get project) \
+     --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
+     --role="roles/secretmanager.admin"
+   ```
+   
+   Replace `SERVICE_ACCOUNT_EMAIL` with the email you found in step 1.
+
+3. Run your Terraform commands again:
+   ```bash
+   cd terraform
+   terraform apply -auto-approve
+   ```
+
+This ensures your Terraform deployment process has the necessary permissions to create and manage secrets.
+
 ### Deployment
 
 1. Initialize Terraform:

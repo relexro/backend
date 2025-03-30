@@ -74,3 +74,9 @@ variable "stripe_webhook_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "manage_secrets" {
+  description = "Whether Terraform should manage secret values in Secret Manager. Set to false if you want to manage secret values outside of Terraform."
+  type        = bool
+  default     = false
+}
