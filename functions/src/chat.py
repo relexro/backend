@@ -200,7 +200,6 @@ def send_to_vertex_ai(request: Request):
         logging.error(f"Error sending to Vertex AI: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "Failed to process request"}, 500)
 
-
 def store_conversation(request: Request):
     logging.info("Logic function store_conversation called")
     try:
@@ -252,7 +251,8 @@ def store_conversation(request: Request):
             return ({"error": "Forbidden", "message": error_message}), 403
 
         # Use prompt_id as the document ID for the conversation turn
-        conversation_ref = case_ref.collection("conversations").document(prompt_id)
+        # Changed the subcollection name from "conversations" to "caseChatMessages"
+        conversation_ref = case_ref.collection("caseChatMessages").document(prompt_id)
 
         # Consider storing original prompt from prompt collection if needed
         # prompt_doc = case_ref.collection("prompts").document(prompt_id).get()

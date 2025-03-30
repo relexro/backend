@@ -50,11 +50,11 @@ echo -e "${GREEN}===================================================${NC}"
 echo -e "\n${GREEN}Checking for Cloud Functions (1st gen)...${NC}"
 gcloud functions list --project=$PROJECT --regions=$REGION --format="table(name.basename(), status, entryPoint, runtime)" || echo -e "${RED}Error listing Cloud Functions v1${NC}"
 
-# Check for Cloud Functions v2 (2nd gen) - CORRECTED FLAG
+# Check for Cloud Functions v2 (2nd gen)
 echo -e "\n${GREEN}Checking for Cloud Functions (2nd gen)...${NC}"
 gcloud functions list --project=$PROJECT --regions=$REGION --v2 --format="table(name.basename(), state, environment, updateTime)" || echo -e "${RED}Error listing Cloud Functions v2${NC}"
 
-# Find functions in DEPLOYING state (v2 only for this detailed debug) - CORRECTED FLAG
+# Find functions in DEPLOYING state (v2 only for this detailed debug)
 echo -e "\n${YELLOW}Searching for v2 functions stuck in DEPLOYING state...${NC}"
 DEPLOYING_FUNCS=$(gcloud functions list --project=$PROJECT --regions=$REGION --v2 --filter="state=DEPLOYING" --format="value(name)")
 
@@ -71,7 +71,7 @@ else
   echo "$DEPLOYING_FUNCS" | while IFS= read -r func_resource_name
   do
     FUNC_NAME=$(basename "$func_resource_name")
-    # Attempt to get the associated Cloud Run service name (often matches function name for v2) - CORRECTED FLAG
+    # Attempt to get the associated Cloud Run service name (often matches function name for v2)
     SERVICE_NAME=$(gcloud functions describe "$func_resource_name" --project=$PROJECT --region=$REGION --v2 --format='value(serviceConfig.service)' 2>/dev/null | xargs basename || echo "$FUNC_NAME")
 
     echo -e "\n${YELLOW}Debugging Function: ${FUNC_NAME} (Service: ${SERVICE_NAME})${NC}"
@@ -79,37 +79,101 @@ else
     # --- Query 1: Cloud Function Logs for ERROR/CRITICAL ---
     # Look for errors directly reported by the function resource, potentially including build steps
     echo -e "${GREEN}1. Checking Cloud Function logs for recent errors (severity >= ERROR):${NC}"
-    gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=$FUNC_NAME AND resource.labels.region=$REGION AND severity>=ERROR AND timestamp>=\"$LOG_START_TIME\"" \
+    gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=$FUNC_NAME AND resource.labels.region=$REGION AND timestamp>=\"$LOG_START_TIME\"" \
       --project=$PROJECT --limit=20 --format="table(timestamp, severity, textPayload, protoPayload.status.message)" \
       || echo -e "${RED}Error fetching function logs for $FUNC_NAME${NC}"
 
-    # --- Query 2: Cloud Build Logs for ERROR/CRITICAL ---
+    # --- Query 2: Cloud Run Service Errors ---
+    echo -e "\n${GREEN}2. Checking Cloud Run service errors:${NC}"
+    gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE_NAME AND severity>=ERROR AND timestamp>=\"$LOG_START_TIME\"" \
+      --project=$PROJECT --limit=20 --format="table(timestamp, severity, textPayload)" \
+      || echo -e "${RED}Error fetching Cloud Run logs for $SERVICE_NAME${NC}"
+
+    # --- Query 3: Cloud Build Logs for ERROR/CRITICAL ---
     # Look for build errors, potentially filtering by service name tag if available/reliable
-    # Using a broader filter first, then mention how to refine if needed
-    echo -e "\n${GREEN}2. Checking Cloud Build logs for recent errors (resource.type=build, severity >= ERROR):${NC}"
-    # Note: Filtering precisely by function/service within build logs can be complex.
-    # This searches broadly for build errors, review them for mentions of your function/service.
-    gcloud logging read "resource.type=build AND severity>=ERROR AND timestamp>=\"$LOG_START_TIME\" AND (textPayload:\"$FUNC_NAME\" OR textPayload:\"$SERVICE_NAME\" OR jsonPayload.message:\"$FUNC_NAME\" OR jsonPayload.message:\"$SERVICE_NAME\" OR textPayload:\"pip install\" OR jsonPayload.message:\"pip install\")" \
-      --project=$PROJECT --limit=30 --format="table(timestamp, logName.segment(5), severity, textPayload, jsonPayload.message)" \
+    echo -e "\n${GREEN}3. Checking Cloud Build logs for recent errors:${NC}"
+    gcloud logging read "resource.type=build AND timestamp>=\"$LOG_START_TIME\" AND (resource.labels.build_id:\"$FUNC_NAME\" OR textPayload:\"$FUNC_NAME\" OR textPayload:\"$SERVICE_NAME\" OR jsonPayload.message:\"$FUNC_NAME\" OR jsonPayload.message:\"$SERVICE_NAME\" OR textPayload:\"pip install\" OR jsonPayload.message:\"pip install\")" \
+      --project=$PROJECT --limit=30 --format="table(timestamp, severity, textPayload)" \
       || echo -e "${RED}Error fetching Cloud Build logs (may need broader query)${NC}"
-      echo -e "${YELLOW}Tip: Look for messages containing 'Step #1', 'pip install', 'dependency conflict', 'Build failed' above.${NC}"
+    
+    # --- Query 4: Function-specific build failures ---
+    echo -e "\n${GREEN}4. Checking specific build failures:${NC}"
+    FAILED_BUILD_ID=$(gcloud builds list --project=$PROJECT --filter="status=FAILURE AND source.repoSource.projectId=$PROJECT AND (logUrl:$FUNC_NAME OR source.storageSource.object:$FUNC_NAME)" --limit=1 --sort-by=~createTime --format="value(id)")
+    if [ -n "$FAILED_BUILD_ID" ]; then
+      echo -e "${YELLOW}Found failed build: ${FAILED_BUILD_ID}${NC}"
+      gcloud builds log "$FAILED_BUILD_ID" --project=$PROJECT || echo -e "${RED}Error fetching build log${NC}"
+    fi
 
+    echo -e "${YELLOW}Tip: Look for messages containing 'Step #1', 'pip install', 'dependency conflict', 'Build failed' above.${NC}"
   done
+fi
 
-  # --- Query 3: Fetch Logs from the ABSOLUTE LATEST FAILED BUILD ---
-  # This often contains the root cause if a build sequence completed with failure
-  echo -e "\n${GREEN}--- Checking Latest Failed Cloud Build Log ---${NC}"
-  LATEST_FAILED_BUILD_ID=$(gcloud builds list --project=$PROJECT --filter="status=FAILURE" --limit=1 --sort-by=~finishTime --format="value(id)")
+# Find functions in FAILED state (v2 only for this detailed debug)
+echo -e "\n${YELLOW}Searching for v2 functions in FAILED state...${NC}"
+FAILED_FUNCS=$(gcloud functions list --project=$PROJECT --regions=$REGION --v2 --filter="state=FAILED" --format="value(name)")
 
-  if [ -n "$LATEST_FAILED_BUILD_ID" ]; then
-    echo -e "${YELLOW}Fetching logs for the most recent failed build: ${LATEST_FAILED_BUILD_ID}${NC}"
-    gcloud builds log "$LATEST_FAILED_BUILD_ID" --project=$PROJECT || echo -e "${RED}Error fetching log for build $LATEST_FAILED_BUILD_ID${NC}"
-    echo -e "${YELLOW}Tip: Search this log carefully for 'pip install', 'ERROR:', 'Traceback', dependency conflict details.${NC}"
-  else
-    echo -e "${GREEN}No recent failed builds found in the project.${NC}"
-  fi
+if [ -z "$FAILED_FUNCS" ]; then
+  echo -e "${GREEN}No v2 functions found in FAILED state.${NC}"
+else
+  echo -e "\n${YELLOW}Found functions in FAILED state:${NC}"
+  # Print the list using the previously fetched variable
+  echo "$FAILED_FUNCS" | while IFS= read -r func_resource_name; do echo "- $(basename "$func_resource_name")"; done
 
-fi # End of check for deploying functions
+  echo -e "\n${GREEN}--- Checking Logs for Failed Functions ---${NC}"
+
+  # Loop through each failed function
+  echo "$FAILED_FUNCS" | while IFS= read -r func_resource_name
+  do
+    FUNC_NAME=$(basename "$func_resource_name")
+    # Attempt to get the associated Cloud Run service name (often matches function name for v2)
+    SERVICE_NAME=$(gcloud functions describe "$func_resource_name" --project=$PROJECT --region=$REGION --v2 --format='value(serviceConfig.service)' 2>/dev/null | xargs basename || echo "$FUNC_NAME")
+
+    echo -e "\n${YELLOW}Debugging Function: ${FUNC_NAME} (Service: ${SERVICE_NAME})${NC}"
+
+    # --- Query 1: Cloud Function Logs for ERROR/CRITICAL ---
+    # Look for errors directly reported by the function resource, potentially including build steps
+    echo -e "${GREEN}1. Checking Cloud Function logs for recent errors (severity >= ERROR):${NC}"
+    gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=$FUNC_NAME AND resource.labels.region=$REGION AND timestamp>=\"$LOG_START_TIME\"" \
+      --project=$PROJECT --limit=20 --format="table(timestamp, severity, textPayload, protoPayload.status.message)" \
+      || echo -e "${RED}Error fetching function logs for $FUNC_NAME${NC}"
+
+    # --- Query 2: Cloud Run Service Errors ---
+    echo -e "\n${GREEN}2. Checking Cloud Run service errors:${NC}"
+    gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE_NAME AND severity>=ERROR AND timestamp>=\"$LOG_START_TIME\"" \
+      --project=$PROJECT --limit=20 --format="table(timestamp, severity, textPayload)" \
+      || echo -e "${RED}Error fetching Cloud Run logs for $SERVICE_NAME${NC}"
+
+    # --- Query 3: Cloud Build Logs for ERROR/CRITICAL ---
+    # Look for build errors, potentially filtering by service name tag if available/reliable
+    echo -e "\n${GREEN}3. Checking Cloud Build logs for recent errors:${NC}"
+    gcloud logging read "resource.type=build AND timestamp>=\"$LOG_START_TIME\" AND (resource.labels.build_id:\"$FUNC_NAME\" OR textPayload:\"$FUNC_NAME\" OR textPayload:\"$SERVICE_NAME\" OR jsonPayload.message:\"$FUNC_NAME\" OR jsonPayload.message:\"$SERVICE_NAME\" OR textPayload:\"pip install\" OR jsonPayload.message:\"pip install\")" \
+      --project=$PROJECT --limit=30 --format="table(timestamp, severity, textPayload)" \
+      || echo -e "${RED}Error fetching Cloud Build logs (may need broader query)${NC}"
+    
+    # --- Query 4: Function-specific build failures ---
+    echo -e "\n${GREEN}4. Checking specific build failures:${NC}"
+    FAILED_BUILD_ID=$(gcloud builds list --project=$PROJECT --filter="status=FAILURE AND source.repoSource.projectId=$PROJECT AND (logUrl:$FUNC_NAME OR source.storageSource.object:$FUNC_NAME)" --limit=1 --sort-by=~createTime --format="value(id)")
+    if [ -n "$FAILED_BUILD_ID" ]; then
+      echo -e "${YELLOW}Found failed build: ${FAILED_BUILD_ID}${NC}"
+      gcloud builds log "$FAILED_BUILD_ID" --project=$PROJECT || echo -e "${RED}Error fetching build log${NC}"
+    fi
+
+    echo -e "${YELLOW}Tip: Look for messages containing 'Step #1', 'pip install', 'dependency conflict', 'Build failed' above.${NC}"
+  done
+fi
+
+# --- Query 5: Fetch Logs from the ABSOLUTE LATEST FAILED BUILD ---
+# This often contains the root cause if a build sequence completed with failure
+echo -e "\n${GREEN}--- Checking Latest Failed Cloud Build Log ---${NC}"
+LATEST_FAILED_BUILD_ID=$(gcloud builds list --project=$PROJECT --filter="status=FAILURE" --limit=1 --sort-by=~finishTime --format="value(id)")
+
+if [ -n "$LATEST_FAILED_BUILD_ID" ]; then
+  echo -e "${YELLOW}Fetching logs for the most recent failed build: ${LATEST_FAILED_BUILD_ID}${NC}"
+  gcloud builds log "$LATEST_FAILED_BUILD_ID" --project=$PROJECT || echo -e "${RED}Error fetching log for build $LATEST_FAILED_BUILD_ID${NC}"
+  echo -e "${YELLOW}Tip: Search this log carefully for 'pip install', 'ERROR:', 'Traceback', dependency conflict details.${NC}"
+else
+  echo -e "${GREEN}No recent failed builds found in the project.${NC}"
+fi
 
 # Check for Cloud Run services (where Cloud Functions v2 are deployed)
 echo -e "\n${GREEN}--- Cloud Run Service Status ---${NC}"
@@ -126,7 +190,7 @@ echo -e "1. ${YELLOW}Review the 'Latest Failed Cloud Build Log' above for specif
 echo -e "2. ${YELLOW}Check the 'Cloud Build logs' section for errors related to specific functions.${NC}"
 echo -e "3. ${YELLOW}Fix dependency conflicts in 'requirements.txt' based on the errors found.${NC}"
 echo -e "4. ${YELLOW}Common issues: conflicting package versions (e.g., firebase-admin vs google-cloud-firestore), incompatible Python versions, syntax errors.${NC}"
-echo -e "5. ${YELLOW}After fixing code/dependencies, delete stuck functions before redeploying:${NC}" # CORRECTED FLAG
+echo -e "5. ${YELLOW}After fixing code/dependencies, delete stuck functions before redeploying:${NC}"
 echo -e "   ${YELLOW}gcloud functions delete <function-name> --region=$REGION --v2 --project=$PROJECT${NC}"
 echo -e "6. ${YELLOW}Check the 'Cloud Run Service Status' for messages related to the underlying service health.${NC}"
 echo -e "${GREEN}===================================================${NC}"

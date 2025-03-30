@@ -160,7 +160,7 @@ def list_organization_members(request: Request):
         if not has_permission:
             return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
 
-        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id)
+        members_query = db.collection('organization_memberships').where('organizationId', '==', organization_id)
         members_docs = members_query.stream()
 
         members_list = []
@@ -244,7 +244,6 @@ def remove_organization_member(request: Request):
     except Exception as e:
         logging.error(f"Error removing member: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-    
 def get_user_organization_role(request: Request):
     logging.info("Logic function get_user_organization_role called")
     try:
@@ -275,7 +274,7 @@ def get_user_organization_role(request: Request):
                  # Provide less specific message for non-admins trying to check others
                  return flask.jsonify({"error": "Forbidden", "message": "Permission denied to view roles for this organization."}), 403
 
-        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
+        members_query = db.collection('organization_memberships').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
         existing_members = list(members_query.stream())
 
         role = None
@@ -289,7 +288,7 @@ def get_user_organization_role(request: Request):
     except Exception as e:
         logging.error(f"Error getting user org role: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-
+    
 def list_user_organizations(request: Request):
     logging.info("Logic function list_user_organizations called")
     try:

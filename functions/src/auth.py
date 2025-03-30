@@ -106,10 +106,9 @@ def get_document_data(db: firestore.Client, collection: str, doc_id: str) -> Opt
     except Exception as e:
         logging.error(f"Firestore error fetching {collection}/{doc_id}: {e}", exc_info=True)
         raise
-
 def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Optional[Dict[str, Any]]:
     try:
-        query = db.collection("organizationMembers").where( # Corrected collection name
+        query = db.collection("organization_memberships").where( # Corrected collection name
             "organizationId", "==", org_id).where(
             "userId", "==", user_id).limit(1)
         memberships = list(query.stream())
@@ -122,7 +121,7 @@ def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Opti
     except Exception as e:
         logging.error(f"Firestore error fetching membership for user {user_id} in org {org_id}: {e}", exc_info=True)
         raise
-
+    
 def get_authenticated_user(request):
     try:
         auth_header = request.headers.get('Authorization')

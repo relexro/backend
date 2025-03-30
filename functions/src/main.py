@@ -253,3 +253,7 @@ def relex_backend_delete_party(request: Request):
 @functions_framework.http
 def relex_backend_list_parties(request: Request):
     return _authenticate_and_call(request, logic_list_parties)
+
+@functions_framework.http
+def relex_backend_list_organization_cases(request: Request):
+    return _authenticate_and_call(request, logic_list_cases)
