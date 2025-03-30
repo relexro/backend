@@ -1706,7 +1706,7 @@ paths:
             properties:
               assignedUserId:
                 type: string
-                x-nullable: true # Allow null to unassign
+                nullable: true # Changed from x-nullable to nullable
                 description: Staff user ID to assign case to, null to unassign
       responses:
         '200':
@@ -1722,10 +1722,10 @@ paths:
                 type: string
               assignedUserId:
                 type: string
-                x-nullable: true # Reflect possibility of null
+                nullable: true # Reflect possibility of null
               assignedUserName: # Might be helpful but potentially requires another lookup
                 type: string
-                x-nullable: true
+                nullable: true
         '401':
           $ref: '#/definitions/Unauthorized'
         '403':
@@ -1756,48 +1756,48 @@ definitions:
         format: email # Added format
       displayName:
         type: string
-        x-nullable: true # Allow null
+        nullable: true # Changed from x-nullable to nullable
       photoURL:
         type: string
         format: url # Added format
-        x-nullable: true # Allow null
+        nullable: true # Changed from x-nullable to nullable
       role:
         type: string
         enum: [user, admin] # Assuming admin role exists
       subscriptionStatus:
         type: string
         enum: [active, inactive, canceled, past_due, trialing] # Added more states
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       subscriptionPlanId:
         type: string
         description: ID of the subscription plan
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       billingCycleStart:
         type: string
         format: date-time
         description: Start date of the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       billingCycleEnd:
         type: string
         format: date-time
         description: End date of the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       caseQuotaTotal:
         type: integer
         description: Total number of cases included in the subscription for the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       caseQuotaUsed:
         type: integer
         description: Number of cases used from the quota in the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       stripeCustomerId:
         type: string
         description: Stripe customer ID for payment processing
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       stripeSubscriptionId:
         type: string
         description: Stripe subscription ID
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       languagePreference:
         type: string
         enum: [en, ro]
@@ -1821,14 +1821,14 @@ definitions:
         description: e.g., law_firm, company, individual_professional
       address:
         type: string
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       phone:
         type: string
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       email:
         type: string
         format: email
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       createdAt:
         type: string
         format: date-time
@@ -1839,37 +1839,37 @@ definitions:
         type: string
         enum: [active, inactive, canceled, past_due, trialing] # Added more states
         description: Current subscription status
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       subscriptionPlanId:
         type: string
         description: ID of the subscription plan
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       billingCycleStart:
         type: string
         format: date-time
         description: Start date of the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       billingCycleEnd:
         type: string
         format: date-time
         description: End date of the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       caseQuotaTotal:
         type: integer
         description: Total number of cases included in the subscription for the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       caseQuotaUsed:
         type: integer
         description: Number of cases used from the quota in the current billing cycle
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       stripeCustomerId:
         type: string
         description: Stripe customer ID for payment processing
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       stripeSubscriptionId:
         type: string
         description: Stripe subscription ID
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
     required: # Added required fields
       - organizationId
       - name
@@ -1911,7 +1911,7 @@ definitions:
         format: email
       displayName: # Denormalized for convenience
         type: string
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
     required:
       - userId
       - role
@@ -1938,7 +1938,7 @@ definitions:
         format: email
       displayName:
         type: string
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
     required:
       - success
       - membershipId
@@ -1956,15 +1956,15 @@ definitions:
         type: string
       description:
         type: string
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       caseType: # More specific than tier? e.g., litigation, consultation
         type: string
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       userId: # Owner/creator user ID
         type: string
       organizationId: # Optional organization context
         type: string
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       status:
         type: string
         enum: [open, archived, deleted, pending_payment] # Added states
@@ -1978,22 +1978,22 @@ definitions:
       archivedAt: # Added
         type: string
         format: date-time
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       deletedAt: # Added
         type: string
         format: date-time
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       assignedUserId: # Added
         type: string
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       paymentStatus:
         type: string
         enum: [paid_intent, covered_by_quota, pending, not_required, refunded] # Added states
         description: Payment status of the case
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       paymentIntentId: # Associated payment intent if paid individually
         type: string
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       caseTier:
         type: integer
         enum: [1, 2, 3]
@@ -2001,7 +2001,7 @@ definitions:
       casePrice:
         type: integer
         description: Price of the case in cents (at the time of creation/payment)
-        x-x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       partyIds: # List of attached party IDs
          type: array
          items:
@@ -2199,7 +2199,7 @@ definitions:
       caseQuotaTotal:
         type: integer
         description: Number of cases included in the plan per billing cycle
-        x-nullable: true # Some plans might be usage-based
+        nullable: true # Changed from x-nullable to nullable
       active:
         type: boolean
         description: Whether the plan is currently available for purchase
@@ -2306,7 +2306,7 @@ definitions:
         $ref: '#/definitions/PartyContactInfo'
       signatureData:
         $ref: '#/definitions/PartySignatureData'
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
 
   PartyUpdateInput: # Definition for updating a Party (fields are optional)
     type: object
@@ -2320,7 +2320,7 @@ definitions:
         $ref: '#/definitions/PartyContactInfo'
       signatureData:
         $ref: '#/definitions/PartySignatureData'
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
 
   Party: # Full Party object definition (output)
     type: object
@@ -2342,7 +2342,7 @@ definitions:
         $ref: '#/definitions/PartyContactInfo'
       signatureData:
         $ref: '#/definitions/PartySignatureData'
-        x-nullable: true
+        nullable: true # Changed from x-nullable to nullable
       createdAt:
         type: string
         format: date-time
