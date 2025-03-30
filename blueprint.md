@@ -102,19 +102,21 @@ The permission model uses a centralized permissions map that defines allowed act
 PERMISSIONS = {
     "case": {
         "administrator": {"read", "update", "delete", "archive", "upload_file", 
-                         "download_file", "attach_party", "detach_party", "assign_case"},
+                         "download_file", "attach_party", "detach_party", "assign_case",
+                         "create", "list"},
         "staff": {"read", "update", "upload_file", "download_file", 
-                 "attach_party", "detach_party"},
+                 "attach_party", "detach_party", "create", "list"},
         "owner": {"read", "update", "delete", "archive", "upload_file", 
-                 "download_file", "attach_party", "detach_party"}
+                 "download_file", "attach_party", "detach_party", "create", "list"}
     },
     "organization": {
         "administrator": {"read", "update", "delete", "manage_members", 
-                         "create_case", "list_cases", "assign_case"},
-        "staff": {"read", "create_case", "list_cases"}
+                         "create_case", "list_cases", "assign_case", "addUser", 
+                         "setRole", "removeUser", "listUsers"},
+        "staff": {"read", "create_case", "list_cases", "listUsers"}
     },
     "party": {
-        "owner": {"read", "update", "delete"}
+        "owner": {"read", "update", "delete", "create", "list"}
     },
     "document": {
         "administrator": {"read", "delete"},
@@ -256,6 +258,23 @@ The API is designed around RESTful principles, with each endpoint corresponding 
 - `create_checkout_session`: Creates a Stripe checkout session for subscriptions
 - `cancel_subscription`: Cancels an active subscription
 - `handle_stripe_webhook`: Processes Stripe webhook events to update database records
+
+### Chat Management Endpoints
+
+- `receive_prompt`: Receives a prompt from the user and stores it
+- `enrich_prompt`: Enhances a prompt with case-specific context
+- `send_to_vertex_ai`: Sends the enriched prompt to Vertex AI
+- `store_conversation`: Stores the conversation in the case's subcollection with proper permission checks
+
+### Party Management Endpoints
+
+- `create_party`: Creates a new party entry
+- `get_party`: Retrieves a party by ID
+- `update_party`: Updates a party's information
+- `delete_party`: Deletes a party
+- `list_parties`: Lists all parties for the authenticated user
+- `attach_party_to_case`: Attaches a party to a case
+- `detach_party_from_case`: Detaches a party from a case
 
 ## Development Roadmap
 

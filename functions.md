@@ -35,16 +35,16 @@ The backend consists of several modules, each handling specific functionality:
 Split across multiple files for different aspects:
 
 #### Core Organization (`organization.py`)
-- `create_organization`: Organization creation
+- `create_organization`: Organization creation with proper collection naming for membership
 - `get_organization`: Organization retrieval
-- `update_organization`: Organization updates
+- `update_organization`: Organization updates with enhanced error handling
 
 #### Membership Management (`organization_membership.py`)
-- `add_organization_member`: Member addition with role validation
-- `set_organization_member_role`: Role updates with admin checks
-- `list_organization_members`: Member listing with pagination
-- `remove_organization_member`: Member removal with safeguards
-- `get_user_organization_role`: Role retrieval
+- `add_organization_member`: Member addition with role validation, using the correct `organization_memberships` collection
+- `set_organization_member_role`: Role updates with admin checks, operating on the `organization_memberships` collection
+- `list_organization_members`: Member listing with pagination, querying the `organization_memberships` collection
+- `remove_organization_member`: Member removal with safeguards, operating on the `organization_memberships` collection
+- `get_user_organization_role`: Role retrieval, working with the `organization_memberships` collection
 - `list_user_organizations`: Organization listing for users
 
 ### User Management (`user.py`)
@@ -103,17 +103,27 @@ Split across multiple files for different aspects:
   - Returns checkout URL for frontend redirection
 
 - `handle_stripe_webhook`: 
-  - Processes Stripe webhook events securely
+  - Processes Stripe webhook events securely with added safeguards for data access
   - Handles checkout.session.completed for subscription and payment events
   - Handles invoice.payment_failed to update subscription status
   - Handles customer.subscription.deleted/updated events
   - Updates relevant Firestore records based on events
+  - Includes robust error handling for nested data access
 
 - `cancel_subscription`: 
   - Allows users to cancel their subscriptions
   - Verifies appropriate permissions (own subscription or org admin)
   - Schedules cancellation at period end (better UX)
   - Actual status update happens via webhook when processed by Stripe
+
+### Chat Management (`chat.py`)
+- `receive_prompt`: Receives and stores a user prompt
+- `enrich_prompt`: Adds case context to a prompt
+- `send_to_vertex_ai`: Sends prompts to Vertex AI
+- `store_conversation`: 
+  - Stores conversation in a case's subcollection
+  - Includes proper permission checks to verify user has update access to the parent case
+  - Ensures security by checking organization membership and role
 
 ## Implementation Details
 
@@ -131,13 +141,28 @@ def get_authenticated_user(request):
 # Define permissions mapping
 PERMISSIONS = {
     "case": {
-        "administrator": {"read", "update", "delete", "archive", "upload_file", ...},
-        "staff": {"read", "update", "upload_file", ...},
-        "owner": {"read", "update", "delete", "archive", ...}
+        "administrator": {"read", "update", "delete", "archive", "upload_file", 
+                         "download_file", "attach_party", "detach_party", "assign_case",
+                         "create", "list"},
+        "staff": {"read", "update", "upload_file", "download_file", 
+                 "attach_party", "detach_party", "create", "list"},
+        "owner": {"read", "update", "delete", "archive", "upload_file", 
+                 "download_file", "attach_party", "detach_party", "create", "list"}
     },
-    "organization": { ... },
-    "party": { ... },
-    "document": { ... }
+    "organization": {
+        "administrator": {"read", "update", "delete", "manage_members", 
+                         "create_case", "list_cases", "assign_case", "addUser", 
+                         "setRole", "removeUser", "listUsers"},
+        "staff": {"read", "create_case", "list_cases", "listUsers"}
+    },
+    "party": {
+        "owner": {"read", "update", "delete", "create", "list"}
+    },
+    "document": {
+        "administrator": {"read", "delete"},
+        "staff": {"read"},
+        "owner": {"read", "delete"}
+    }
 }
 
 def check_permissions(request):
@@ -150,6 +175,17 @@ def check_permissions(request):
     #   - Party: Verify ownership (only creator can manage)
     #   - Document: Map to parent case permissions
     # Return permission status
+```
+
+### Organization Membership
+```python
+def add_organization_member(request):
+    """Add a member to an organization."""
+    # Validate input
+    # Check admin permissions using check_permissions (organization:manage_members)
+    # Query organization_memberships collection to check for existing membership
+    # Create membership record in organization_memberships collection
+    # Return membership details
 ```
 
 ### Case Management
@@ -176,14 +212,16 @@ def upload_file(request):
     # Return file details
 ```
 
-### Organization Management
+### Chat Integration
 ```python
-def add_organization_member(request):
-    """Add a member to an organization."""
-    # Validate input
-    # Check admin permissions using check_permissions (organization:manage_members)
-    # Create membership record
-    # Return membership details
+def store_conversation(request):
+    """Store a conversation in a case's subcollection."""
+    # Authenticate user
+    # Validate input data (caseId, promptId, prompt, response)
+    # Get case document to ensure it exists
+    # Perform permission check to verify user can update the case
+    # Write conversation to the subcollection
+    # Return success message
 ```
 
 ### Party Management
@@ -217,14 +255,17 @@ except ValidationError as e:
     # Handle Pydantic validation errors with detailed messages
     return {"error": "Bad Request", "message": str(e)}, 400
 except Exception as e:
-    return {"error": str(e)}, 500
+    logging.error(f"Error in function: {str(e)}", exc_info=True)
+    return {"error": "Internal Server Error", "message": str(e)}, 500
 ```
 
 Common error responses:
 - 400: Bad Request (invalid input)
 - 401: Unauthorized (invalid token)
+- 402: Payment Required (subscription quota exhausted)
 - 403: Forbidden (insufficient permissions)
 - 404: Not Found (resource doesn't exist)
+- 409: Conflict (e.g., user already a member)
 - 500: Internal Server Error
 
 ## Development Notes
@@ -234,6 +275,13 @@ Common error responses:
 3. Organization-based permission model with staff assignment checks
 4. Pydantic validation for request schemas
 5. Resource-specific permission checking
-6. Firestore for data storage
-7. Firebase Storage for files
-8. Stripe for payments (individual cases)
+6. Firestore collection names are standardized:
+   - `organization_memberships` for organization member relationships
+   - `users` for user profiles
+   - `organizations` for organization data
+   - `cases` for case information
+   - `parties` for party data
+   - Subcollection `conversations` under cases for chat history
+7. Firestore for data storage
+8. Firebase Storage for files
+9. Stripe for payments (individual cases)
