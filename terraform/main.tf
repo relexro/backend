@@ -115,11 +115,6 @@ resource "google_project_iam_member" "functions_invoker" {
   member  = "serviceAccount:${google_service_account.functions.email}"
 }
 
-resource "google_project_iam_member" "secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.functions.email}"
-}
 
 # --- Secret Definitions ---
 # We're no longer trying to access secrets in Terraform

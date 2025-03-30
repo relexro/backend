@@ -55,79 +55,86 @@ variable "functions" {
     })))
   }))
   default = {
+    # Organization Functions
     "relex-backend-create-organization" = {
       description = "Create a new organization account"
-      entry_point = "organization_create_organization"
+      entry_point = "relex_backend_create_organization" # Corrected
       env_vars    = {}
     },
     "relex-backend-get-organization" = {
       description = "Get an organization account by ID"
-      entry_point = "organization_get_organization"
+      entry_point = "relex_backend_get_organization" # Corrected
       env_vars    = {}
     },
     "relex-backend-update-organization" = {
       description = "Update an organization account"
-      entry_point = "organization_update_organization"
+      entry_point = "relex_backend_update_organization" # Corrected
       env_vars    = {}
     },
     "relex-backend-delete-organization" = {
       description = "Delete an organization account"
-      entry_point = "organization_delete_organization"
+      entry_point = "relex_backend_delete_organization" # Corrected
       env_vars    = {}
     },
     "relex-backend-add-organization-user" = {
       description = "Add a user to an organization account"
-      entry_point = "organization_add_organization_user"
+      entry_point = "relex_backend_add_organization_user" # Corrected
       env_vars    = {}
     },
     "relex-backend-remove-organization-user" = {
       description = "Remove a user from an organization"
-      entry_point = "organization_remove_organization_user"
+      entry_point = "relex_backend_remove_organization_user" # Corrected
       env_vars    = {}
     },
     "relex-backend-list-organization-users" = {
       description = "List users in an organization"
-      entry_point = "organization_list_organization_users"
+      entry_point = "relex_backend_list_organization_users" # Corrected
       env_vars    = {}
     },
     "relex-backend-set-user-role" = {
       description = "Update a user's role in an organization"
-      entry_point = "organization_set_user_role"
+      entry_point = "relex_backend_set_user_role" # Corrected
       env_vars    = {}
     },
+
+    # User Profile Functions
     "relex-backend-get-user-profile" = {
       description = "Get user profile data for the authenticated user"
-      entry_point = "users_get_user_profile"
+      entry_point = "relex_backend_get_user_profile" # Corrected
       env_vars    = {}
     },
     "relex-backend-update-user-profile" = {
       description = "Update user profile data for the authenticated user"
-      entry_point = "users_update_user_profile"
+      entry_point = "relex_backend_update_user_profile" # Corrected
       env_vars    = {}
     },
+
+    # Chat Functions
     "relex-backend-receive-prompt" = {
       description = "Receive a prompt from a user"
-      entry_point = "chat_receive_prompt"
+      entry_point = "relex_backend_receive_prompt" # Corrected
       env_vars    = {}
     },
     "relex-backend-send-to-vertex-ai" = {
       description = "Send a prompt to Vertex AI"
-      entry_point = "chat_send_to_vertex_ai"
+      entry_point = "relex_backend_send_to_vertex_ai" # Corrected
       env_vars    = {}
     },
     "relex-backend-store-conversation" = {
       description = "Store a conversation"
-      entry_point = "chat_store_conversation"
+      entry_point = "relex_backend_store_conversation" # Corrected
       env_vars    = {}
     },
     "relex-backend-enrich-prompt" = {
       description = "Enrich a prompt with case context"
-      entry_point = "chat_enrich_prompt"
+      entry_point = "relex_backend_enrich_prompt" # Corrected
       env_vars    = {}
     },
+
+    # Payment Functions
     "relex-backend-create-payment-intent" = {
       description = "Create a Stripe payment intent"
-      entry_point = "relex_backend_create_payment_intent"
+      entry_point = "relex_backend_create_payment_intent" # Matched main.py
       env_vars    = {}
       secret_env_vars = [
         {
@@ -139,7 +146,7 @@ variable "functions" {
     },
     "relex-backend-create-checkout-session" = {
       description = "Create a Stripe checkout session"
-      entry_point = "relex_backend_create_checkout_session"
+      entry_point = "relex_backend_create_checkout_session" # Matched main.py
       env_vars    = {}
       secret_env_vars = [
         {
@@ -149,39 +156,9 @@ variable "functions" {
         }
       ]
     },
-    "relex-backend-add-organization-member" = {
-      description = "Add a member to an organization"
-      entry_point = "organization_membership_add_organization_member"
-      env_vars    = {}
-    },
-    "relex-backend-remove-organization-member" = {
-      description = "Remove a member from an organization"
-      entry_point = "organization_membership_remove_organization_member"
-      env_vars    = {}
-    },
-    "relex-backend-list-organization-members" = {
-      description = "List members of an organization"
-      entry_point = "organization_membership_list_organization_members"
-      env_vars    = {}
-    },
-    "relex-backend-set-organization-member-role" = {
-      description = "Set a member's role in an organization"
-      entry_point = "organization_membership_set_organization_member_role"
-      env_vars    = {}
-    },
-    "relex-backend-get-user-organization-role" = {
-      description = "Get a user's role in an organization"
-      entry_point = "organization_membership_get_user_organization_role"
-      env_vars    = {}
-    },
-    "relex-backend-list-user-organizations" = {
-      description = "List organizations a user belongs to"
-      entry_point = "organization_membership_list_user_organizations"
-      env_vars    = {}
-    },
     "relex-backend-handle-stripe-webhook" = {
       description = "Handle Stripe webhook events"
-      entry_point = "relex_backend_handle_stripe_webhook"
+      entry_point = "relex_backend_handle_stripe_webhook" # Matched main.py
       env_vars    = {}
       secret_env_vars = [
         {
@@ -193,106 +170,146 @@ variable "functions" {
     },
     "relex-backend-cancel-subscription" = {
       description = "Cancel a Stripe subscription"
-      entry_point = "relex_backend_cancel_subscription"
+      entry_point = "relex_backend_cancel_subscription" # Matched main.py
       env_vars    = {}
       secret_env_vars = [
         {
           key     = "STRIPE_SECRET_KEY"
-          secret  = "stripe-secret-key" 
+          secret  = "stripe-secret-key"
           version = "latest"
         }
       ]
     },
+
+    # Organization Membership Functions
+    "relex-backend-add-organization-member" = {
+      description = "Add a member to an organization"
+      entry_point = "relex_backend_add_organization_member" # Corrected
+      env_vars    = {}
+    },
+    "relex-backend-remove-organization-member" = {
+      description = "Remove a member from an organization"
+      entry_point = "relex_backend_remove_organization_member" # Corrected
+      env_vars    = {}
+    },
+    "relex-backend-list-organization-members" = {
+      description = "List members of an organization"
+      entry_point = "relex_backend_list_organization_members" # Corrected
+      env_vars    = {}
+    },
+    "relex-backend-set-organization-member-role" = {
+      description = "Set a member's role in an organization"
+      entry_point = "relex_backend_set_organization_member_role" # Corrected
+      env_vars    = {}
+    },
+    "relex-backend-get-user-organization-role" = {
+      description = "Get a user's role in an organization"
+      entry_point = "relex_backend_get_user_organization_role" # Corrected
+      env_vars    = {}
+    },
+    "relex-backend-list-user-organizations" = {
+      description = "List organizations a user belongs to"
+      entry_point = "relex_backend_list_user_organizations" # Corrected
+      env_vars    = {}
+    },
+
+    # Case Functions
     "relex-backend-create-case" = {
       description = "Create a new case"
-      entry_point = "cases_create_case"
+      entry_point = "relex_backend_create_case" # Corrected
       env_vars    = {}
     },
     "relex-backend-get-case" = {
       description = "Get a case by ID"
-      entry_point = "cases_get_case"
+      entry_point = "relex_backend_get_case" # Corrected
       env_vars    = {}
     },
     "relex-backend-list-cases" = {
       description = "List cases"
-      entry_point = "cases_list_cases"
+      entry_point = "relex_backend_list_cases" # Corrected
       env_vars    = {}
     },
     "relex-backend-archive-case" = {
       description = "Archive a case"
-      entry_point = "cases_archive_case"
+      entry_point = "relex_backend_archive_case" # Corrected
       env_vars    = {}
     },
     "relex-backend-delete-case" = {
       description = "Delete a case"
-      entry_point = "cases_delete_case"
+      entry_point = "relex_backend_delete_case" # Corrected
       env_vars    = {}
     },
     "relex-backend-upload-file" = {
       description = "Upload a file to a case"
-      entry_point = "cases_upload_file"
+      entry_point = "relex_backend_upload_file" # Corrected
       env_vars    = {}
     },
     "relex-backend-download-file" = {
       description = "Download a file from a case"
-      entry_point = "cases_download_file"
+      entry_point = "relex_backend_download_file" # Corrected
       env_vars    = {}
     },
     "relex-backend-attach-party" = {
       description = "Attach a party to a case"
-      entry_point = "cases_attach_party"
+      entry_point = "relex_backend_attach_party" # Corrected
       env_vars    = {}
     },
     "relex-backend-detach-party" = {
       description = "Detach a party from a case"
-      entry_point = "cases_detach_party"
+      entry_point = "relex_backend_detach_party" # Corrected
       env_vars    = {}
     },
+
+    # Auth Functions (Mapped to existing Python functions)
     "relex-backend-validate-user" = {
       description = "Validate a user's token"
-      entry_point = "auth_validate_user"
+      entry_point = "relex_backend_validate_user" # Corrected
       env_vars    = {}
     },
     "relex-backend-check-permissions" = {
       description = "Check permissions for a user"
-      entry_point = "auth_check_permissions"
+      entry_point = "relex_backend_check_permissions" # Corrected
       env_vars    = {}
     },
-    "relex-backend-get-user-role" = {
-      description = "Get a user's role in an organization"
-      entry_point = "auth_get_user_role"
+    "relex-backend-get-user-role" = { # Note: Might conflict with org membership role? Check usage.
+      description = "Get a user's role" # Simplified description
+      entry_point = "relex_backend_get_user_role" # Corrected
       env_vars    = {}
     },
+
+    # Party Functions
     "relex-backend-create-party" = {
       description = "Create a new party"
-      entry_point = "party_create_party"
+      entry_point = "relex_backend_create_party" # Corrected
       env_vars    = {}
     },
     "relex-backend-get-party" = {
       description = "Get a party by ID"
-      entry_point = "party_get_party"
+      entry_point = "relex_backend_get_party" # Corrected
       env_vars    = {}
     },
     "relex-backend-update-party" = {
       description = "Update a party"
-      entry_point = "party_update_party"
+      entry_point = "relex_backend_update_party" # Corrected
       env_vars    = {}
     },
     "relex-backend-delete-party" = {
       description = "Delete a party"
-      entry_point = "party_delete_party"
+      entry_point = "relex_backend_delete_party" # Corrected
       env_vars    = {}
     },
     "relex-backend-list-parties" = {
       description = "List parties"
-      entry_point = "party_list_parties"
+      entry_point = "relex_backend_list_parties" # Corrected
       env_vars    = {}
     },
-    "relex-backend-list-organization-cases" = {
-      description = "List organization cases"
-      entry_point = "relex_backend_list_organization_cases"
-      env_vars    = {}
-    }
+
+    # List Organization Cases Function
+     "relex-backend-list-organization-cases" = {
+       description = "List organization cases"
+       entry_point = "relex_backend_list_organization_cases" # Matched main.py
+       env_vars    = {}
+     }
   }
 }
 

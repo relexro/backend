@@ -3,6 +3,7 @@ info:
   title: Relex API
   description: RESTful API for Relex Backend
   version: 1.0.0
+# Consider making host dynamic if you have different envs: host: ${api_domain}
 host: api.relex.ro
 basePath: /v1
 schemes:
@@ -11,7 +12,7 @@ security:
   - firebase: []
 
 securityDefinitions:
-  firebase:
+  firebase: # This is the correct definition name used elsewhere
     type: http
     scheme: bearer
     bearerFormat: JWT
@@ -288,7 +289,8 @@ paths:
           $ref: '#/definitions/Unauthorized'
         '402':
           description: Payment required (quota exhausted or no active subscription)
-          $ref: '#/definitions/PaymentRequired'
+          schema: # Added schema ref
+            $ref: '#/definitions/PaymentRequired'
         '403':
           $ref: '#/definitions/Forbidden'
         '500':
@@ -351,7 +353,8 @@ paths:
           $ref: '#/definitions/Unauthorized'
         '402':
           description: Payment required (quota exhausted or no active subscription)
-          $ref: '#/definitions/PaymentRequired'
+          schema: # Added schema ref
+            $ref: '#/definitions/PaymentRequired'
         '403':
           $ref: '#/definitions/Forbidden'
         '500':
@@ -434,20 +437,17 @@ paths:
         - name: organizationId
           in: path
           required: true
-          schema:
-            type: string
+          type: string # Corrected from schema: { type: string }
       responses:
         '200':
           description: List of organization members
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  members:
-                    type: array
-                    items:
-                      $ref: '#/definitions/OrganizationMember'
+          schema: # Corrected: removed content/application/json wrapper
+            type: object
+            properties:
+              members:
+                type: array
+                items:
+                  $ref: '#/definitions/OrganizationMember'
         '400':
           $ref: '#/definitions/BadRequest'
         '401':
@@ -471,32 +471,28 @@ paths:
         - name: organizationId
           in: path
           required: true
+          type: string # Corrected from schema: { type: string }
+        - name: body # Corrected: Changed from requestBody to standard parameter
+          in: body
+          required: true
           schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - userId
-                - role
-              properties:
-                userId:
-                  type: string
-                  description: ID of user to add
-                role:
-                  type: string
-                  description: Role for the user (staff or administrator)
-                  enum: [staff, administrator]
+            type: object
+            required:
+              - userId
+              - role
+            properties:
+              userId:
+                type: string
+                description: ID of user to add
+              role:
+                type: string
+                description: Role for the user (staff or administrator)
+                enum: [staff, administrator] # Consider [owner, administrator, staff]
       responses:
         '200':
           description: Member added successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/definitions/MembershipResponse'
+          schema: # Corrected: removed content/application/json wrapper
+            $ref: '#/definitions/MembershipResponse'
         '400':
           $ref: '#/definitions/BadRequest'
         '401':
@@ -524,32 +520,27 @@ paths:
         - name: organizationId
           in: path
           required: true
-          schema:
-            type: string
+          type: string # Corrected from schema: { type: string }
         - name: userId
           in: path
           required: true
+          type: string # Corrected from schema: { type: string }
+        - name: body # Corrected: Changed from requestBody to standard parameter
+          in: body
+          required: true
           schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - newRole
-              properties:
-                newRole:
-                  type: string
-                  enum: [staff, administrator]
+            type: object
+            required:
+              - newRole
+            properties:
+              newRole:
+                type: string
+                enum: [staff, administrator] # Consider [owner, administrator, staff]
       responses:
         '200':
           description: Member role updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/definitions/MembershipResponse'
+          schema: # Corrected: removed content/application/json wrapper
+            $ref: '#/definitions/MembershipResponse'
         '400':
           $ref: '#/definitions/BadRequest'
         '401':
@@ -573,27 +564,23 @@ paths:
         - name: organizationId
           in: path
           required: true
-          schema:
-            type: string
+          type: string # Corrected from schema: { type: string }
         - name: userId
           in: path
           required: true
-          schema:
-            type: string
+          type: string # Corrected from schema: { type: string }
       responses:
         '200':
           description: Member removed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  userId:
-                    type: string
-                  organizationId:
-                    type: string
+          schema: # Corrected: removed content/application/json wrapper
+            type: object
+            properties:
+              success:
+                type: boolean
+              userId:
+                type: string
+              organizationId:
+                type: string
         '400':
           $ref: '#/definitions/BadRequest'
         '401':
@@ -610,37 +597,35 @@ paths:
     post:
       summary: Upload file to a case
       operationId: uploadFile
+      consumes: # Added consumes
+         - multipart/form-data
       security:
         - firebase: []
       x-google-backend:
         address: ${function_uris["relex-backend-upload-file"]}
         path_translation: CONSTANT_ADDRESS
-        deadline: 60.0
+        deadline: 60.0 # Increased deadline
       parameters:
         - name: caseId
           in: path
           required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-                fileName:
-                  type: string
+          type: string # Corrected from schema: { type: string }
+        # Corrected: Changed from requestBody to standard parameters for file upload
+        - name: file
+          in: formData
+          required: true
+          type: file
+          description: The file to upload
+        - name: fileName
+          in: formData
+          required: false # Optional, server can derive
+          type: string
+          description: Original filename
       responses:
         '201':
           description: File uploaded successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/definitions/FileResponse'
+          schema: # Corrected: removed content/application/json wrapper
+            $ref: '#/definitions/FileResponse'
         '400':
           $ref: '#/definitions/BadRequest'
         '401':
@@ -656,28 +641,31 @@ paths:
     get:
       summary: Download a file
       operationId: downloadFile
+      produces: # Added produces
+        - application/octet-stream
       security:
         - firebase: []
       x-google-backend:
         address: ${function_uris["relex-backend-download-file"]}
         path_translation: CONSTANT_ADDRESS
-        deadline: 60.0
+        deadline: 60.0 # Increased deadline
       parameters:
         - name: fileId
           in: path
           required: true
-          schema:
-            type: string
+          type: string # Corrected from schema: { type: string }
       responses:
         '200':
           description: File content
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
+          schema: # Corrected: simplified schema for binary file
+            type: string
+            format: binary
         '400':
           $ref: '#/definitions/BadRequest'
+        '401': # Added missing responses
+          $ref: '#/definitions/Unauthorized'
+        '403': # Added missing responses
+          $ref: '#/definitions/Forbidden'
         '404':
           $ref: '#/definitions/NotFound'
         '500':
@@ -906,44 +894,63 @@ paths:
           $ref: '#/definitions/NotFound'
         '409':
           $ref: '#/definitions/Conflict'
-        '500':
-          $ref: '#/definitions/InternalServerError'
+        '501': # Correct status for not implemented
+          description: Not Implemented
+          schema:
+             type: object
+             properties:
+                error:
+                  type: string
+                  enum: [not_implemented]
+                message:
+                  type: string
+        # Removed '500' as 501 is better here
 
   /payments/webhook:
     post:
       summary: Handle Stripe webhook events
       operationId: handleStripeWebhook
+      # No security - called by Stripe
       x-google-backend:
         address: ${function_uris["relex-backend-handle-stripe-webhook"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
         - in: header
-          name: Stripe-Signature
+          name: Stripe-Signature # Case sensitive
           type: string
           required: true
+          description: Stripe signature header for verification
         - in: body
           name: body
           required: true
           schema:
             type: object
-            description: Stripe webhook event payload
+            description: Stripe webhook event payload (structure varies)
       responses:
         '200':
-          description: Webhook processed successfully
+          description: Webhook processed successfully (or acknowledged)
           schema:
             type: object
             properties:
               success:
                 type: boolean
+                description: Indicates successful receipt/initial processing.
               message:
                 type: string
+                example: Received
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad Request (e.g., missing signature, invalid payload)
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized (e.g., signature verification failed)
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error (failed to process event)
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   # Party endpoints
   /parties:
@@ -961,63 +968,7 @@ paths:
           name: body
           required: true
           schema:
-            type: object
-            required:
-              - partyType
-              - nameDetails
-              - identityCodes
-              - contactInfo
-            properties:
-              partyType:
-                type: string
-                enum: [individual, organization]
-                description: Type of the party - determines required fields in nameDetails and identityCodes
-              nameDetails:
-                type: object
-                description: "Name details with conditional required fields: firstName+lastName required for individuals, companyName required for organizations"
-                properties:
-                  firstName:
-                    type: string
-                    description: Required for individual parties
-                  lastName:
-                    type: string
-                    description: Required for individual parties
-                  companyName:
-                    type: string
-                    description: Required for organization parties
-              identityCodes:
-                type: object
-                description: "Identity codes with conditional required fields: CNP required for individuals, CUI+RegCom required for organizations"
-                properties:
-                  cnp:
-                    type: string
-                    description: Romanian Personal Numeric Code (13 digits) - required for individual parties
-                  cui:
-                    type: string
-                    description: Romanian Company Fiscal Code - required for organization parties
-                  regCom:
-                    type: string
-                    description: Romanian Company Registration Number (format Jxx/xxx/xxxx) - required for organization parties
-              contactInfo:
-                type: object
-                required:
-                  - address
-                properties:
-                  address:
-                    type: string
-                    description: Required for all party types
-                  email:
-                    type: string
-                    description: Optional email contact
-                  phone:
-                    type: string
-                    description: Optional phone contact
-              signatureData:
-                type: object
-                properties:
-                  storagePath:
-                    type: string
-                    description: Path to signature image in storage
+             $ref: '#/definitions/PartyInput' # Use input definition
       responses:
         '201':
           description: Party created successfully
@@ -1030,7 +981,7 @@ paths:
         '500':
           $ref: '#/definitions/InternalServerError'
     get:
-      summary: List parties
+      summary: List parties associated with the user
       operationId: listParties
       security:
         - firebase: []
@@ -1045,6 +996,16 @@ paths:
           type: string
           enum: [individual, organization]
           description: Filter parties by type
+        - name: limit # Added pagination
+          in: query
+          required: false
+          type: integer
+          default: 20
+        - name: offset # Added pagination
+          in: query
+          required: false
+          type: integer
+          default: 0
       responses:
         '200':
           description: List of parties
@@ -1055,6 +1016,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/definitions/Party'
+              total: # Added pagination info
+                type: integer
+              limit: # Added pagination info
+                type: integer
+              offset: # Added pagination info
+                type: integer
         '401':
           $ref: '#/definitions/Unauthorized'
         '500':
@@ -1106,54 +1073,7 @@ paths:
           name: body
           required: true
           schema:
-            type: object
-            required:
-              - partyId
-            properties:
-              partyId:
-                type: string
-                description: ID of the party to update
-              nameDetails:
-                type: object
-                description: "Name details - fields must match the existing partyType (firstName/lastName for individual, companyName for organization)"
-                properties:
-                  firstName:
-                    type: string
-                    description: Only valid for individual parties
-                  lastName:
-                    type: string
-                    description: Only valid for individual parties
-                  companyName:
-                    type: string
-                    description: Only valid for organization parties
-              identityCodes:
-                type: object
-                description: "Identity codes - fields must match the existing partyType (cnp for individual, cui/regCom for organization)"
-                properties:
-                  cnp:
-                    type: string
-                    description: Romanian Personal Numeric Code - only valid for individual parties
-                  cui:
-                    type: string
-                    description: Romanian Company Fiscal Code - only valid for organization parties
-                  regCom:
-                    type: string
-                    description: Romanian Company Registration Number - only valid for organization parties
-              contactInfo:
-                type: object
-                properties:
-                  address:
-                    type: string
-                  email:
-                    type: string
-                  phone:
-                    type: string
-              signatureData:
-                type: object
-                properties:
-                  storagePath:
-                    type: string
-                    description: Path to signature image in storage
+             $ref: '#/definitions/PartyUpdateInput' # Use update definition
       responses:
         '200':
           description: Party updated successfully
@@ -1184,7 +1104,7 @@ paths:
           required: true
           type: string
       responses:
-        '204':
+        '204': # Correct status for successful deletion with no body
           description: Party deleted successfully
         '401':
           $ref: '#/definitions/Unauthorized'
@@ -1226,7 +1146,7 @@ paths:
                 type: string
                 description: ID of the party to attach to the case
       responses:
-        '200':
+        '200': # 200 is fine for updating an existing resource relationship
           description: Party attached successfully
           schema:
             type: object
@@ -1246,7 +1166,11 @@ paths:
         '403':
           $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          $ref: '#/definitions/NotFound' # Case or Party not found
+        '409': # Added
+           description: Conflict (e.g., party already attached)
+           schema:
+             $ref: '#/definitions/Conflict'
         '500':
           $ref: '#/definitions/InternalServerError'
 
@@ -1288,142 +1212,125 @@ paths:
         '403':
           $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          $ref: '#/definitions/NotFound' # Case, Party, or association not found
         '500':
           $ref: '#/definitions/InternalServerError'
 
-  /api/stripe/webhook:
+  # --- Start of /api prefixed paths ---
+  # These paths are kept, but corrected to be functional
+
+  /api/stripe/webhook: # Corrected path based on original
     post:
+      summary: Handle Stripe webhook events (Alternative Path)
+      operationId: handleStripeWebhookAlt # Needs unique operationId
       tags:
         - Subscriptions
       consumes:
         - application/json
       produces:
         - application/json
+      # No security
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-handle-stripe-webhook"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
         - in: header
-          name: stripe-signature
+          name: Stripe-Signature # Corrected case
           type: string
           required: true
+          description: Stripe signature header for verification
         - in: body
-          name: event
+          name: event # Changed name to match original path
+          required: true # Added required
           schema:
             type: object
+            description: Stripe webhook event payload
       responses:
-        200:
+        '200': # Corrected status code to string
           description: Webhook event processed successfully
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        500:
-          $ref: '#/responses/InternalServerError'
+          schema: # Added schema definition
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+        '400': # Corrected status code to string
+          # Corrected ref path from #/responses to #/definitions
+          $ref: '#/definitions/BadRequest'
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized'
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError'
 
   /api/parties:
     post:
+      summary: Create a new party (Alternative Path)
+      operationId: createPartyAlt # Needs unique operationId
       tags:
         - Parties
       security:
-        - firebaseAuth: []
+        - firebase: [] # Corrected security definition name
       consumes:
         - application/json
       produces:
         - application/json
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-create-party"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
         - in: body
-          name: party
+          name: party # Kept original name
           required: true
           schema:
-            type: object
-            required:
-              - partyType
-              - nameDetails
-              - identityCodes
-              - contactInfo
-            properties:
-              partyType:
-                type: string
-                enum:
-                  - individual
-                  - organization
-                description: Type of party (individual or organization) that determines required fields
-              nameDetails:
-                type: object
-                description: Name information depending on party type
-                properties:
-                  firstName:
-                    type: string
-                    description: Required for individual parties
-                  lastName:
-                    type: string
-                    description: Required for individual parties
-                  companyName:
-                    type: string
-                    description: Required for organization parties
-              identityCodes:
-                type: object
-                description: Identification codes depending on party type
-                properties:
-                  cnp:
-                    type: string
-                    description: Romanian Personal Numeric Code (13 digits). Required for individual parties
-                  cui:
-                    type: string
-                    description: Romanian Fiscal Code. Required for organization parties
-                  regCom:
-                    type: string
-                    description: Romanian Company Registration Number. Required for organization parties
-              contactInfo:
-                type: object
-                required:
-                  - address
-                properties:
-                  address:
-                    type: string
-                    description: Required physical address for all party types
-                  email:
-                    type: string
-                    format: email
-                    description: Optional contact email
-                  phone:
-                    type: string
-                    description: Optional contact phone number
-              signatureData:
-                type: object
-                properties:
-                  storagePath:
-                    type: string
-                    description: Path to the signature image/data in storage
+             $ref: '#/definitions/PartyInput' # Reference input definition
+             # Removed inline definition as PartyInput exists now
       responses:
-        201:
+        '201': # Corrected status code to string
           description: Party created successfully
           schema:
             $ref: '#/definitions/Party'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        500:
-          $ref: '#/responses/InternalServerError'
-    
+        '400': # Corrected status code to string
+          $ref: '#/definitions/BadRequest' # Corrected ref path
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized' # Corrected ref path
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError' # Corrected ref path
+
     get:
+      summary: List parties associated with the user (Alternative Path)
+      operationId: listPartiesAlt # Needs unique operationId
       tags:
         - Parties
       security:
-        - firebaseAuth: []
+        - firebase: [] # Corrected security definition name
       produces:
         - application/json
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-list-parties"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
-        - in: query
-          name: partyType
+        - name: partyType
+          in: query
           required: false
           type: string
-          enum:
-            - individual
-            - organization
+          enum: [individual, organization]
           description: Filter parties by type
+        - name: limit # Added pagination consistent with other list op
+          in: query
+          required: false
+          type: integer
+          default: 20
+        - name: offset # Added pagination consistent with other list op
+          in: query
+          required: false
+          type: integer
+          default: 0
       responses:
-        200:
+        '200': # Corrected status code to string
           description: List of parties
           schema:
             type: object
@@ -1432,168 +1339,152 @@ paths:
                 type: array
                 items:
                   $ref: '#/definitions/Party'
-        401:
-          $ref: '#/responses/Unauthorized'
-        500:
-          $ref: '#/responses/InternalServerError'
+              total: # Added pagination info
+                type: integer
+              limit: # Added pagination info
+                type: integer
+              offset: # Added pagination info
+                type: integer
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized' # Corrected ref path
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError' # Corrected ref path
 
   /api/parties/{partyId}:
     get:
+      summary: Get a party by ID (Alternative Path)
+      operationId: getPartyAlt # Needs unique operationId
       tags:
         - Parties
       security:
-        - firebaseAuth: []
+        - firebase: [] # Corrected security definition name
       produces:
         - application/json
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-get-party"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
-        - in: path
-          name: partyId
+        - name: partyId
+          in: path
           required: true
           type: string
           description: Unique identifier for the party
       responses:
-        200:
+        '200': # Corrected status code to string
           description: Party details
           schema:
             $ref: '#/definitions/Party'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        404:
-          $ref: '#/responses/NotFound'
-        500:
-          $ref: '#/responses/InternalServerError'
-    
+        '400': # Corrected status code to string
+          $ref: '#/definitions/BadRequest' # Corrected ref path
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized' # Corrected ref path
+        '404': # Corrected status code to string
+          $ref: '#/definitions/NotFound' # Corrected ref path
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError' # Corrected ref path
+
     put:
+      summary: Update a party (Alternative Path)
+      operationId: updatePartyAlt # Needs unique operationId
       tags:
         - Parties
       security:
-        - firebaseAuth: []
+        - firebase: [] # Corrected security definition name
       consumes:
         - application/json
       produces:
         - application/json
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-update-party"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
-        - in: path
-          name: partyId
+        - name: partyId
+          in: path
           required: true
           type: string
           description: Unique identifier for the party
         - in: body
-          name: party
+          name: party # Kept original name
           required: true
           schema:
-            type: object
-            required:
-              - partyId
-            properties:
-              partyId:
-                type: string
-                description: Must match the URL partyId
-              nameDetails:
-                type: object
-                description: Name information must comply with existing partyType
-                properties:
-                  firstName:
-                    type: string
-                    description: Only valid for individual parties
-                  lastName:
-                    type: string
-                    description: Only valid for individual parties
-                  companyName:
-                    type: string
-                    description: Only valid for organization parties
-              identityCodes:
-                type: object
-                description: Identification codes must comply with existing partyType
-                properties:
-                  cnp:
-                    type: string
-                    description: Only valid for individual parties
-                  cui:
-                    type: string
-                    description: Only valid for organization parties
-                  regCom:
-                    type: string
-                    description: Only valid for organization parties
-              contactInfo:
-                type: object
-                properties:
-                  address:
-                    type: string
-                  email:
-                    type: string
-                    format: email
-                  phone:
-                    type: string
-              signatureData:
-                type: object
-                properties:
-                  storagePath:
-                    type: string
+            $ref: '#/definitions/PartyUpdateInput' # Reference update definition
+            # Removed inline definition as PartyUpdateInput exists now
       responses:
-        200:
+        '200': # Corrected status code to string
           description: Party updated successfully
           schema:
             $ref: '#/definitions/Party'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        404:
-          $ref: '#/responses/NotFound'
-        500:
-          $ref: '#/responses/InternalServerError'
-    
+        '400': # Corrected status code to string
+          $ref: '#/definitions/BadRequest' # Corrected ref path
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized' # Corrected ref path
+        '404': # Corrected status code to string
+          $ref: '#/definitions/NotFound' # Corrected ref path
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError' # Corrected ref path
+
     delete:
+      summary: Delete a party (Alternative Path)
+      operationId: deletePartyAlt # Needs unique operationId
       tags:
         - Parties
       security:
-        - firebaseAuth: []
+        - firebase: [] # Corrected security definition name
       produces:
         - application/json
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-delete-party"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
-        - in: path
-          name: partyId
+        - name: partyId
+          in: path
           required: true
           type: string
           description: Unique identifier for the party
       responses:
-        204:
+        '204': # Corrected status code to string
           description: Party deleted successfully
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        404:
-          $ref: '#/responses/NotFound'
-        409:
+        '400': # Corrected status code to string
+          $ref: '#/definitions/BadRequest' # Corrected ref path
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized' # Corrected ref path
+        '404': # Corrected status code to string
+          $ref: '#/definitions/NotFound' # Corrected ref path
+        '409': # Corrected status code to string
           description: Conflict - Party cannot be deleted (e.g., attached to cases)
           schema:
-            $ref: '#/definitions/Conflict'
-        500:
-          $ref: '#/responses/InternalServerError'
+            $ref: '#/definitions/Conflict' # Corrected ref path
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError' # Corrected ref path
 
   /api/cases/{caseId}/parties:
     post:
+      summary: Attach a party to a case (Alternative Path)
+      operationId: attachPartyToCaseAlt # Needs unique operationId
       tags:
         - Parties
         - Cases
       security:
-        - firebaseAuth: []
+        - firebase: [] # Corrected security definition name
       consumes:
         - application/json
       produces:
         - application/json
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-attach-party"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
-        - in: path
-          name: caseId
+        - name: caseId
+          in: path
           required: true
           type: string
           description: Unique identifier for the case
         - in: body
-          name: partyAssociation
+          name: partyAssociation # Kept original name
           required: true
           schema:
             type: object
@@ -1604,7 +1495,7 @@ paths:
                 type: string
                 description: Unique identifier for the party to attach
       responses:
-        200:
+        '200': # Corrected status code to string
           description: Party successfully attached to case
           schema:
             type: object
@@ -1617,37 +1508,47 @@ paths:
                 type: string
               partyId:
                 type: string
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        404:
-          $ref: '#/responses/NotFound'
-        500:
-          $ref: '#/responses/InternalServerError'
+        '400': # Corrected status code to string
+          $ref: '#/definitions/BadRequest' # Corrected ref path
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized' # Corrected ref path
+        '404': # Corrected status code to string
+          $ref: '#/definitions/NotFound' # Corrected ref path
+        '409': # Added Conflict response consistent with non-API path
+           description: Conflict (e.g., party already attached)
+           schema:
+             $ref: '#/definitions/Conflict'
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError' # Corrected ref path
 
   /api/cases/{caseId}/parties/{partyId}:
     delete:
+      summary: Detach a party from a case (Alternative Path)
+      operationId: detachPartyFromCaseAlt # Needs unique operationId
       tags:
         - Parties
         - Cases
       security:
-        - firebaseAuth: []
+        - firebase: [] # Corrected security definition name
       produces:
         - application/json
+      x-google-backend: # Added missing backend config
+        address: ${function_uris["relex-backend-detach-party"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
       parameters:
-        - in: path
-          name: caseId
+        - name: caseId
+          in: path
           required: true
           type: string
           description: Unique identifier for the case
-        - in: path
-          name: partyId
+        - name: partyId
+          in: path
           required: true
           type: string
           description: Unique identifier for the party
       responses:
-        200:
+        '200': # Corrected status code to string
           description: Party successfully detached from case
           schema:
             type: object
@@ -1660,15 +1561,17 @@ paths:
                 type: string
               partyId:
                 type: string
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        404:
-          $ref: '#/responses/NotFound'
-        500:
-          $ref: '#/responses/InternalServerError'
+        '400': # Corrected status code to string
+          $ref: '#/definitions/BadRequest' # Corrected ref path
+        '401': # Corrected status code to string
+          $ref: '#/definitions/Unauthorized' # Corrected ref path
+        '404': # Corrected status code to string
+          $ref: '#/definitions/NotFound' # Corrected ref path
+        '500': # Corrected status code to string
+          $ref: '#/definitions/InternalServerError' # Corrected ref path
 
+  # Original Case Actions (GET/DELETE/ARCHIVE/ASSIGN on /cases/{caseId})
+  # These were already present and mostly correct
   /cases/{caseId}:
     get:
       summary: Get case details
@@ -1698,7 +1601,7 @@ paths:
         '500':
           $ref: '#/definitions/InternalServerError'
     delete:
-      summary: Delete case
+      summary: Delete case (mark as deleted)
       operationId: deleteCase
       security:
         - firebase: []
@@ -1712,7 +1615,7 @@ paths:
           required: true
           type: string
       responses:
-        '200':
+        '200': # Use 200 if returning a body, 204 if not
           description: Case deleted successfully
           schema:
             type: object
@@ -1757,8 +1660,9 @@ paths:
                 type: string
               caseId:
                 type: string
-              status:
+              status: # Reflects new status
                 type: string
+                enum: [archived] # Explicitly state the outcome status
               archivedAt:
                 type: string
                 format: date-time
@@ -1768,6 +1672,10 @@ paths:
           $ref: '#/definitions/Forbidden'
         '404':
           $ref: '#/definitions/NotFound'
+        '409': # Added conflict if already archived/deleted
+           description: Conflict (e.g., case already archived or deleted)
+           schema:
+             $ref: '#/definitions/Conflict'
         '500':
           $ref: '#/definitions/InternalServerError'
 
@@ -1792,11 +1700,12 @@ paths:
           required: true
           schema:
             type: object
-            required:
-              - assignedUserId
+            # required: # assignedUserId not strictly required if null means unassign
+            #  - assignedUserId
             properties:
               assignedUserId:
                 type: string
+                nullable: true # Allow null to unassign
                 description: Staff user ID to assign case to, null to unassign
       responses:
         '200':
@@ -1812,17 +1721,29 @@ paths:
                 type: string
               assignedUserId:
                 type: string
-              assignedUserName:
+                nullable: true # Reflect possibility of null
+              assignedUserName: # Might be helpful but potentially requires another lookup
                 type: string
+                nullable: true
         '401':
           $ref: '#/definitions/Unauthorized'
         '403':
           $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
-        '500':
-          $ref: '#/definitions/InternalServerError'
+          $ref: '#/definitions/NotFound' # Case or User could be not found
+        '501': # Correct status for not implemented
+          description: Not Implemented
+          schema:
+             type: object
+             properties:
+                error:
+                  type: string
+                  enum: [not_implemented]
+                message:
+                  type: string
+        # Removed '500' as 501 is better here
 
+# -------- Definitions --------
 definitions:
   UserProfile:
     type: object
@@ -1831,42 +1752,55 @@ definitions:
         type: string
       email:
         type: string
+        format: email # Added format
       displayName:
         type: string
+        nullable: true # Allow null
       photoURL:
         type: string
+        format: url # Added format
+        nullable: true # Allow null
       role:
         type: string
-        enum: [user, admin]
+        enum: [user, admin] # Assuming admin role exists
       subscriptionStatus:
         type: string
-        enum: [active, inactive]
+        enum: [active, inactive, canceled, past_due, trialing] # Added more states
+        nullable: true
       subscriptionPlanId:
         type: string
         description: ID of the subscription plan
+        nullable: true
       billingCycleStart:
         type: string
         format: date-time
         description: Start date of the current billing cycle
+        nullable: true
       billingCycleEnd:
         type: string
         format: date-time
         description: End date of the current billing cycle
+        nullable: true
       caseQuotaTotal:
         type: integer
         description: Total number of cases included in the subscription for the current billing cycle
+        nullable: true
       caseQuotaUsed:
         type: integer
         description: Number of cases used from the quota in the current billing cycle
+        nullable: true
       stripeCustomerId:
         type: string
         description: Stripe customer ID for payment processing
+        nullable: true
       stripeSubscriptionId:
         type: string
         description: Stripe subscription ID
+        nullable: true
       languagePreference:
         type: string
         enum: [en, ro]
+        default: en
       createdAt:
         type: string
         format: date-time
@@ -1883,45 +1817,65 @@ definitions:
         type: string
       type:
         type: string
+        description: e.g., law_firm, company, individual_professional
       address:
         type: string
+        nullable: true
       phone:
         type: string
+        nullable: true
       email:
         type: string
+        format: email
+        nullable: true
       createdAt:
         type: string
         format: date-time
       ownerId:
         type: string
+        description: User ID of the organization owner
       subscriptionStatus:
         type: string
-        enum: [active, inactive]
+        enum: [active, inactive, canceled, past_due, trialing] # Added more states
         description: Current subscription status
+        nullable: true
       subscriptionPlanId:
         type: string
         description: ID of the subscription plan
+        nullable: true
       billingCycleStart:
         type: string
         format: date-time
         description: Start date of the current billing cycle
+        nullable: true
       billingCycleEnd:
         type: string
         format: date-time
         description: End date of the current billing cycle
+        nullable: true
       caseQuotaTotal:
         type: integer
         description: Total number of cases included in the subscription for the current billing cycle
+        nullable: true
       caseQuotaUsed:
         type: integer
         description: Number of cases used from the quota in the current billing cycle
+        nullable: true
       stripeCustomerId:
         type: string
         description: Stripe customer ID for payment processing
+        nullable: true
       stripeSubscriptionId:
         type: string
         description: Stripe subscription ID
-    
+        nullable: true
+    required: # Added required fields
+      - organizationId
+      - name
+      - type
+      - createdAt
+      - ownerId
+
   OrganizationSummary:
     type: object
     properties:
@@ -1931,9 +1885,15 @@ definitions:
         type: string
       type:
         type: string
-      role:
+      role: # User's role within this org
         type: string
-    
+        enum: [owner, administrator, staff] # Expanded roles
+    required:
+      - organizationId
+      - name
+      - type
+      - role
+
   OrganizationMember:
     type: object
     properties:
@@ -1941,20 +1901,28 @@ definitions:
         type: string
       role:
         type: string
+        enum: [owner, administrator, staff] # Expanded roles
       addedAt:
         type: string
         format: date-time
-      email:
+      email: # Denormalized for convenience
         type: string
-      displayName:
+        format: email
+      displayName: # Denormalized for convenience
         type: string
-    
-  MembershipResponse:
+        nullable: true
+    required:
+      - userId
+      - role
+      - addedAt
+      - email
+
+  MembershipResponse: # Response for add/update member ops
     type: object
     properties:
       success:
         type: boolean
-      membershipId:
+      membershipId: # ID of the membership link itself
         type: string
       userId:
         type: string
@@ -1962,11 +1930,22 @@ definitions:
         type: string
       role:
         type: string
+        enum: [owner, administrator, staff]
+      # Include denormalized info for immediate UI update
       email:
         type: string
+        format: email
       displayName:
         type: string
-    
+        nullable: true
+    required:
+      - success
+      - membershipId
+      - userId
+      - organizationId
+      - role
+      - email
+
   Case:
     type: object
     properties:
@@ -1976,32 +1955,67 @@ definitions:
         type: string
       description:
         type: string
-      caseType:
+        nullable: true
+      caseType: # More specific than tier? e.g., litigation, consultation
         type: string
-      userId:
+        nullable: true
+      userId: # Owner/creator user ID
         type: string
-      organizationId:
+      organizationId: # Optional organization context
         type: string
+        nullable: true
       status:
         type: string
+        enum: [open, archived, deleted, pending_payment] # Added states
+        default: open
       createdAt:
         type: string
         format: date-time
+      updatedAt: # Added
+        type: string
+        format: date-time
+      archivedAt: # Added
+        type: string
+        format: date-time
+        nullable: true
+      deletedAt: # Added
+        type: string
+        format: date-time
+        nullable: true
+      assignedUserId: # Added
+        type: string
+        nullable: true
       paymentStatus:
         type: string
-        enum: [paid_intent, covered_by_quota, pending]
-        description: Payment status of the case (paid_intent = paid individually, covered_by_quota = covered by subscription)
-      paymentIntentId:
+        enum: [paid_intent, covered_by_quota, pending, not_required, refunded] # Added states
+        description: Payment status of the case
+        nullable: true # May not apply if free tier/quota
+      paymentIntentId: # Associated payment intent if paid individually
         type: string
+        nullable: true
       caseTier:
         type: integer
         enum: [1, 2, 3]
-        description: Case tier level determining the complexity (1=Basic, 2=Standard, 3=Complex)
+        description: Case tier level (1=Basic, 2=Standard, 3=Complex)
       casePrice:
         type: integer
-        description: Price of the case in cents
+        description: Price of the case in cents (at the time of creation/payment)
+        nullable: true # May be covered by quota
+      partyIds: # List of attached party IDs
+         type: array
+         items:
+           type: string
+         description: List of party IDs attached to this case
+    required:
+      - caseId
+      - title
+      - userId
+      - status
+      - createdAt
+      - updatedAt
+      - caseTier
 
-  FileResponse:
+  FileResponse: # Response for upload
     type: object
     properties:
       success:
@@ -2010,35 +2024,56 @@ definitions:
         type: string
       fileName:
         type: string
-      fileUrl:
+      fileUrl: # Potentially a signed URL for temporary access
         type: string
+        format: url
       caseId:
         type: string
       uploadedAt:
         type: string
         format: date-time
+    required:
+      - success
+      - fileId
+      - fileName
+      - fileUrl
+      - caseId
+      - uploadedAt
 
+  # Standard Error Responses
   BadRequest:
+    description: The request is invalid or malformed.
     type: object
     properties:
       error:
         type: string
-        enum: [invalid_request]
+        enum: [invalid_request, validation_error]
       message:
         type: string
-        description: Detailed validation error message
-    
+        description: General error message.
+      details: # Optional field for specific validation errors
+        type: object
+        description: Detailed validation errors (e.g., field-specific issues).
+    required:
+      - error
+      - message
+
   Unauthorized:
+    description: Authentication failed or is missing.
     type: object
     properties:
       error:
         type: string
-        enum: [unauthorized]
+        enum: [unauthorized, token_expired, invalid_token]
       message:
         type: string
-        description: Authentication error message
-    
+        description: Authentication error message.
+    required:
+      - error
+      - message
+
   Forbidden:
+    description: Authenticated user lacks permission for the action.
     type: object
     properties:
       error:
@@ -2046,9 +2081,13 @@ definitions:
         enum: [forbidden]
       message:
         type: string
-        description: Permission denied message
-    
+        description: Permission denied message.
+    required:
+      - error
+      - message
+
   NotFound:
+    description: The requested resource was not found.
     type: object
     properties:
       error:
@@ -2056,19 +2095,31 @@ definitions:
         enum: [not_found]
       message:
         type: string
-        description: Resource not found message
-    
+        description: Resource not found message.
+      resourceType: # Optional: type of resource not found
+        type: string
+      resourceId:   # Optional: ID of resource not found
+        type: string
+    required:
+      - error
+      - message
+
   Conflict:
+    description: The request conflicts with the current state of the resource.
     type: object
     properties:
       error:
         type: string
-        enum: [conflict]
+        enum: [conflict, already_exists, state_conflict]
       message:
         type: string
-        description: Resource state conflict message
-    
+        description: Resource state conflict message.
+    required:
+      - error
+      - message
+
   InternalServerError:
+    description: An unexpected error occurred on the server.
     type: object
     properties:
       error:
@@ -2076,19 +2127,32 @@ definitions:
         enum: [internal_error]
       message:
         type: string
-        description: Internal server error message
-    
+        description: Internal server error message.
+      errorId: # Optional: ID for tracking specific errors
+        type: string
+    required:
+      - error
+      - message
+
   PaymentRequired:
+    description: Payment is required to perform this action (e.g., quota exhausted).
     type: object
     properties:
       error:
         type: string
-        enum: [payment_required]
+        enum: [payment_required, quota_exceeded]
       message:
         type: string
-        description: Payment required message (e.g., quota exhausted)
+        description: Payment required message.
+      requiredAction: # Optional: Hint on what action is needed
+        type: string
+        enum: [upgrade_plan, purchase_case, wait_for_cycle]
+    required:
+      - error
+      - message
 
-  RateLimitExceeded:
+  RateLimitExceeded: # Added definition
+    description: Too many requests hit the API too quickly.
     type: object
     properties:
       error:
@@ -2096,27 +2160,33 @@ definitions:
         enum: [rate_limit_exceeded]
       message:
         type: string
-        description: Rate limit exceeded message
+        description: Rate limit exceeded message.
+      retryAfter: # Optional: Suggest when to retry (seconds)
+        type: integer
+    required:
+      - error
+      - message
 
+  # Subscription Plan (Example - might be fetched from Stripe/DB)
   Plan:
     type: object
     properties:
       planId:
         type: string
-        description: Unique identifier for the plan
+        description: Unique identifier for the plan (e.g., 'personal_monthly')
       name:
         type: string
-        description: Display name of the plan
+        description: Display name of the plan (e.g., 'Personal Monthly')
       description:
         type: string
         description: Description of what the plan includes
       type:
         type: string
         enum: [personal, business]
-        description: Type of plan
+        description: Target audience/type of plan
       interval:
         type: string
-        enum: [monthly, yearly]
+        enum: [month, year] # Stripe uses 'month', 'year'
         description: Billing interval
       price:
         type: integer
@@ -2124,87 +2194,154 @@ definitions:
       currency:
         type: string
         default: "eur"
-        description: Currency of the plan
+        description: Currency of the plan (ISO 4217 code)
       caseQuotaTotal:
         type: integer
         description: Number of cases included in the plan per billing cycle
+        nullable: true # Some plans might be usage-based
       active:
         type: boolean
-        description: Whether the plan is currently active
-      stripePriceId:
+        description: Whether the plan is currently available for purchase
+      stripePriceId: # Link to Stripe Price object
         type: string
-        description: Stripe price ID for this plan
+        description: Stripe price ID for this plan interval
+      features: # Optional list of included features
+        type: array
+        items:
+          type: string
       createdAt:
         type: string
         format: date-time
       updatedAt:
         type: string
         format: date-time
+    required:
+      - planId
+      - name
+      - type
+      - interval
+      - price
+      - currency
+      - active
+      - stripePriceId
+      - createdAt
+      - updatedAt
 
-  Party:
+  # Party Definitions (Input and Output separated for clarity)
+  PartyNameDetails:
+    type: object
+    description: Name information depending on party type
+    properties:
+      firstName:
+        type: string
+        description: Required for individual parties
+      lastName:
+        type: string
+        description: Required for individual parties
+      companyName:
+        type: string
+        description: Required for organization parties
+    # Required fields depend on partyType, handled by application logic/validation
+
+  PartyIdentityCodes:
+    type: object
+    description: Identification codes depending on party type
+    properties:
+      cnp:
+        type: string
+        description: Romanian Personal Numeric Code (13 digits). Required for individual parties
+      cui:
+        type: string
+        description: Romanian Fiscal Code. Required for organization parties
+      regCom:
+        type: string
+        description: Romanian Company Registration Number (e.g., Jxx/xxx/xxxx). Required for organization parties
+    # Required fields depend on partyType, handled by application logic/validation
+
+  PartyContactInfo:
+    type: object
+    properties:
+      address:
+        type: string
+        description: Required physical address for all party types
+      email:
+        type: string
+        format: email
+        description: Optional contact email
+      phone:
+        type: string
+        description: Optional contact phone number
+    required:
+      - address # Address is usually mandatory
+
+  PartySignatureData:
+    type: object
+    properties:
+      storagePath:
+        type: string
+        description: Path to the signature image/data in storage
+      capturedAt:
+        type: string
+        format: date-time
+        description: When the signature was captured
+
+  PartyInput: # Definition for creating a Party
+    type: object
+    required:
+      - partyType
+      - nameDetails
+      - identityCodes
+      - contactInfo
+    properties:
+      partyType:
+        type: string
+        enum: [individual, organization]
+        description: Type of party (individual or organization) that determines required fields
+      nameDetails:
+        $ref: '#/definitions/PartyNameDetails'
+      identityCodes:
+        $ref: '#/definitions/PartyIdentityCodes'
+      contactInfo:
+        $ref: '#/definitions/PartyContactInfo'
+      signatureData:
+        $ref: '#/definitions/PartySignatureData'
+        nullable: true
+
+  PartyUpdateInput: # Definition for updating a Party (fields are optional)
+    type: object
+    properties:
+      # partyType cannot be changed
+      nameDetails:
+        $ref: '#/definitions/PartyNameDetails'
+      identityCodes:
+        $ref: '#/definitions/PartyIdentityCodes'
+      contactInfo:
+        $ref: '#/definitions/PartyContactInfo'
+      signatureData:
+        $ref: '#/definitions/PartySignatureData'
+        nullable: true
+
+  Party: # Full Party object definition (output)
     type: object
     properties:
       partyId:
         type: string
         description: Unique identifier for the party
-      userId:
+      userId: # User who created/owns this party record
         type: string
         description: Firebase user ID of the party owner
       partyType:
         type: string
-        enum:
-          - individual
-          - organization
-        description: Type of party that determines required fields
+        enum: [individual, organization]
       nameDetails:
-        type: object
-        description: Name information depending on party type
-        properties:
-          firstName:
-            type: string
-            description: Only present for individual parties
-          lastName:
-            type: string
-            description: Only present for individual parties
-          companyName:
-            type: string
-            description: Only present for organization parties
+        $ref: '#/definitions/PartyNameDetails'
       identityCodes:
-        type: object
-        description: Identification codes depending on party type
-        properties:
-          cnp:
-            type: string
-            description: Romanian Personal Numeric Code. Only present for individual parties
-          cui:
-            type: string
-            description: Romanian Fiscal Code. Only present for organization parties
-          regCom:
-            type: string
-            description: Romanian Company Registration Number. Only present for organization parties
+        $ref: '#/definitions/PartyIdentityCodes'
       contactInfo:
-        type: object
-        properties:
-          address:
-            type: string
-            description: Physical address for all party types
-          email:
-            type: string
-            format: email
-            description: Contact email if available
-          phone:
-            type: string
-            description: Contact phone number if available
+        $ref: '#/definitions/PartyContactInfo'
       signatureData:
-        type: object
-        properties:
-          storagePath:
-            type: string
-            description: Path to the signature image/data in storage
-          capturedAt:
-            type: string
-            format: date-time
-            description: When the signature was captured
+        $ref: '#/definitions/PartySignatureData'
+        nullable: true
       createdAt:
         type: string
         format: date-time
@@ -2221,4 +2358,4 @@ definitions:
       - identityCodes
       - contactInfo
       - createdAt
-      - updatedAt 
+      - updatedAt

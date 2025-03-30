@@ -14,7 +14,7 @@ if [ -z "$PROJECT" ]; then
   PROJECT="relexro"
 fi
 # Assuming region from original script/openapi_spec.yaml
-REGION="europe-west3"
+REGION="europe-west1"
 
 echo -e "${GREEN}Configuration:${NC}"
 echo -e "Project: ${PROJECT}"

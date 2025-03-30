@@ -24,6 +24,13 @@ resource "google_project_iam_member" "relex_functions_secret_accessor" {
   member  = "serviceAccount:${var.relex_functions_service_account_email}"
 }
 
+# Grant the dedicated functions SA access to Secret Manager (for Stripe keys, etc.)
+resource "google_project_iam_member" "relex_functions_secret_admin" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:${var.relex_functions_service_account_email}"
+}
+
 # Grant the dedicated functions SA permission to write logs
 resource "google_project_iam_member" "relex_functions_log_writer" {
   project = var.project_id
