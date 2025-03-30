@@ -17,7 +17,7 @@ resource "google_api_gateway_api" "api" {
   api_id   = "relex-api"
 }
 
-# Create the API Config with a minimal OpenAPI spec
+# Create the API Config with the OpenAPI spec from file
 resource "google_api_gateway_api_config" "api_config" {
   provider      = google-beta
   api           = google_api_gateway_api.api.api_id
@@ -27,33 +27,11 @@ resource "google_api_gateway_api_config" "api_config" {
   openapi_documents {
     document {
       path = "spec.yaml"
-      contents = base64encode(<<-EOT
-        swagger: '2.0'
-        info:
-          title: 'Relex API Gateway'
-          description: 'API Gateway for Relex backend'
-          version: '1.0.0'
-        host: 'gateway.example.com'
-        basePath: /v1
-        schemes:
-          - https
-        paths:
-          /health:
-            get:
-              summary: Health check endpoint
-              operationId: health
-              responses:
-                '200':
-                  description: A successful response
-                  schema:
-                    type: object
-                    properties:
-                      status:
-                        type: string
-              x-google-backend:
-                address: 'https://${var.region}-relexro.cloudfunctions.net/relex-backend-get-user-profile'
-      EOT
-      )
+      contents = base64encode(templatefile(var.openapi_spec_path, {
+        project_id = var.project_id
+        region = var.region
+        function_uris = var.function_uris
+      }))
     }
   }
 
