@@ -4,7 +4,9 @@ import firebase_admin
 from firebase_admin import auth as firebase_auth_admin
 from firebase_admin import firestore
 import flask
-from pydantic import BaseModel, ValidationError, field_validator, Field
+from pydantic import BaseModel, ValidationError, validator, Field
+
+# Changed field_validator to validator
 from typing import Dict, Set, Tuple, Any, Literal, Optional
 
 logging.basicConfig(level=logging.INFO)
@@ -81,8 +83,8 @@ class PermissionCheckRequest(BaseModel):
     resourceType: str
     organizationId: Optional[str] = None
 
-    @field_validator('resourceType')
-    @classmethod
+    # Changed field_validator to validator and removed @classmethod
+    @validator('resourceType')
     def validate_resource_type(cls, v: str) -> str:
         if v not in VALID_RESOURCE_TYPES:
             raise ValueError(f"Invalid resourceType. Must be one of: {', '.join(VALID_RESOURCE_TYPES)}")
@@ -394,7 +396,8 @@ def check_permissions(request: flask.Request):
         user_id = user_data["userId"]
 
         try:
-            req_data = PermissionCheckRequest.model_validate(data)
+            # Changed model_validate to parse_obj for Pydantic v1
+            req_data = PermissionCheckRequest.parse_obj(data)
             logging.info(f"Validated permission check request for user {user_id}")
         except ValidationError as e:
             logging.error(f"Bad Request: Validation failed: {e}")
