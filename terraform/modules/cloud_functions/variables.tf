@@ -35,15 +35,6 @@ variable "api_gateway_sa_email" {
   type        = string
 }
 
-variable "stripe_secret_key_name" {
-  description = "The name (secret_id) of the Stripe secret key in Secret Manager."
-  type        = string
-}
-
-variable "stripe_webhook_secret_name" {
-  description = "The name (secret_id) of the Stripe webhook secret in Secret Manager."
-  type        = string
-}
 
 variable "environment" {
   description = "The target environment (dev, stage, prod)"
@@ -133,21 +124,25 @@ variable "functions" {
       description = "Create a Stripe payment intent"
       entry_point = "relex_backend_create_payment_intent"
       env_vars    = {}
-      secret_env_vars = [{
-        key     = "STRIPE_SECRET_KEY"
-        secret  = var.stripe_secret_key_name
-        version = "latest"
-      }]
+      secret_env_vars = [
+        {
+          key     = "STRIPE_SECRET_KEY"
+          secret  = "stripe-secret-key"
+          version = "latest"
+        }
+      ]
     },
     "relex-backend-create-checkout-session" = {
       description = "Create a Stripe checkout session"
       entry_point = "relex_backend_create_checkout_session"
       env_vars    = {}
-      secret_env_vars = [{
-        key     = "STRIPE_SECRET_KEY"
-        secret  = var.stripe_secret_key_name
-        version = "latest"
-      }]
+      secret_env_vars = [
+        {
+          key     = "STRIPE_SECRET_KEY"
+          secret  = "stripe-secret-key"
+          version = "latest"
+        }
+      ]
     },
     "relex-backend-add-organization-member" = {
       description = "Add a member to an organization"
@@ -185,13 +180,8 @@ variable "functions" {
       env_vars    = {}
       secret_env_vars = [
         {
-          key     = "STRIPE_SECRET_KEY"
-          secret  = var.stripe_secret_key_name
-          version = "latest"
-        },
-        {
           key     = "STRIPE_WEBHOOK_SECRET"
-          secret  = var.stripe_webhook_secret_name
+          secret  = "stripe-webhook-secret"
           version = "latest"
         }
       ]
@@ -200,11 +190,13 @@ variable "functions" {
       description = "Cancel a Stripe subscription"
       entry_point = "relex_backend_cancel_subscription"
       env_vars    = {}
-      secret_env_vars = [{
-        key     = "STRIPE_SECRET_KEY"
-        secret  = var.stripe_secret_key_name
-        version = "latest"
-      }]
+      secret_env_vars = [
+        {
+          key     = "STRIPE_SECRET_KEY"
+          secret  = "stripe-secret-key" 
+          version = "latest"
+        }
+      ]
     },
     "relex-backend-create-case" = {
       description = "Create a new case"
@@ -289,6 +281,11 @@ variable "functions" {
     "relex-backend-list-parties" = {
       description = "List parties"
       entry_point = "party_list_parties"
+      env_vars    = {}
+    },
+    "relex-backend-list-organization-cases" = {
+      description = "List organization cases"
+      entry_point = "relex_backend_list_organization_cases"
       env_vars    = {}
     }
   }

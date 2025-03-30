@@ -71,7 +71,7 @@ resource "google_api_gateway_api_config" "api_config" {
 # Deploy the API Gateway
 resource "google_api_gateway_gateway" "gateway" {
   provider     = google-beta
-  region       = var.region
+  region       = var.apig_region
   api_config   = google_api_gateway_api_config.api_config.id
   gateway_id   = "relex-api-gateway"
   display_name = "Relex API Gateway"

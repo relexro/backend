@@ -77,29 +77,29 @@ variable "functions" {
       name        = "relex-backend-create-payment-intent"
       entry_point = "relex_backend_create_payment_intent"
       secret_env_vars = {
-        STRIPE_SECRET_KEY = "stripe_secret_key"
+        STRIPE_SECRET_KEY = "stripe-secret-key"
       }
     }
     "create-checkout-session" = {
       name        = "relex-backend-create-checkout-session"
       entry_point = "relex_backend_create_checkout_session"
       secret_env_vars = {
-        STRIPE_SECRET_KEY = "stripe_secret_key"
+        STRIPE_SECRET_KEY = "stripe-secret-key"
       }
     }
     "handle-stripe-webhook" = {
       name        = "relex-backend-handle-stripe-webhook"
       entry_point = "relex_backend_handle_stripe_webhook"
       secret_env_vars = {
-        STRIPE_SECRET_KEY     = "stripe_secret_key"
-        STRIPE_WEBHOOK_SECRET = "stripe_webhook_secret"
+        STRIPE_SECRET_KEY     = "stripe-secret-key"
+        STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret"
       }
     }
     "cancel-subscription" = {
       name        = "relex-backend-cancel-subscription"
       entry_point = "relex_backend_cancel_subscription"
       secret_env_vars = {
-        STRIPE_SECRET_KEY = "stripe_secret_key"
+        STRIPE_SECRET_KEY = "stripe-secret-key"
       }
     }
   }
@@ -146,7 +146,7 @@ variable "api_subdomain" {
 }
 
 variable "cloudflare_api_token" {
-  description = "Cloudflare API Token"
+  description = "Cloudflare API token for DNS validation"
   type        = string
   sensitive   = true
 }
@@ -161,18 +161,6 @@ variable "cloudflare_account_id" {
   type        = string
 }
 
-variable "stripe_secret_key_name" {
-  description = "Name of the Secret Manager secret containing the Stripe secret key"
-  type        = string
-  default     = "stripe-secret-key"
-}
-
-variable "stripe_webhook_secret_name" {
-  description = "Name of the Secret Manager secret containing the Stripe webhook secret"
-  type        = string
-  default     = "stripe-webhook-secret"
-}
-
 variable "project_number" {
   description = "The Google Cloud project number"
   type        = string
@@ -180,17 +168,15 @@ variable "project_number" {
 }
 
 variable "stripe_secret_key" {
-  description = "Stripe Secret API key"
+  description = "Stripe Secret Key for payment processing"
   type        = string
   sensitive   = true
-  # Will use TF_VAR_stripe_secret_key environment variable
 }
 
 variable "stripe_webhook_secret" {
-  description = "Stripe Webhook Secret for validating webhook events"
+  description = "Stripe Webhook Secret for verifying webhook events"
   type        = string
   sensitive   = true
-  # Will use TF_VAR_stripe_webhook_secret environment variable
 }
 
 locals {
@@ -202,7 +188,7 @@ locals {
   }
   
   bucket_names = {
-    for k, v in var.bucket_names : k => "${v}${local.env_suffix}"
+    for k, v in var.bucket_names : k => "relexro-${v}${local.env_suffix}"
   }
   
   service_account_name = "${var.service_account_name}${local.env_suffix}"

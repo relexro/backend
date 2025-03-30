@@ -6,11 +6,11 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 4.0"
+      version = "~> 5.21.0"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "~> 4.0"
+      version = "~> 5.21.0"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
@@ -20,11 +20,6 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.2" # Example constraint
     }
-  }
-
-  backend "gcs" {
-    bucket = "relex-terraform-state"
-    prefix = "env"
   }
 }
 
@@ -44,31 +39,7 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
-# --- Service Account Definition ---
-
-# Service Account for Cloud Functions
-resource "google_service_account" "functions" {
-  account_id   = local.service_account_name
-  display_name = "Service Account for Cloud Functions ${var.environment}"
-  description  = "Used by Cloud Functions in the ${var.environment} environment"
-}
-
-# IAM bindings for the service account
-resource "google_project_iam_member" "functions_invoker" {
-  project = var.project_id
-  role    = "roles/cloudfunctions.invoker"
-  member  = "serviceAccount:${google_service_account.functions.email}"
-}
-
-resource "google_project_iam_member" "secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.functions.email}"
-}
-
-# --- Secret Definitions ---
-
-# Create Secret Manager secrets for Stripe credentials
+# Stripe Secret Manager Resources
 resource "google_secret_manager_secret" "stripe_secret_key" {
   secret_id = "stripe-secret-key"
   
@@ -103,6 +74,32 @@ resource "google_secret_manager_secret_version" "stripe_webhook_secret" {
   secret_data = var.stripe_webhook_secret
 }
 
+# --- Service Account Definition ---
+
+# Service Account for Cloud Functions
+resource "google_service_account" "functions" {
+  account_id   = local.service_account_name
+  display_name = "Service Account for Cloud Functions ${var.environment}"
+  description  = "Used by Cloud Functions in the ${var.environment} environment"
+}
+
+# IAM bindings for the service account
+resource "google_project_iam_member" "functions_invoker" {
+  project = var.project_id
+  role    = "roles/cloudfunctions.invoker"
+  member  = "serviceAccount:${google_service_account.functions.email}"
+}
+
+resource "google_project_iam_member" "secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.functions.email}"
+}
+
+# --- Secret Definitions ---
+# We're no longer trying to access secrets in Terraform
+# The secret environment variables will be configured manually
+
 # --- Module Definitions ---
 
 # Enable required APIs
@@ -111,11 +108,11 @@ module "apis" {
   project_id = var.project_id
 }
 
-# Configure Firebase
+# Enable Firebase services (Authentication, Firestore)
 module "firebase" {
   source     = "./modules/firebase"
   project_id = var.project_id
-
+  
   depends_on = [module.apis]
 }
 
@@ -132,31 +129,33 @@ module "storage" {
 module "cloud_functions" {
   source = "./modules/cloud_functions"
 
-  project_id                          = var.project_id
-  region                              = var.region
-  functions_bucket_name               = module.storage.functions_bucket_name
-  functions_source_path               = "${path.module}/../functions/src"
-  functions_zip_path                  = "${path.module}/functions-source.zip"
-  functions_service_account_email     = google_service_account.functions.email
-  stripe_secret_key_name             = google_secret_manager_secret.stripe_secret_key.secret_id
-  stripe_webhook_secret_name         = google_secret_manager_secret.stripe_webhook_secret.secret_id
-
+  project_id                      = var.project_id
+  region                          = var.region
+  environment                     = var.environment
+  functions_bucket_name           = module.storage.functions_bucket_name
+  functions_source_path           = "${path.module}/../functions/src"
+  functions_zip_path              = "${path.module}/functions-source.zip"
+  functions_service_account_email = google_service_account.functions.email
+  api_gateway_sa_email            = google_service_account.functions.email
+  
+  # All functions are defined in ./modules/cloud_functions/variables.tf
+  
   depends_on = [
     module.apis,
     module.storage,
-    google_service_account.functions,
-    google_secret_manager_secret.stripe_secret_key,
-    google_secret_manager_secret.stripe_webhook_secret
+    google_service_account.functions
   ]
 }
 
 # Create API Gateway with function URIs
 module "api_gateway" {
-  source            = "./modules/api_gateway"
-  project_id        = var.project_id
-  region            = var.region
-  openapi_spec_path = "${path.module}/openapi_spec.yaml"
-  function_uris     = module.cloud_functions.function_uris
+  source              = "./modules/api_gateway"
+  project_id          = var.project_id
+  region              = var.region
+  apig_region         = var.apig_region
+  openapi_spec_path   = "${path.module}/openapi_spec.yaml"
+  function_uris       = module.cloud_functions.function_uris
+  api_gateway_sa_email = google_service_account.functions.email
 
   depends_on = [
     module.apis,
@@ -182,15 +181,20 @@ module "cloudflare" {
 
 # Set up IAM roles and permissions using the IAM module
 module "iam" {
-  source              = "./modules/iam"
-  project_id          = var.project_id
-  api_gateway_sa_email = google_service_account.functions.email
+  source                             = "./modules/iam"
+  project_id                         = var.project_id
+  api_gateway_sa_email               = google_service_account.functions.email
+  relex_functions_service_account_email = google_service_account.functions.email
 
   depends_on = [
     google_service_account.functions
   ]
 }
 
+# The following resources are now handled by the cloud_functions module
+# and should be commented out to prevent duplicate resource creation
+
+/*
 # Storage buckets
 resource "google_storage_bucket" "functions_source" {
   name                        = "${local.bucket_names["functions"]}-source"
@@ -270,11 +274,11 @@ resource "google_cloudfunctions2_function" "functions" {
     )
     
     dynamic "secret_environment_variables" {
-      for_each = each.value.secret_env_vars
+      for_each = lookup(each.value, "secret_env_vars", [])
       content {
-        key        = secret_environment_variables.key
+        key        = secret_environment_variables.value.key
         project_id = var.project_id
-        secret     = secret_environment_variables.value
+        secret     = secret_environment_variables.value.secret
         version    = "latest"
       }
     }
@@ -335,3 +339,4 @@ resource "cloudflare_record" "api" {
   type    = "CNAME"
   proxied = true
 }
+*/

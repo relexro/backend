@@ -21,4 +21,10 @@ variable "function_uris" {
 variable "api_gateway_sa_email" {
   description = "Email of the API Gateway service account"
   type        = string
+}
+
+variable "apig_region" {
+  description = "The region for the API Gateway deployment (should be an API Gateway supported region)"
+  type        = string
+  default     = "europe-west1"
 } 
