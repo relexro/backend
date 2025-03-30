@@ -14,9 +14,9 @@ resource "google_storage_bucket_object" "functions_source" {
 
 # Deploy each HTTP Cloud Function
 resource "google_cloudfunctions2_function" "functions" {
-  for_each = var.functions
+  for_each = local.functions_with_env
 
-  name        = each.key
+  name        = local.function_names[each.key]
   project     = var.project_id
   location    = var.region
   description = each.value.description
@@ -37,20 +37,16 @@ resource "google_cloudfunctions2_function" "functions" {
     max_instance_count    = lookup(each.value, "max_instances", 10)
     available_memory      = lookup(each.value, "memory", "256Mi")
     timeout_seconds       = lookup(each.value, "timeout", 60)
-
-    environment_variables = {
-      GOOGLE_CLOUD_PROJECT = var.project_id
-      GOOGLE_CLOUD_REGION  = var.region
-      GCS_BUCKET          = var.functions_bucket_name
-    }
+    
+    environment_variables = each.value.env_vars
 
     dynamic "secret_environment_variables" {
-      for_each = coalesce(lookup(each.value, "secret_env_vars", []), [])
+      for_each = coalesce(each.value.secret_env_vars, [])
       content {
         key        = secret_environment_variables.value.key
         project_id = var.project_id
-        secret     = secret_environment_variables.value.secret_name
-        version    = "latest"
+        secret     = secret_environment_variables.value.secret
+        version    = secret_environment_variables.value.version
       }
     }
     
@@ -63,7 +59,7 @@ resource "google_cloudfunctions2_function" "functions" {
 
 # Add IAM policy to allow API Gateway to invoke the Cloud Functions
 resource "google_cloud_run_service_iam_member" "invoker" {
-  for_each = var.functions
+  for_each = local.functions_with_env
 
   service  = google_cloudfunctions2_function.functions[each.key].service_config[0].service
   project  = var.project_id

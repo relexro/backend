@@ -45,6 +45,12 @@ variable "stripe_webhook_secret_name" {
   type        = string
 }
 
+variable "environment" {
+  description = "The target environment (dev, stage, prod)"
+  type        = string
+  default     = "dev"
+}
+
 variable "functions" {
   description = "Map of Cloud Functions configurations"
   type = map(object({
@@ -125,13 +131,23 @@ variable "functions" {
     },
     "relex-backend-create-payment-intent" = {
       description = "Create a Stripe payment intent"
-      entry_point = "payments_create_payment_intent"
+      entry_point = "relex_backend_create_payment_intent"
       env_vars    = {}
+      secret_env_vars = [{
+        key     = "STRIPE_SECRET_KEY"
+        secret  = var.stripe_secret_key_name
+        version = "latest"
+      }]
     },
     "relex-backend-create-checkout-session" = {
       description = "Create a Stripe checkout session"
-      entry_point = "payments_create_checkout_session"
+      entry_point = "relex_backend_create_checkout_session"
       env_vars    = {}
+      secret_env_vars = [{
+        key     = "STRIPE_SECRET_KEY"
+        secret  = var.stripe_secret_key_name
+        version = "latest"
+      }]
     },
     "relex-backend-add-organization-member" = {
       description = "Add a member to an organization"
@@ -165,13 +181,30 @@ variable "functions" {
     },
     "relex-backend-handle-stripe-webhook" = {
       description = "Handle Stripe webhook events"
-      entry_point = "payments_handle_stripe_webhook"
+      entry_point = "relex_backend_handle_stripe_webhook"
       env_vars    = {}
+      secret_env_vars = [
+        {
+          key     = "STRIPE_SECRET_KEY"
+          secret  = var.stripe_secret_key_name
+          version = "latest"
+        },
+        {
+          key     = "STRIPE_WEBHOOK_SECRET"
+          secret  = var.stripe_webhook_secret_name
+          version = "latest"
+        }
+      ]
     },
     "relex-backend-cancel-subscription" = {
       description = "Cancel a Stripe subscription"
-      entry_point = "payments_cancel_subscription"
+      entry_point = "relex_backend_cancel_subscription"
       env_vars    = {}
+      secret_env_vars = [{
+        key     = "STRIPE_SECRET_KEY"
+        secret  = var.stripe_secret_key_name
+        version = "latest"
+      }]
     },
     "relex-backend-create-case" = {
       description = "Create a new case"
@@ -258,5 +291,31 @@ variable "functions" {
       entry_point = "party_list_parties"
       env_vars    = {}
     }
+  }
+}
+
+locals {
+  # Add environment suffix to function names except in prod
+  function_names = {
+    for k, v in var.functions :
+    k => "${k}${var.environment == "prod" ? "" : "-${var.environment}"}"
+  }
+  
+  # Common environment variables for all functions
+  common_env_vars = {
+    ENVIRONMENT           = var.environment
+    GOOGLE_CLOUD_PROJECT = var.project_id
+    GOOGLE_CLOUD_REGION  = var.region
+    GCS_BUCKET          = var.functions_bucket_name
+  }
+  
+  # Merge common and function-specific env vars
+  functions_with_env = {
+    for k, v in var.functions : k => merge(
+      v,
+      {
+        env_vars = merge(local.common_env_vars, v.env_vars)
+      }
+    )
   }
 } 
