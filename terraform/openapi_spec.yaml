@@ -15,9 +15,9 @@ securityDefinitions:
     type: http
     scheme: bearer
     bearerFormat: JWT
-    x-google-issuer: "https://securetoken.google.com/relexro"
+    x-google-issuer: "https://securetoken.google.com/${project_id}"
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
-    x-google-audiences: "relexro"
+    x-google-audiences: "${project_id}"
 
 paths:
   # User profile endpoints
@@ -28,7 +28,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-user-profile
+        address: ${function_uris["relex-backend-get-user-profile"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       responses:
@@ -48,7 +48,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-update-user-profile
+        address: ${function_uris["relex-backend-update-user-profile"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -86,7 +86,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations
+        address: ${function_uris["relex-backend-list-user-organizations"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       responses:
@@ -111,7 +111,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases
+        address: ${function_uris["relex-backend-list-cases"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -163,7 +163,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-organization
+        address: ${function_uris["relex-backend-create-organization"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -210,7 +210,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-organization
+        address: ${function_uris["relex-backend-delete-organization"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -245,7 +245,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+        address: ${function_uris["relex-backend-create-case"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -301,7 +301,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+        address: ${function_uris["relex-backend-create-case"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -362,7 +362,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases
+        address: ${function_uris["relex-backend-list-cases"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -427,7 +427,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-organization-members
+        address: ${function_uris["relex-backend-list-organization-members"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -464,7 +464,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+        address: ${function_uris["relex-backend-add-organization-member"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -517,7 +517,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-set-organization-member-role
+        address: ${function_uris["relex-backend-set-organization-member-role"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -566,7 +566,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-organization-member
+        address: ${function_uris["relex-backend-remove-organization-member"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -613,7 +613,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file
+        address: ${function_uris["relex-backend-upload-file"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 60.0
       parameters:
@@ -659,7 +659,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-download-file
+        address: ${function_uris["relex-backend-download-file"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 60.0
       parameters:
@@ -691,7 +691,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-payment-intent
+        address: ${function_uris["relex-backend-create-payment-intent"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -751,7 +751,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-checkout-session
+        address: ${function_uris["relex-backend-create-checkout-session"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -817,7 +817,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-cancel-subscription
+        address: ${function_uris["relex-backend-cancel-subscription"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -849,12 +849,13 @@ paths:
 
   /vouchers/redeem:
     post:
-      summary: Redeem a voucher code
+      summary: Redeem a voucher code (not implemented yet)
       operationId: redeemVoucher
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-redeem-voucher
+        # This function is planned but not yet implemented
+        address: "https://notimplemented.example.com/placeholder"
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -913,7 +914,7 @@ paths:
       summary: Handle Stripe webhook events
       operationId: handleStripeWebhook
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-handle-stripe-webhook
+        address: ${function_uris["relex-backend-handle-stripe-webhook"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -952,7 +953,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-party
+        address: ${function_uris["relex-backend-create-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1034,7 +1035,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-parties
+        address: ${function_uris["relex-backend-list-parties"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1066,7 +1067,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-party
+        address: ${function_uris["relex-backend-get-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1093,7 +1094,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-update-party
+        address: ${function_uris["relex-backend-update-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1174,7 +1175,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-party
+        address: ${function_uris["relex-backend-delete-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1205,7 +1206,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-attach-party-to-case
+        address: ${function_uris["relex-backend-attach-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1256,7 +1257,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-detach-party-from-case
+        address: ${function_uris["relex-backend-detach-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1675,7 +1676,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-case
+        address: ${function_uris["relex-backend-get-case"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1702,7 +1703,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
+        address: ${function_uris["relex-backend-delete-case"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1736,7 +1737,7 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+        address: ${function_uris["relex-backend-archive-case"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1772,12 +1773,13 @@ paths:
 
   /cases/{caseId}/assign:
     put:
-      summary: Assign case to staff member
+      summary: Assign case to staff member (not implemented yet)
       operationId: assignCase
       security:
         - firebase: []
       x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-assign-case
+        # This function is planned but not yet implemented
+        address: "https://notimplemented.example.com/placeholder"
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:

@@ -8,7 +8,7 @@ NC='\033[0m' # No Color
 
 # Default project and region values
 PROJECT="relexro"
-REGION="europe-west3"
+REGION="europe-west1"
 
 # --- Timestamp for log queries ---
 # Go back e.g., 1 hour to catch recent deployment attempts

@@ -50,7 +50,7 @@ resource "google_cloudfunctions2_function" "functions" {
       }
     }
     
-    ingress_settings               = "ALLOW_ALL"
+    ingress_settings               = "ALLOW_INTERNAL_AND_GCLB"
     all_traffic_on_latest_revision = true
   }
 
@@ -68,14 +68,4 @@ resource "google_cloud_run_service_iam_member" "invoker" {
   member   = "serviceAccount:${var.api_gateway_sa_email}"
 
   depends_on = [google_cloudfunctions2_function.functions]
-}
-
-# Output the function URIs
-output "function_uris" {
-  description = "Map of function names to their HTTPS URIs"
-  value = {
-    for name, function in google_cloudfunctions2_function.functions :
-    name => function.service_config[0].uri
-  }
-  sensitive = false
 }

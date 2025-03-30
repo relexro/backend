@@ -44,13 +44,38 @@ resource "google_secret_manager_secret" "stripe_secret_key" {
   secret_id = "stripe-secret-key"
   
   replication {
-    automatic = true
+    auto {}
   }
   
   labels = {
     environment = var.environment
   }
 }
+
+locals {
+  env_suffix = var.environment == "prod" ? "" : "-${var.environment}"
+  
+  # Environment-specific resource names
+  # function_names has been removed as it's handled by the cloud_functions module
+  
+  bucket_names = {
+    for k, v in var.bucket_names : k => "relexro-${v}${local.env_suffix}"
+  }
+  
+  service_account_name = "${var.service_account_name}${local.env_suffix}"
+  
+  api_gateway_name = "relex-api${local.env_suffix}"
+  
+  # Environment-specific domain configuration
+  api_domain = var.environment == "prod" ? "api.${var.domain_name}" : "api-${var.environment}.${var.domain_name}"
+  
+  # Common tags for all resources
+  common_labels = {
+    environment = var.environment
+    managed_by  = "terraform"
+    project     = "relex"
+  }
+} 
 
 resource "google_secret_manager_secret_version" "stripe_secret_key" {
   secret      = google_secret_manager_secret.stripe_secret_key.id
@@ -61,7 +86,7 @@ resource "google_secret_manager_secret" "stripe_webhook_secret" {
   secret_id = "stripe-webhook-secret"
   
   replication {
-    automatic = true
+    auto {}
   }
   
   labels = {
@@ -152,7 +177,6 @@ module "api_gateway" {
   source              = "./modules/api_gateway"
   project_id          = var.project_id
   region              = var.region
-  apig_region         = var.apig_region
   openapi_spec_path   = "${path.module}/openapi_spec.yaml"
   function_uris       = module.cloud_functions.function_uris
   api_gateway_sa_email = google_service_account.functions.email
@@ -167,7 +191,7 @@ module "api_gateway" {
 module "cloudflare" {
   source           = "./modules/cloudflare"
   domain_name      = var.domain_name
-  subdomain        = var.api_subdomain
+  subdomain        = local.api_domain
   # Ensure the output name matches what your api_gateway module provides
   gateway_hostname = module.api_gateway.gateway_hostname
   zone_id          = var.cloudflare_zone_id
@@ -326,7 +350,7 @@ resource "google_api_gateway_gateway" "gateway" {
   provider   = google-beta
   api_config = google_api_gateway_api_config.api.id
   gateway_id = local.api_gateway_name
-  region     = var.apig_region
+  region     = var.region
   
   labels = local.common_labels
 }

@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 # Set variables
 BUCKET_NAME="tf-state-relex"
-BUCKET_LOCATION="europe-west3"
+BUCKET_LOCATION="europe-west1"
 STATE_PREFIX="backend"
 PROJECT_ID=$(gcloud config get-value project)
 

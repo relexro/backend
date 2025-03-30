@@ -70,6 +70,11 @@ variable "functions" {
       entry_point = "organization_update_organization"
       env_vars    = {}
     },
+    "relex-backend-delete-organization" = {
+      description = "Delete an organization account"
+      entry_point = "organization_delete_organization"
+      env_vars    = {}
+    },
     "relex-backend-add-organization-user" = {
       description = "Add a user to an organization account"
       entry_point = "organization_add_organization_user"

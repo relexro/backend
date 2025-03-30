@@ -23,8 +23,8 @@ variable "api_gateway_sa_email" {
   type        = string
 }
 
-variable "apig_region" {
-  description = "The region for the API Gateway deployment (should be an API Gateway supported region)"
-  type        = string
-  default     = "europe-west1"
+variable "implemented_functions" {
+  description = "List of function names that are actually implemented (to distinguish from planned/future functions in the API spec)"
+  type        = list(string)
+  default     = []
 } 
