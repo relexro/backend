@@ -1,111 +1,248 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+
+    // --- Helper Functions ---
+
+    // Check if the requesting user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isUser(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    // Get the user's membership data for a specific organization
+    // Note: This performs a document read, count towards limits.
+    function getMembership(orgId) {
+      return get(/databases/$(database)/documents/organization_memberships/$(request.auth.uid + '_' + orgId)).data;
+      // Assumes membership doc ID is composite: userId_orgId
+      // Adjust if your membership doc ID structure is different!
+      // If using queries in rules (more complex), structure would change.
+      // This simple 'get' assumes you know the membership doc ID.
+      // A more flexible but complex way involves querying, which is often avoided due to performance/complexity.
+      // ALTERNATIVE if doc ID isn't known: Check existence via path (less data)
+      // return exists(/databases/$(database)/documents/organization_memberships/$(request.auth.uid + '_' + orgId));
+      // Then you'd need another function/read to get the *role* if checking existence.
     }
 
-    function isOrgMember(orgId) {
-      return isAuthenticated() && exists(/databases/$(database)/documents/organization_members/$(orgId)_$(request.auth.uid));
+     // Get the user's role in a specific organization
+     // Note: Requires getMembership() to succeed (implicit read)
+     function getRoleInOrg(orgId) {
+       let membershipData = getMembership(orgId);
+       return membershipData != null ? membershipData.role : null;
+     }
+
+    // Check if the user is an admin in a specific organization
+    function isAdminInOrg(orgId) {
+      return getRoleInOrg(orgId) == 'administrator';
     }
 
-    function isOrgAdmin(orgId) {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/organization_members/$(orgId)_$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/organization_members/$(orgId)_$(request.auth.uid)).data.role == 'admin';
+    // Check if the user is staff in a specific organization
+    function isStaffInOrg(orgId) {
+      return getRoleInOrg(orgId) == 'staff';
     }
 
-    function canAccessCase(caseData) {
-      // Individual case - only the case owner can access
-      return (caseData.organizationId == null && request.auth.uid == caseData.userId) ||
-        // Organization case - any member of that organization can access
-        (caseData.organizationId != null && isOrgMember(caseData.organizationId));
+    // Check if the user is any member (admin, staff, etc.) of an organization
+    function isMemberOfOrg(orgId) {
+      // Using exists is often cheaper if you only need to know *if* they are a member
+      // Adjust path based on your actual membership document ID structure
+       return exists(/databases/$(database)/documents/organization_memberships/$(request.auth.uid + '_' + orgId));
     }
 
-    function canModifyCase(caseData) {
-      // Individual case - only the case owner can modify
-      return (caseData.organizationId == null && request.auth.uid == caseData.userId) ||
-        // Organization case - only admins of that organization can modify
-        (caseData.organizationId != null && isOrgAdmin(caseData.organizationId));
+    // --- Collection Rules ---
+
+    // Organization Memberships: Control who can see/manage roles
+    match /organization_memberships/{membershipId} {
+      allow read: if isAuthenticated()
+                    // Allow reading own membership
+                    && (request.auth.uid == resource.data.userId
+                    // Allow admins/staff of the *same* org to read memberships (for listUsers etc)
+                    || isMemberOfOrg(resource.data.organizationId)); // Simplification: Any member can read other memberships in their org. Adjust if needed.
+                    // More strict: (isAdminInOrg(resource.data.organizationId) || isStaffInOrg(resource.data.organizationId))
+
+      allow create: if isAuthenticated()
+                     // Only admins of the target org can add members
+                     && isAdminInOrg(request.resource.data.organizationId)
+                     // Ensure the membership being created matches the user ID and org ID in the doc ID (if composite)
+                     && membershipId == request.resource.data.userId + '_' + request.resource.data.organizationId;
+
+
+      allow update: if isAuthenticated()
+                     // Only admins can change roles (or other membership fields)
+                     && isAdminInOrg(resource.data.organizationId)
+                     // Prevent changing userId or organizationId after creation
+                     && request.resource.data.userId == resource.data.userId
+                     && request.resource.data.organizationId == resource.data.organizationId;
+
+      allow delete: if isAuthenticated()
+                    // Admins can remove others
+                    && (isAdminInOrg(resource.data.organizationId)
+                    // Users can remove themselves (leave org)
+                    || request.auth.uid == resource.data.userId);
     }
 
-    function getAllowedUserFields() {
-      return ['displayName', 'languagePreference', 'email', 'photoURL'];
-    }
-
-    function modifiesOnlyAllowedFields(allowedFields) {
-      let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      return affectedKeys.hasOnly(allowedFields);
-    }
-
-    // Users collection
-    match /users/{userId} {
-      allow read: if isUser(userId);
-      allow update: if isUser(userId) && 
-        (modifiesOnlyAllowedFields(getAllowedUserFields()) || 
-        !(request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'stripeCustomerId', 'stripeSubscriptionId', 
-                  'subscriptionStatus', 'subscriptionPlanId', 'caseQuotaTotal', 
-                  'caseQuotaUsed', 'billingCycleStart', 'billingCycleEnd'])));
-    }
-
-    // Organizations collection
+    // Organizations: Control access to org details
     match /organizations/{orgId} {
-      allow read: if isOrgMember(orgId);
-      
-      // Admins can update non-sensitive fields
-      allow update: if isOrgAdmin(orgId) && 
-        !(request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['stripeCustomerId', 'stripeSubscriptionId', 
-                  'subscriptionStatus', 'subscriptionPlanId', 'caseQuotaTotal', 
-                  'caseQuotaUsed', 'billingCycleStart', 'billingCycleEnd']));
+      // Any authenticated member of the org can read its details
+      allow read: if isAuthenticated() && isMemberOfOrg(orgId);
+
+      // Let Cloud Function handle creation logic robustly
+      allow create: if isAuthenticated(); // Basic check, function adds membership etc.
+
+      // Only admins can update org details
+      allow update: if isAuthenticated() && isAdminInOrg(orgId);
+
+      // Only admins can delete orgs (ensure checks for dependent resources in Function)
+      allow delete: if isAuthenticated() && isAdminInOrg(orgId);
     }
 
-    // Organization members collection
-    match /organization_members/{memberId} {
-      allow read: if isAuthenticated() && 
-        (request.auth.uid == resource.data.userId || 
-         isOrgMember(resource.data.organizationId));
-      
-      // Only org admins can modify membership
-      allow write: if isOrgAdmin(resource.data.organizationId);
+    // Parties: Only the owner can manage their parties
+    match /parties/{partyId} {
+      function isOwner() {
+        return request.auth.uid == resource.data.userId;
+      }
+      function isCreatingOwner() {
+       return request.auth.uid == request.resource.data.userId;
+      }
+
+      allow read, update, delete: if isAuthenticated() && isOwner();
+      allow create: if isAuthenticated() && isCreatingOwner();
     }
 
-    // Cases collection
+    // Cases: Complex logic based on ownership and organization membership/role
     match /cases/{caseId} {
-      // Allow attempts to create a case - backend function handles actual validation
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      
-      // Allow read access if user can access the case
-      allow read: if isAuthenticated() && canAccessCase(resource.data);
-      
-      // Allow update and delete if user can modify the case
-      allow update, delete: if isAuthenticated() && canModifyCase(resource.data);
+
+        // --- Case Helper Functions ---
+        function isCaseOwner() {
+          return request.auth.uid == resource.data.userId;
+        }
+        function isCreatingOwner() {
+          return request.auth.uid == request.resource.data.userId;
+        }
+        function isIndividualCase() {
+          // Check if orgId is null or doesn't exist in the *existing* document
+          return resource.data.organizationId == null;
+        }
+         function isCreatingIndividualCase() {
+          // Check if orgId is null or doesn't exist in the *incoming* document
+          return request.resource.data.organizationId == null;
+        }
+        function isOrgCase() {
+          return resource.data.organizationId != null;
+        }
+        function isCreatingOrgCase() {
+          return request.resource.data.organizationId != null;
+        }
+        function getCaseOrgId() {
+           return resource.data.organizationId;
+        }
+        function getIncomingCaseOrgId() {
+           return request.resource.data.organizationId;
+        }
+         function userRoleInCaseOrg() {
+           return getRoleInOrg(getCaseOrgId());
+         }
+         function userRoleInIncomingCaseOrg() {
+           return getRoleInOrg(getIncomingCaseOrgId());
+         }
+         function isAssignedStaff() {
+             return isStaffInOrg(getCaseOrgId()) && resource.data.assignedUserId == request.auth.uid;
+         }
+         // --- End Case Helpers ---
+
+
+        allow read: if isAuthenticated() && (
+                      // Owner can read their individual case
+                      (isIndividualCase() && isCaseOwner()) ||
+                      // Any member of the org can read an org case (Simplification: Your Python code might be stricter)
+                      (isOrgCase() && isMemberOfOrg(getCaseOrgId()))
+                    );
+
+        allow create: if isAuthenticated() && (
+                        // Owner can create their individual case
+                        (isCreatingIndividualCase() && isCreatingOwner()) ||
+                        // Admin, Staff, or Owner (role in org) can create an org case
+                        (isCreatingOrgCase() && ['administrator', 'staff', 'owner'].hasAny([userRoleInIncomingCaseOrg()]))
+                      );
+
+        allow update: if isAuthenticated() && (
+                        // Owner can update their individual case
+                        (isIndividualCase() && isCaseOwner()) ||
+                        // Org Case Updates:
+                        (isOrgCase() &&
+                          // Owner of the case (even if in org) can update
+                          (isCaseOwner() ||
+                          // Admin can update
+                          isAdminInOrg(getCaseOrgId()) ||
+                          // Assigned Staff can update
+                          isAssignedStaff())
+                         )
+                      );
+
+        allow delete: if isAuthenticated() && (
+                        // Owner can delete their individual case
+                        (isIndividualCase() && isCaseOwner()) ||
+                        // Org Case Deletes:
+                        (isOrgCase() &&
+                          // Owner of the case OR Admin in the org can delete
+                          (isCaseOwner() || isAdminInOrg(getCaseOrgId()))
+                        )
+                      );
     }
 
-    // Documents collection (files related to cases)
+    // Documents: Permissions derived from the parent Case
     match /documents/{documentId} {
-      allow read: if isAuthenticated() && 
-        canAccessCase(get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data);
-        
-      // Users can create documents for cases they have access to
-      allow create: if isAuthenticated() && 
-        request.resource.data.uploadedBy == request.auth.uid &&
-        canAccessCase(get(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data);
+
+        // Helper to get parent case data (expensive: 1 read per document access check)
+        function getParentCaseData() {
+          return get(/databases/$(database)/documents/cases/$(resource.data.caseId)).data;
+        }
+        function getIncomingParentCaseData() {
+           // Needed for create rule, assumes caseId is in incoming doc
+           return get(/databases/$(database)/documents/cases/$(request.resource.data.caseId)).data;
+        }
+
+        // Check permission on the parent case FOR the document action
+        // Simplified: Read doc -> read case, Create/Delete doc -> update case (as proxy for upload/delete perm)
+        function hasCasePermissionForRead() {
+          let caseData = getParentCaseData();
+          // Reuse logic similar to case read rule
+          return (caseData.organizationId == null && request.auth.uid == caseData.userId) || // Individual case owner
+                 (caseData.organizationId != null && isMemberOfOrg(caseData.organizationId)); // Org case member
+        }
+
+        function hasCasePermissionForWrite() { // Covers Create/Delete
+          let caseData = getParentCaseData();
+          // Check if user has write-like perms on case: Owner, Admin, Assigned Staff
+           return (request.auth.uid == caseData.userId) || // Case Owner (individual or org)
+                  (caseData.organizationId != null && isAdminInOrg(caseData.organizationId)) || // Org Admin
+                  (caseData.organizationId != null && isStaffInOrg(caseData.organizationId) && caseData.assignedUserId == request.auth.uid); // Assigned Staff
+        }
+
+        function hasCasePermissionForIncomingWrite() { // For Create Rule
+           let caseData = getIncomingParentCaseData();
+          // Check if user has write-like perms on case: Owner, Admin, Assigned Staff
+           return (request.auth.uid == caseData.userId) || // Case Owner (individual or org)
+                  (caseData.organizationId != null && isAdminInOrg(caseData.organizationId)) || // Org Admin
+                  (caseData.organizationId != null && isStaffInOrg(caseData.organizationId) && caseData.assignedUserId == request.auth.uid); // Assigned Staff
+        }
+
+
+      allow read: if isAuthenticated() && hasCasePermissionForRead();
+
+      // Allow create if user has appropriate permissions on the *target* case
+      // Simplified: check write permission on case as proxy for 'upload'
+      allow create: if isAuthenticated() && hasCasePermissionForIncomingWrite();
+
+
+      // Allow delete if user has appropriate permissions on the parent case
+      // Simplified: check write permission on case as proxy for 'delete' doc
+      allow delete: if isAuthenticated() && hasCasePermissionForWrite();
+
+      // Generally disallow updates to documents via rules unless specific fields are allowed.
+      // Updates often happen via replacement (delete+create) or specialized functions.
+      allow update: if false;
     }
 
-    // Plans collection (internal configuration)
-    match /plans/{planId} {
-      // Authenticated users/backend functions can read plan details
-      allow read: if isAuthenticated();
-      
-      // No client-side writes allowed to plans
-      allow write: if false;
-    }
+    // Deny access to all other collections by default
   }
-} 
+}

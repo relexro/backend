@@ -12,10 +12,11 @@ security:
   - firebase: []
 
 securityDefinitions:
-  firebase: # This is the correct definition name used elsewhere
-    type: http
-    scheme: bearer
-    bearerFormat: JWT
+  firebase:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: "Firebase Authentication JWT. Use format 'Bearer {token}'"
     x-google-issuer: "https://securetoken.google.com/${project_id}"
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     x-google-audiences: "${project_id}"
@@ -1705,7 +1706,7 @@ paths:
             properties:
               assignedUserId:
                 type: string
-                nullable: true # Allow null to unassign
+                x-nullable: true # Allow null to unassign
                 description: Staff user ID to assign case to, null to unassign
       responses:
         '200':
@@ -1721,10 +1722,10 @@ paths:
                 type: string
               assignedUserId:
                 type: string
-                nullable: true # Reflect possibility of null
+                x-nullable: true # Reflect possibility of null
               assignedUserName: # Might be helpful but potentially requires another lookup
                 type: string
-                nullable: true
+                x-nullable: true
         '401':
           $ref: '#/definitions/Unauthorized'
         '403':
@@ -1755,48 +1756,48 @@ definitions:
         format: email # Added format
       displayName:
         type: string
-        nullable: true # Allow null
+        x-nullable: true # Allow null
       photoURL:
         type: string
         format: url # Added format
-        nullable: true # Allow null
+        x-nullable: true # Allow null
       role:
         type: string
         enum: [user, admin] # Assuming admin role exists
       subscriptionStatus:
         type: string
         enum: [active, inactive, canceled, past_due, trialing] # Added more states
-        nullable: true
+        x-nullable: true
       subscriptionPlanId:
         type: string
         description: ID of the subscription plan
-        nullable: true
+        x-nullable: true
       billingCycleStart:
         type: string
         format: date-time
         description: Start date of the current billing cycle
-        nullable: true
+        x-nullable: true
       billingCycleEnd:
         type: string
         format: date-time
         description: End date of the current billing cycle
-        nullable: true
+        x-nullable: true
       caseQuotaTotal:
         type: integer
         description: Total number of cases included in the subscription for the current billing cycle
-        nullable: true
+        x-nullable: true
       caseQuotaUsed:
         type: integer
         description: Number of cases used from the quota in the current billing cycle
-        nullable: true
+        x-nullable: true
       stripeCustomerId:
         type: string
         description: Stripe customer ID for payment processing
-        nullable: true
+        x-nullable: true
       stripeSubscriptionId:
         type: string
         description: Stripe subscription ID
-        nullable: true
+        x-nullable: true
       languagePreference:
         type: string
         enum: [en, ro]
@@ -1820,14 +1821,14 @@ definitions:
         description: e.g., law_firm, company, individual_professional
       address:
         type: string
-        nullable: true
+        x-nullable: true
       phone:
         type: string
-        nullable: true
+        x-nullable: true
       email:
         type: string
         format: email
-        nullable: true
+        x-nullable: true
       createdAt:
         type: string
         format: date-time
@@ -1838,37 +1839,37 @@ definitions:
         type: string
         enum: [active, inactive, canceled, past_due, trialing] # Added more states
         description: Current subscription status
-        nullable: true
+        x-nullable: true
       subscriptionPlanId:
         type: string
         description: ID of the subscription plan
-        nullable: true
+        x-nullable: true
       billingCycleStart:
         type: string
         format: date-time
         description: Start date of the current billing cycle
-        nullable: true
+        x-nullable: true
       billingCycleEnd:
         type: string
         format: date-time
         description: End date of the current billing cycle
-        nullable: true
+        x-nullable: true
       caseQuotaTotal:
         type: integer
         description: Total number of cases included in the subscription for the current billing cycle
-        nullable: true
+        x-nullable: true
       caseQuotaUsed:
         type: integer
         description: Number of cases used from the quota in the current billing cycle
-        nullable: true
+        x-nullable: true
       stripeCustomerId:
         type: string
         description: Stripe customer ID for payment processing
-        nullable: true
+        x-nullable: true
       stripeSubscriptionId:
         type: string
         description: Stripe subscription ID
-        nullable: true
+        x-nullable: true
     required: # Added required fields
       - organizationId
       - name
@@ -1910,7 +1911,7 @@ definitions:
         format: email
       displayName: # Denormalized for convenience
         type: string
-        nullable: true
+        x-nullable: true
     required:
       - userId
       - role
@@ -1937,7 +1938,7 @@ definitions:
         format: email
       displayName:
         type: string
-        nullable: true
+        x-nullable: true
     required:
       - success
       - membershipId
@@ -1955,15 +1956,15 @@ definitions:
         type: string
       description:
         type: string
-        nullable: true
+        x-x-nullable: true
       caseType: # More specific than tier? e.g., litigation, consultation
         type: string
-        nullable: true
+        x-x-nullable: true
       userId: # Owner/creator user ID
         type: string
       organizationId: # Optional organization context
         type: string
-        nullable: true
+        x-x-nullable: true
       status:
         type: string
         enum: [open, archived, deleted, pending_payment] # Added states
@@ -1977,22 +1978,22 @@ definitions:
       archivedAt: # Added
         type: string
         format: date-time
-        nullable: true
+        x-x-nullable: true
       deletedAt: # Added
         type: string
         format: date-time
-        nullable: true
+        x-x-nullable: true
       assignedUserId: # Added
         type: string
-        nullable: true
+        x-x-nullable: true
       paymentStatus:
         type: string
         enum: [paid_intent, covered_by_quota, pending, not_required, refunded] # Added states
         description: Payment status of the case
-        nullable: true # May not apply if free tier/quota
+        x-x-nullable: true
       paymentIntentId: # Associated payment intent if paid individually
         type: string
-        nullable: true
+        x-x-nullable: true
       caseTier:
         type: integer
         enum: [1, 2, 3]
@@ -2000,7 +2001,7 @@ definitions:
       casePrice:
         type: integer
         description: Price of the case in cents (at the time of creation/payment)
-        nullable: true # May be covered by quota
+        x-x-nullable: true
       partyIds: # List of attached party IDs
          type: array
          items:
@@ -2198,7 +2199,7 @@ definitions:
       caseQuotaTotal:
         type: integer
         description: Number of cases included in the plan per billing cycle
-        nullable: true # Some plans might be usage-based
+        x-nullable: true # Some plans might be usage-based
       active:
         type: boolean
         description: Whether the plan is currently available for purchase
@@ -2305,7 +2306,7 @@ definitions:
         $ref: '#/definitions/PartyContactInfo'
       signatureData:
         $ref: '#/definitions/PartySignatureData'
-        nullable: true
+        x-nullable: true
 
   PartyUpdateInput: # Definition for updating a Party (fields are optional)
     type: object
@@ -2319,7 +2320,7 @@ definitions:
         $ref: '#/definitions/PartyContactInfo'
       signatureData:
         $ref: '#/definitions/PartySignatureData'
-        nullable: true
+        x-nullable: true
 
   Party: # Full Party object definition (output)
     type: object
@@ -2341,7 +2342,7 @@ definitions:
         $ref: '#/definitions/PartyContactInfo'
       signatureData:
         $ref: '#/definitions/PartySignatureData'
-        nullable: true
+        x-nullable: true
       createdAt:
         type: string
         format: date-time

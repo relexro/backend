@@ -52,9 +52,10 @@ resource "google_secret_manager_secret" "stripe_secret_key" {
   }
 }
 
-resource "google_secret_manager_secret_version" "stripe_secret_key" {
-  secret      = google_secret_manager_secret.stripe_secret_key.id
-  secret_data = var.stripe_secret_key
+# Create a data source to see if the secret version exists
+data "google_secret_manager_secret_version" "stripe_secret_key" {
+  secret = google_secret_manager_secret.stripe_secret_key.id
+  version = "latest"
 }
 
 resource "google_secret_manager_secret" "stripe_webhook_secret" {
@@ -69,9 +70,10 @@ resource "google_secret_manager_secret" "stripe_webhook_secret" {
   }
 }
 
-resource "google_secret_manager_secret_version" "stripe_webhook_secret" {
-  secret      = google_secret_manager_secret.stripe_webhook_secret.id
-  secret_data = var.stripe_webhook_secret
+# Create a data source to see if the secret version exists
+data "google_secret_manager_secret_version" "stripe_webhook_secret" {
+  secret = google_secret_manager_secret.stripe_webhook_secret.id
+  version = "latest"
 }
 
 locals {

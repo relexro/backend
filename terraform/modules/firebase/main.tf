@@ -13,6 +13,9 @@ resource "google_firebase_web_app" "default" {
 
 locals {
   firestore_rules = file("${path.module}/rules/firestore.rules")
+  timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
+  # Random 6 character string for unique naming
+  random_suffix = substr(sha256(local.timestamp), 0, 6)
 }
 
 # Firestore Security Rules Deployment
@@ -32,7 +35,11 @@ resource "google_firebaserules_ruleset" "rules" {
 resource "google_firebaserules_release" "firestore" {
   provider     = google-beta
   project      = var.project_id
-  name         = "cloud.firestore"
+  name         = "cloud.firestore-${local.random_suffix}"
   ruleset_name = google_firebaserules_ruleset.rules.name
   depends_on   = [google_firebaserules_ruleset.rules]
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 } 

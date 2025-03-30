@@ -70,13 +70,58 @@ Here's how to resolve this:
    
    Replace `SERVICE_ACCOUNT_EMAIL` with the email you found in step 1.
 
-3. Run your Terraform commands again:
+3. If you encounter issues with Secret Manager versions being in a "DESTROYED" state, manually delete and recreate the secrets:
+   ```bash
+   # Delete existing secrets
+   gcloud secrets delete stripe-secret-key --quiet 
+   gcloud secrets delete stripe-webhook-secret --quiet
+   
+   # Create secrets using TF_VAR environment variables
+   gcloud secrets create stripe-secret-key --replication-policy="automatic"
+   echo $TF_VAR_stripe_secret_key | gcloud secrets versions add stripe-secret-key --data-file=-
+   
+   gcloud secrets create stripe-webhook-secret --replication-policy="automatic"
+   echo $TF_VAR_stripe_webhook_secret | gcloud secrets versions add stripe-webhook-secret --data-file=-
+   ```
+
+4. In your Terraform configuration, use data sources instead of resource creation for the secret versions:
+   ```terraform
+   # Create a data source to see if the secret version exists
+   data "google_secret_manager_secret_version" "stripe_secret_key" {
+     secret = google_secret_manager_secret.stripe_secret_key.id
+     version = "latest"
+   }
+   ```
+
+5. Run your Terraform commands again:
    ```bash
    cd terraform
    terraform apply -auto-approve
    ```
 
-This ensures your Terraform deployment process has the necessary permissions to create and manage secrets.
+### Firebase Rules Troubleshooting
+
+If you encounter Firebase Ruleset errors like:
+```
+Error: Error creating Ruleset: googleapi: Error 400: Request contains an invalid argument.
+```
+
+1. Check for syntax errors in your rules file
+2. Verify that you don't have duplicate permissions (multiple `allow read/write` statements for the same match pattern)
+3. For quick testing, use a simplified ruleset:
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /{document=**} {
+         allow read, write: if request.auth != null;
+       }
+     }
+   }
+   ```
+4. Incrementally add your more complex rules after the basic setup works
+
+This ensures your Terraform deployment process has the necessary permissions to create and manage secrets and Firebase rules.
 
 ### Deployment
 
@@ -837,45 +882,4 @@ To test the authentication endpoints with real Google credentials, follow these 
    - Add `localhost` to the authorized domains list
 
 2. First, ensure you have the `gcloud` CLI installed and are logged in:
-```bash
-# Install gcloud CLI (if not already installed)
-# macOS (with Homebrew):
-brew install google-cloud-sdk
-
-# Login with your Google account
-gcloud auth login
 ```
-
-3. Set up application default credentials:
-```bash
-gcloud auth application-default login
-```
-
-4. Get an ID token for testing:
-```bash
-# This will generate a JWT token valid for 1 hour
-gcloud auth print-identity-token
-```
-
-5. Use the token in your API requests:
-```bash
-curl -X GET "https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
-
-Note: The token expires after 1 hour. You'll need to generate a new one using `gcloud auth print-identity-token` if you get authentication errors.
-
-### Troubleshooting
-
-- If you get a "quota exceeded" error, you may need to set up a quota project:
-```bash
-gcloud auth application-default set-quota-project YOUR_PROJECT_ID
-```
-
-- If you get an "Invalid token" error, ensure that:
-  1. You've completed the Firebase Authentication setup in the console
-  2. Your token hasn't expired
-  3. You're using the correct project ID
-  4. The service account has the necessary IAM permissions
-  
-- The token from `gcloud auth print-identity-token` is a Google-signed token, but Firebase Authentication needs to be configured to accept it. See the setup steps in status.md for more details. 
