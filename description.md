@@ -18,6 +18,7 @@ The Relex backend is a serverless application built using Python Firebase Functi
     * Document permission logic that respects parent case access.
     * Role checking within Org Admin functions (`organization_membership.py`).
     * User profile creation trigger (`create_user_profile`).
+    * Permission checking for chat conversations, ensuring users can only access conversations for cases they have permission to view.
 * **To Do:**
     * **Firebase Custom Claims:** Implement setting custom claims (`role`, `orgId`) on user tokens to optimize permission checks.
     * **Firestore Security Rules:** Write and deploy comprehensive rules mirroring RBAC logic [cite: 248, context.md].
@@ -28,19 +29,17 @@ The Relex backend is a serverless application built using Python Firebase Functi
 * **Implemented:** `openapi_spec.yaml`, `api.md` define many endpoints [cite: terraform/openapi_spec.yaml, api.md]. `main.py` exports corresponding functions [cite: functions/src/main.py].
 * **To Do:**
     * **Consistency Check:** Ensure implemented functions match `openapi_spec.yaml`.
-    * **Parties API:** Define and implement API endpoints for Party CRUD and Attach/Detach [cite: status.md, 1045-1047].
     * **Quota Error Response:** Define HTTP 402 error response for quota exhaustion.
     * **Voucher Endpoint:** Define and implement voucher redemption endpoint.
     * **Case Assignment Endpoint:** Define and implement endpoint for Org Admins to assign cases (`assignedUserId`) to Staff.
 
 ### 4. Firestore Schema
 
-* **Implemented:** Core collections (`users`, `organizations`, `organization_memberships`, `cases`, `documents`, `payments`, `checkoutSessions`, `plans`) defined in `context.md` [cite: context.md].
+* **Implemented:** Core collections (`users`, `organizations`, `organization_memberships`, `cases`, `documents`, `payments`, `checkoutSessions`, `plans`, `parties`) defined in `context.md` [cite: context.md]. Collection name consistency fixed.
 * **To Do:**
-    * **Parties Collection:** Implement `parties` collection schema (Individual/Org types, CNP, CUI, signature).
     * **Labels Collection:** Implement `labels` collection (predefined).
     * **Vouchers Collection:** Implement `vouchers` collection.
-    * **Case Schema:** Add `assignedUserId`. Refine `paymentStatus` for Model B. Update `create_case`.
+    * **Case Schema:** Add `assignedUserId`. Refine `paymentStatus` Update `create_case`.
     * **User/Org Schema:** Ensure schemas include all required subscription/quota fields (`caseQuotaTotal`, `caseQuotaUsed`, `billingCycleStart`, `billingCycleEnd`, `voucherBalance` etc.) [cite: context.md].
     * **Indexing:** Define and configure necessary Firestore indexes.
 
@@ -67,29 +66,39 @@ The Relex backend is a serverless application built using Python Firebase Functi
 * **`user.py` [cite: functions/src/user.py]:**
     * Implemented: `get_user_profile`, `update_user_profile`, `create_user_profile`.
     * To Do: Ensure schema includes `voucherBalance`.
+    
 * **`organization.py` [cite: functions/src/organization.py]:**
-    * Implemented: `create_organization`, `get_organization`, `update_organization`. (Superseded user functions exist).
+    * Implemented: `create_organization` (fixed collection name to `organization_memberships`), `get_organization`, `update_organization` (improved error handling).
     * To Do: Ensure schema includes subscription/quota fields. Align/deprecate superseded functions.
+    
 * **`organization_membership.py` [cite: functions/src/organization_membership.py]:**
-    * Implemented: Core membership management functions.
-    * To Do: Ensure robust error handling.
+    * Implemented: Core membership management functions with corrected collection name (`organization_memberships`).
+    * Fixed: Collection name inconsistency resolved across all functions.
+    * To Do: Enhance error handling for edge cases.
+    
 * **`cases.py` [cite: functions/src/cases.py]:**
-    * Implemented: `create_case` (lacks quota check), `get_case`, `list_cases` (basic filtering), `archive_case`, `delete_case`, `upload_file`, `download_file`.
+    * Implemented: `create_case` (lacks quota check), `get_case`, `list_cases` (basic filtering), `archive_case`, `delete_case`, `upload_file`, `download_file`, `attach_party_to_case`, `detach_party_from_case`.
     * To Do: **Implement Quota Check in `create_case`**, implement case assignment (`assignedUserId`), add label filtering, integrate enhanced `check_permissions`. Implement 1GB limit check.
+    
 * **`payments.py` [cite: functions/src/payments.py]:**
-    * Implemented: `create_payment_intent`, `create_checkout_session`, `handle_stripe_webhook` (various events), `cancel_subscription`.
+    * Implemented: `create_payment_intent`, `create_checkout_session`, `handle_stripe_webhook` (various events with improved error handling and nested data access), `cancel_subscription`.
+    * Fixed: Added more robust error handling for Stripe API calls and safer nested data access.
     * To Do: **Implement Voucher Redemption Logic**, ensure webhook correctly updates quotas/billing cycle. Configure Stripe Price IDs. Add tests.
+    
 * **`chat.py` [cite: functions/src/chat.py]:**
-    * Implemented: Basic stubs/mock logic.
-    * To Do: Implement functional `sendChatMessage` and `getChatHistory` endpoints using `caseChatMessages` collection. Defer actual AI integration.
-* **Parties Module (Missing):**
-    * To Do: Create `parties.py`. Implement Party CRUD API and Attach/Detach logic.
+    * Implemented: Basic endpoints with enhanced permission checking in `store_conversation` to verify parent case permissions.
+    * Fixed: Added proper permission check to `store_conversation`.
+    * To Do: Implement functional `sendChatMessage` and `getChatHistory` endpoints using `conversations` subcollection. Defer actual AI integration.
+    
+* **`party.py` [cite: functions/src/party.py]:**
+    * Implemented: Full CRUD operations (`create_party`, `get_party`, `update_party`, `delete_party`, `list_parties`), attach/detach functions via `cases.py`.
+    * To Do: Enhance search and filtering capabilities.
 
-### 7. Payment System (Model B) Implementation Status
+### 7. Payment System Implementation Status
 
 * **Implemented:** Stripe setup, Payment Intent/Checkout Session creation, webhook handler for subscription events, cancellation [cite: functions/src/payments.py]. Subscription fields in `users`/`organizations` schemas [cite: context.md]. `plans` collection defined [cite: context.md].
 * **To Do:**
-    * **Quota Logic:** Implement full Model B quota checking/decrementing in `create_case`. Handle "quota exhausted" error.
+    * **Quota Logic:** Implement quota checking/decrementing in `create_case`. Handle "quota exhausted" error.
     * **Quota Reset:** Ensure `invoice.paid` webhook resets `caseQuotaUsed` and updates billing cycle dates.
     * **Backend Quota Configuration:** Implement admin mechanism to define quotas per plan/tier (likely via `plans` collection).
     * **Voucher Backend:** Implement `redeem_voucher` logic.
@@ -97,14 +106,15 @@ The Relex backend is a serverless application built using Python Firebase Functi
 ### 8. Deployment
 
 * **Implemented:** Terraform scripts (`main.tf`, etc.) for deployment [cite: README.md]. `deploy.sh` script [cite: terraform/deploy.sh]. Uses `GOOGLE_APPLICATION_CREDENTIALS`. GCS backend for state [cite: terraform/deploy.sh].
-* **To Do:** Update Terraform config (`main.tf`) for new functions (Parties, Voucher). Configure necessary IAM permissions. Securely manage environment variables (Stripe keys etc.).
+* **To Do:** Configure necessary IAM permissions. Securely manage environment variables (Stripe keys etc.) during deployment.
 
 ### 9. Summary of Missing MVP Backend Components
 
-* ~~**Party Management API:**~~ **IMPLEMENTED** - Full CRUD operations and Attach/Detach functionality now available.
-* **Quota System:** Full Model B logic in `create_case` & webhook reset.
+* ✅ **Party Management API:** Full CRUD operations and Attach/Detach functionality now implemented.
+* ✅ **RBAC Enforcement:** Enhanced modular permission system with resource-specific checkers and staff assignment validation implemented.
+* ✅ **Conversation Storage:** Added permission checks to ensure secure conversation storage.
+* **Quota System:** Full logic in `create_case` & webhook reset.
 * **Voucher Redemption API & Logic.**
-* ~~**RBAC Enforcement:**~~ **IMPLEMENTED** - Enhanced modular permission system with resource-specific checkers and staff assignment validation.
 * **Firestore/Storage Security Rules.**
 * **Case Assignment API & Logic.**
 * **Chat API:** Functional `sendChatMessage` / `getChatHistory`.

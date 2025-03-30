@@ -317,7 +317,6 @@ def create_checkout_session(request):
 #     """Check the status of a business subscription."""
 #     pass
 
-# Renamed function to avoid conflict with framework decorator if deployed individually
 def handle_stripe_webhook(request):
     """Handle Stripe webhook events. IMPORTANT: Secure this endpoint properly.
 
@@ -500,8 +499,8 @@ def handle_stripe_webhook(request):
                     target_ref = db.collection("organizations").document(org_doc.id)
                     target_id = org_doc.id
                     target_type = "organization"
-                    plan_id = org_doc.get("subscriptionPlanId")
-                    case_quota_total = org_doc.get("caseQuotaTotal", 0) # Use current value as default
+                    plan_id = org_doc.to_dict().get("subscriptionPlanId")
+                    case_quota_total = org_doc.to_dict().get("caseQuotaTotal", 0) # Use current value as default
                 else:
                     # Check users if not found in organizations
                     user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).stream()
@@ -511,8 +510,8 @@ def handle_stripe_webhook(request):
                         target_ref = db.collection("users").document(user_doc.id)
                         target_id = user_doc.id
                         target_type = "user"
-                        plan_id = user_doc.get("subscriptionPlanId")
-                        case_quota_total = user_doc.get("caseQuotaTotal", 0) # Use current value as default
+                        plan_id = user_doc.to_dict().get("subscriptionPlanId")
+                        case_quota_total = user_doc.to_dict().get("caseQuotaTotal", 0) # Use current value as default
 
                 if target_ref:
                     # Get the latest quota total from the plan document if possible
@@ -628,7 +627,6 @@ def handle_stripe_webhook(request):
             subscription = event['data']['object']
             subscription_id = subscription.get('id')
             status = subscription.get('status') # e.g., active, past_due, unpaid, canceled, incomplete, etc.
-            plan_id = subscription.get("plan", {}).get("id") # Get current plan ID from Stripe object
 
             # Find the corresponding user or organization
             target_ref = None
@@ -645,8 +643,9 @@ def handle_stripe_webhook(request):
                 target_ref = db.collection("organizations").document(org_doc.id)
                 target_id = org_doc.id
                 target_type = "organization"
-                current_plan_id_in_db = org_doc.get("subscriptionPlanId")
-                current_quota_in_db = org_doc.get("caseQuotaTotal", 0)
+                org_data = org_doc.to_dict()
+                current_plan_id_in_db = org_data.get("subscriptionPlanId")
+                current_quota_in_db = org_data.get("caseQuotaTotal", 0)
             else:
                 # Check users
                 user_query = db.collection("users").where("stripeSubscriptionId", "==", subscription_id).limit(1).stream()
@@ -656,8 +655,9 @@ def handle_stripe_webhook(request):
                     target_ref = db.collection("users").document(user_doc.id)
                     target_id = user_doc.id
                     target_type = "user"
-                    current_plan_id_in_db = user_doc.get("subscriptionPlanId")
-                    current_quota_in_db = user_doc.get("caseQuotaTotal", 0)
+                    user_data = user_doc.to_dict()
+                    current_plan_id_in_db = user_data.get("subscriptionPlanId")
+                    current_quota_in_db = user_data.get("caseQuotaTotal", 0)
 
             if target_ref:
                 # Prepare Firestore update payload
@@ -694,7 +694,15 @@ def handle_stripe_webhook(request):
                      update_data["billingCycleEnd"] = firestore.DELETE_FIELD
 
                 # Check if the plan changed
-                stripe_plan_price_id = subscription.get("items", {}).get("data", [{}])[0].get("price", {}).get("id")
+                stripe_plan_price_id = None
+                items_data = subscription.get("items", {}).get("data", [])
+                if items_data and len(items_data) > 0:
+                    first_item = items_data[0]
+                    if first_item and isinstance(first_item, dict):
+                        price_data = first_item.get("price", {})
+                        if price_data and isinstance(price_data, dict):
+                            stripe_plan_price_id = price_data.get("id")
+                
                 firestore_plan_ref = None
                 new_quota_total = current_quota_in_db # Default to existing quota
 
@@ -703,13 +711,14 @@ def handle_stripe_webhook(request):
                      plan_query = db.collection("plans").where("stripePriceId", "==", stripe_plan_price_id).limit(1).stream()
                      plan_docs = list(plan_query)
                      if plan_docs:
-                          firestore_plan_ref = plan_docs[0]
-                          new_quota_total = firestore_plan_ref.get("caseQuotaTotal", 0)
-                          update_data["subscriptionPlanId"] = firestore_plan_ref.id
+                          plan_doc = plan_docs[0]
+                          plan_data = plan_doc.to_dict() if plan_doc else {}
+                          new_quota_total = plan_data.get("caseQuotaTotal", 0)
+                          update_data["subscriptionPlanId"] = plan_doc.id
                           update_data["caseQuotaTotal"] = new_quota_total
                           # Consider resetting caseQuotaUsed if plan changes? Depends on business logic.
                           # update_data["caseQuotaUsed"] = 0
-                          logging.info(f"Webhook: Plan changed for {target_type} {target_id} to {firestore_plan_ref.id} (Stripe Price ID: {stripe_plan_price_id})")
+                          logging.info(f"Webhook: Plan changed for {target_type} {target_id} to {plan_doc.id} (Stripe Price ID: {stripe_plan_price_id})")
                      else:
                           logging.warning(f"Webhook: Plan change detected for {target_type} {target_id}, but couldn't find matching plan in Firestore for Stripe Price ID {stripe_plan_price_id}. Keeping old plan ID.")
                           update_data["subscriptionPlanId"] = current_plan_id_in_db # Keep old plan ID if new one not found
@@ -752,7 +761,7 @@ def handle_stripe_webhook(request):
                 # Update case only if it's not already covered by quota or another payment method
                 case_snap = case_ref.get()
                 if case_snap.exists:
-                    current_payment_status = case_snap.get("paymentStatus")
+                    current_payment_status = case_snap.to_dict().get("paymentStatus")
                     # Only update if not already paid or covered
                     if current_payment_status not in ["paid_intent", "paid_checkout", "covered_by_quota"]:
                          case_ref.update({
@@ -794,6 +803,7 @@ def handle_stripe_webhook(request):
         logging.error(f"Webhook Error: Failed processing event {event_type}: {str(e)}", exc_info=True)
         # Return 500 to indicate a server-side issue; Stripe might retry.
         return ({"error": "Webhook Processing Error", "message": f"Failed to process webhook event: {str(e)}"}, 500)
+    
 
 # Renamed function to avoid conflict with framework decorator if deployed individually
 def cancel_subscription(request):

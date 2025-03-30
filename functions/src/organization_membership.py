@@ -57,12 +57,14 @@ def add_organization_member(request: Request):
         if not has_permission:
             return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
 
-        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
+        # Changed collection name from 'organizationMembers' to 'organization_memberships'
+        members_query = db.collection('organization_memberships').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
         if list(members_query.stream()):
             return flask.jsonify({"error": "Conflict", "message": "User is already a member"}), 409
 
         member_id = str(uuid.uuid4())
-        member_ref = db.collection('organizationMembers').document(member_id)
+        # Changed collection name from 'organizationMembers' to 'organization_memberships'
+        member_ref = db.collection('organization_memberships').document(member_id)
         member_data = {
             'id': member_id, 'organizationId': organization_id, 'userId': target_user_id,
             'role': role, 'addedBy': user_id, 'joinedAt': firestore.SERVER_TIMESTAMP
@@ -74,8 +76,6 @@ def add_organization_member(request: Request):
     except Exception as e:
         logging.error(f"Error adding member: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-
-
 def set_organization_member_role(request: Request):
     logging.info("Logic function set_organization_member_role called")
     try:
@@ -107,7 +107,8 @@ def set_organization_member_role(request: Request):
         if not has_permission:
             return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
 
-        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
+        # Changed collection name from 'organizationMembers' to 'organization_memberships'
+        members_query = db.collection('organization_memberships').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
         existing_members = list(members_query.stream())
         if not existing_members:
             return flask.jsonify({"error": "Not Found", "message": "User is not a member"}), 404
@@ -116,7 +117,8 @@ def set_organization_member_role(request: Request):
         current_member_data = existing_members[0].to_dict()
 
         if current_member_data.get('role') == 'administrator' and role != 'administrator':
-             admins_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('role', '==', 'administrator')
+             # Changed collection name from 'organizationMembers' to 'organization_memberships'
+             admins_query = db.collection('organization_memberships').where('organizationId', '==', organization_id).where('role', '==', 'administrator')
              admin_count = len(list(admins_query.stream()))
              if admin_count <= 1:
                  return flask.jsonify({"error": "Bad Request", "message": "Cannot change role of last administrator"}), 400
@@ -135,7 +137,7 @@ def set_organization_member_role(request: Request):
     except Exception as e:
         logging.error(f"Error setting member role: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-
+    
 def list_organization_members(request: Request):
     logging.info("Logic function list_organization_members called")
     try:
@@ -220,7 +222,8 @@ def remove_organization_member(request: Request):
         if not has_permission:
             return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
 
-        members_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
+        # Changed collection name from 'organizationMembers' to 'organization_memberships'
+        members_query = db.collection('organization_memberships').where('organizationId', '==', organization_id).where('userId', '==', target_user_id).limit(1)
         existing_members = list(members_query.stream())
         if not existing_members:
             return flask.jsonify({"error": "Not Found", "message": "User is not a member"}), 404
@@ -229,7 +232,8 @@ def remove_organization_member(request: Request):
         member_ref = existing_members[0].reference
 
         if member_data.get('role') == 'administrator':
-            admins_query = db.collection('organizationMembers').where('organizationId', '==', organization_id).where('role', '==', 'administrator')
+            # Changed collection name from 'organizationMembers' to 'organization_memberships'
+            admins_query = db.collection('organization_memberships').where('organizationId', '==', organization_id).where('role', '==', 'administrator')
             admin_count = len(list(admins_query.stream()))
             if admin_count <= 1:
                 return flask.jsonify({"error": "Bad Request", "message": "Cannot remove last administrator"}), 400
@@ -240,7 +244,7 @@ def remove_organization_member(request: Request):
     except Exception as e:
         logging.error(f"Error removing member: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-
+    
 def get_user_organization_role(request: Request):
     logging.info("Logic function get_user_organization_role called")
     try:

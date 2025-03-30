@@ -60,9 +60,126 @@ The API is organized into the following groups:
 - `GET /v1/organizations/{organizationId}/members`
 - `PUT /v1/organizations/{organizationId}/members/{userId}`
 - `DELETE /v1/organizations/{organizationId}/members/{userId}`
-- `GET /v1/organizations/{organizationId}/users`
-- `POST /v1/organizations/{organizationId}/users`
-- `DELETE /v1/organizations/{organizationId}/users/{userId}`
+
+### Organization Membership Details
+
+#### Add Member to Organization
+- **Method**: POST
+- **Path**: `/v1/organizations/{organizationId}/members`
+- **Description**: Adds a new member to an organization with a specific role. Only administrators can add members.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "userId": "string",
+    "role": "staff|administrator"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "membershipId": "string",
+    "userId": "string",
+    "organizationId": "string",
+    "role": "staff|administrator",
+    "email": "string",
+    "displayName": "string"
+  }
+  ```
+- **Error Responses**:
+  - 400: Invalid request (missing fields or validation errors)
+  - 401: Unauthorized (invalid token)
+  - 403: Forbidden (caller is not an administrator)
+  - 404: Organization not found
+  - 409: User is already a member
+  - 500: Server error
+
+#### List Organization Members
+- **Method**: GET
+- **Path**: `/v1/organizations/{organizationId}/members`
+- **Description**: Lists all members of an organization. Accessible by organization members.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**:
+  ```json
+  {
+    "members": [
+      {
+        "userId": "string",
+        "role": "administrator|staff",
+        "addedAt": "2023-04-01T00:00:00Z",
+        "email": "string",
+        "displayName": "string"
+      }
+    ]
+  }
+  ```
+- **Error Responses**:
+  - 401: Unauthorized (invalid token)
+  - 403: Forbidden (not a member of the organization)
+  - 404: Organization not found
+  - 500: Server error
+
+#### Update Member Role
+- **Method**: PUT
+- **Path**: `/v1/organizations/{organizationId}/members/{userId}`
+- **Description**: Updates a member's role in the organization. Only administrators can update roles.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Body**:
+  ```json
+  {
+    "newRole": "staff|administrator"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "membershipId": "string",
+    "userId": "string",
+    "organizationId": "string",
+    "role": "staff|administrator",
+    "email": "string",
+    "displayName": "string"
+  }
+  ```
+- **Error Responses**:
+  - 400: Invalid request (missing fields or validation errors)
+  - 401: Unauthorized (invalid token)
+  - 403: Forbidden (caller is not an administrator)
+  - 404: Member or organization not found
+  - 500: Server error
+
+#### Remove Member
+- **Method**: DELETE
+- **Path**: `/v1/organizations/{organizationId}/members/{userId}`
+- **Description**: Removes a member from an organization. Only administrators can remove members.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "userId": "string",
+    "organizationId": "string"
+  }
+  ```
+- **Error Responses**:
+  - 401: Unauthorized (invalid token)
+  - 403: Forbidden (caller is not an administrator)
+  - 404: Member or organization not found
+  - 500: Server error
 
 ### Cases
 - `POST /v1/cases` (individual cases)
@@ -325,6 +442,10 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/cases`
 - **Description**: Create a new case as an individual. The system first checks if the user has an active subscription with available quota. If quota is available, the case is created using the quota. If quota is exhausted or no active subscription exists, a `paymentIntentId` is required.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
 - **Body**:
   ```json
   {
@@ -362,6 +483,10 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/organizations/{organizationId}/cases`
 - **Description**: Create a new case for an organization. The system first checks if the organization has an active subscription with available quota. If quota is available, the case is created using the quota. If quota is exhausted or no active subscription exists, a `paymentIntentId` is required.
+- **Headers**: 
+  ```
+  Authorization: Bearer <firebase_id_token>
+  ```
 - **Body**:
   ```json
   {
@@ -1053,33 +1178,153 @@ All endpoints use a consistent error format:
 ```
 
 Common error codes:
-- `invalid_request`: 400
-- `unauthorized`: 401
-- `payment_required`: 402 - Subscription quota exhausted or no subscription
-- `forbidden`: 403
-- `not_found`: 404
-- `internal_error`: 500
+- `400 Bad Request`: Invalid request data or validation errors
+  ```json
+  {
+    "error": "invalid_request",
+    "message": "Detailed validation error message"
+  }
+  ```
+
+- `401 Unauthorized`: Authentication required or invalid token
+  ```json
+  {
+    "error": "unauthorized",
+    "message": "Authentication required"
+  }
+  ```
+
+- `402 Payment Required`: Subscription quota exhausted or no subscription
+  ```json
+  {
+    "error": "payment_required",
+    "message": "Case quota exhausted. Please purchase additional cases or upgrade your subscription."
+  }
+  ```
+
+- `403 Forbidden`: Insufficient permissions for the requested action
+  ```json
+  {
+    "error": "forbidden",
+    "message": "You do not have permission to perform this action"
+  }
+  ```
+
+- `404 Not Found`: Resource not found
+  ```json
+  {
+    "error": "not_found",
+    "message": "The requested resource was not found"
+  }
+  ```
+
+- `409 Conflict`: Resource state conflict
+  ```json
+  {
+    "error": "conflict",
+    "message": "The requested operation conflicts with the current state"
+  }
+  ```
+
+- `429 Too Many Requests`: Rate limit exceeded
+  ```json
+  {
+    "error": "rate_limit_exceeded",
+    "message": "Too many requests. Please try again later."
+  }
+  ```
+
+- `500 Internal Server Error`: Server-side error
+  ```json
+  {
+    "error": "internal_error",
+    "message": "An unexpected error occurred"
+  }
+  ```
 
 ## Security
 
-1. All endpoints require Firebase Authentication
-2. Role-based access control
-3. Input validation and sanitization
-4. CORS enabled for web clients
-5. Request size limits:
+1. **Authentication**
+   - All endpoints require Firebase Authentication
+   - ID token must be included in Authorization header
+   - Token validation includes:
+     - Signature verification
+     - Expiration check
+     - Issuer verification
+     - Audience verification
+
+2. **Role-based Access Control**
+   - Resource access based on user roles
+   - Organization-specific roles (administrator, staff)
+   - Individual resource ownership
+   - Staff assignment validation for organization cases
+
+3. **Input Validation**
+   - Request data validation using Pydantic models
+   - Field type checking
+   - Required field validation
+   - Format validation (e.g., CNP, CUI, RegCom formats)
+
+4. **CORS**
+   - Enabled for web clients
+   - Configurable allowed origins
+   - Supports preflight requests
+   - Handles OPTIONS method
+
+5. **Request Limits**
    - Files: 10MB per file, 2GB per case
-   - JSON payloads: 1MB
+   - JSON payloads: 1MB maximum size
+   - Rate limiting on API endpoints
+   - Concurrent request limits
 
 ## Monitoring
 
-1. Cloud Functions logs
-2. Error reporting
-3. Request tracing
-4. Performance monitoring
+1. **Cloud Functions Logs**
+   - Request/response logging
+   - Error tracking
+   - Performance metrics
+   - Authentication events
+
+2. **Error Reporting**
+   - Automatic error capture
+   - Stack trace collection
+   - Error aggregation
+   - Alert configuration
+
+3. **Request Tracing**
+   - Request ID tracking
+   - Latency monitoring
+   - Dependency tracking
+   - Cross-service correlation
+
+4. **Performance Monitoring**
+   - Response time tracking
+   - Error rate monitoring
+   - Resource utilization
+   - Quota usage tracking
 
 ## Development
 
-1. Local testing with Firebase Emulator
-2. Postman collection available
-3. OpenAPI spec in `/terraform/openapi_spec.yaml`
-4. Environment setup in `README.md` 
+1. **Local Testing**
+   - Firebase Emulator Suite support
+   - Local function deployment
+   - Mock authentication
+   - Test data population
+
+2. **API Testing**
+   - Postman collection available
+   - Test environment configuration
+   - Authentication helpers
+   - Example requests
+
+3. **OpenAPI Specification**
+   - Full API documentation in `/terraform/openapi_spec.yaml`
+   - Request/response schemas
+   - Authentication requirements
+   - Error definitions
+
+4. **Environment Setup**
+   - Development environment guide in `README.md`
+   - Required dependencies
+   - Configuration steps
+   - Troubleshooting guide 

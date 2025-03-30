@@ -124,6 +124,16 @@ paths:
           in: query
           required: false
           type: integer
+        - name: offset
+          in: query
+          required: false
+          type: integer
+        - name: labelIds
+          in: query
+          required: false
+          type: array
+          items:
+            type: string
       responses:
         '200':
           description: List of cases
@@ -134,6 +144,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/definitions/Case'
+              total:
+                type: integer
+              limit:
+                type: integer
+              offset:
+                type: integer
         '401':
           $ref: '#/definitions/Unauthorized'
         '500':
@@ -222,6 +238,11 @@ paths:
                 type: integer
                 enum: [1, 2, 3]
                 description: Case tier level determining the price (1=€9.00, 2=€29.00, 3=€99.00)
+              initialPartyIds:
+                type: array
+                items:
+                  type: string
+                description: Optional array of party IDs to attach initially
       responses:
         '201':
           description: Case created successfully
@@ -277,6 +298,14 @@ paths:
                 type: integer
                 enum: [1, 2, 3]
                 description: Case tier level determining the price (1=€9.00, 2=€29.00, 3=€99.00)
+              initialPartyIds:
+                type: array
+                items:
+                  type: string
+                description: Optional array of party IDs to attach initially
+              assignedUserId:
+                type: string
+                description: Optional staff user ID to assign the case to
       responses:
         '201':
           description: Case created successfully
@@ -316,6 +345,21 @@ paths:
           in: query
           required: false
           type: integer
+        - name: offset
+          in: query
+          required: false
+          type: integer
+        - name: labelIds
+          in: query
+          required: false
+          type: array
+          items:
+            type: string
+        - name: assignedUserId
+          in: query
+          required: false
+          type: string
+          description: Filter by assigned staff member (admin only)
       responses:
         '200':
           description: List of cases
@@ -326,6 +370,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/definitions/Case'
+              total:
+                type: integer
+              limit:
+                type: integer
+              offset:
+                type: integer
         '400':
           $ref: '#/definitions/BadRequest'
         '401':
@@ -600,9 +650,9 @@ paths:
           $ref: '#/definitions/InternalServerError'
 
   # Payment endpoints
-  /payments/create-intent:
+  /payments/payment-intent:
     post:
-      summary: Create a Stripe payment intent
+      summary: Create a Stripe payment intent for case payment
       operationId: createPaymentIntent
       security:
         - firebase: []
@@ -646,6 +696,11 @@ paths:
                 type: string
               paymentIntentId:
                 type: string
+              amount:
+                type: integer
+                description: Amount in cents
+              currency:
+                type: string
               message:
                 type: string
         '400':
@@ -655,9 +710,9 @@ paths:
         '500':
           $ref: '#/definitions/InternalServerError'
 
-  /payments/create-checkout-session:
+  /payments/checkout-session:
     post:
-      summary: Create a Stripe checkout session
+      summary: Create a Stripe checkout session for subscription or one-time payment
       operationId: createCheckoutSession
       security:
         - firebase: []
@@ -721,38 +776,6 @@ paths:
         '500':
           $ref: '#/definitions/InternalServerError'
 
-  /payments/webhook:
-    post:
-      summary: Handle Stripe webhook events
-      operationId: handleStripeWebhook
-      x-google-backend:
-        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-handle-stripe-webhook
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - in: body
-          name: body
-          required: true
-          schema:
-            type: object
-            description: Stripe webhook event payload
-      responses:
-        '200':
-          description: Webhook processed successfully
-          schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-              message:
-                type: string
-        '400':
-          $ref: '#/definitions/BadRequest'
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '500':
-          $ref: '#/definitions/InternalServerError'
-
   /subscriptions/{subscriptionId}:
     delete:
       summary: Cancel a subscription
@@ -787,6 +810,103 @@ paths:
           $ref: '#/definitions/Forbidden'
         '404':
           $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /vouchers/redeem:
+    post:
+      summary: Redeem a voucher code
+      operationId: redeemVoucher
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-redeem-voucher
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - voucherCode
+            properties:
+              voucherCode:
+                type: string
+                description: The voucher code to redeem
+              organizationId:
+                type: string
+                description: Optional ID of the organization to apply the voucher to
+      responses:
+        '200':
+          description: Voucher redeemed successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              voucherType:
+                type: string
+                enum: [free_case, subscription_discount, credit]
+              value:
+                type: object
+                properties:
+                  amount:
+                    type: integer
+                    description: Credit amount in cents, or discount percentage, or number of free cases
+                  caseTier:
+                    type: integer
+                    description: Only for free_case type
+              expiresAt:
+                type: string
+                format: date-time
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '409':
+          $ref: '#/definitions/Conflict'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /payments/webhook:
+    post:
+      summary: Handle Stripe webhook events
+      operationId: handleStripeWebhook
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-handle-stripe-webhook
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - in: header
+          name: Stripe-Signature
+          type: string
+          required: true
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            description: Stripe webhook event payload
+      responses:
+        '200':
+          description: Webhook processed successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+        '400':
+          $ref: '#/definitions/BadRequest'
+        '401':
+          $ref: '#/definitions/Unauthorized'
         '500':
           $ref: '#/definitions/InternalServerError'
 
@@ -1514,6 +1634,159 @@ paths:
         500:
           $ref: '#/responses/InternalServerError'
 
+  /cases/{caseId}:
+    get:
+      summary: Get case details
+      operationId: getCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Case details
+          schema:
+            $ref: '#/definitions/Case'
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+    delete:
+      summary: Delete case
+      operationId: deleteCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Case deleted successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /cases/{caseId}/archive:
+    post:
+      summary: Archive case
+      operationId: archiveCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Case archived successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              caseId:
+                type: string
+              status:
+                type: string
+              archivedAt:
+                type: string
+                format: date-time
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
+  /cases/{caseId}/assign:
+    put:
+      summary: Assign case to staff member
+      operationId: assignCase
+      security:
+        - firebase: []
+      x-google-backend:
+        address: https://europe-west3-relexro.cloudfunctions.net/relex-backend-assign-case
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - assignedUserId
+            properties:
+              assignedUserId:
+                type: string
+                description: Staff user ID to assign case to, null to unassign
+      responses:
+        '200':
+          description: Case assigned successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              caseId:
+                type: string
+              assignedUserId:
+                type: string
+              assignedUserName:
+                type: string
+        '401':
+          $ref: '#/definitions/Unauthorized'
+        '403':
+          $ref: '#/definitions/Forbidden'
+        '404':
+          $ref: '#/definitions/NotFound'
+        '500':
+          $ref: '#/definitions/InternalServerError'
+
 definitions:
   UserProfile:
     type: object
@@ -1714,56 +1987,80 @@ definitions:
     properties:
       error:
         type: string
+        enum: [invalid_request]
       message:
         type: string
+        description: Detailed validation error message
     
   Unauthorized:
     type: object
     properties:
       error:
         type: string
+        enum: [unauthorized]
       message:
         type: string
+        description: Authentication error message
     
   Forbidden:
     type: object
     properties:
       error:
         type: string
+        enum: [forbidden]
       message:
         type: string
+        description: Permission denied message
     
   NotFound:
     type: object
     properties:
       error:
         type: string
+        enum: [not_found]
       message:
         type: string
+        description: Resource not found message
     
   Conflict:
     type: object
     properties:
       error:
         type: string
+        enum: [conflict]
       message:
         type: string
+        description: Resource state conflict message
     
   InternalServerError:
     type: object
     properties:
       error:
         type: string
+        enum: [internal_error]
       message:
         type: string
+        description: Internal server error message
     
   PaymentRequired:
     type: object
     properties:
       error:
         type: string
+        enum: [payment_required]
       message:
         type: string
+        description: Payment required message (e.g., quota exhausted)
+
+  RateLimitExceeded:
+    type: object
+    properties:
+      error:
+        type: string
+        enum: [rate_limit_exceeded]
+      message:
+        type: string
+        description: Rate limit exceeded message
 
   Plan:
     type: object

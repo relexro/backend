@@ -28,7 +28,7 @@ This document tracks the implementation status of the Relex backend components.
 ### Business/Organization Management
 - [x] Business account creation
 - [x] Organization management
-- [x] Member management with roles
+- [x] Member management with roles (fixed collection name inconsistency)
 - [x] Business profile updates
 - [x] Organization listing
 - [ ] Advanced business analytics
@@ -40,6 +40,8 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Case listing with filters
 - [x] File upload/download
 - [x] Case archival
+- [x] Permission checks for case operations
+- [x] Staff assignment validation
 - [ ] Advanced search
 - [ ] Batch operations
 
@@ -56,7 +58,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Vertex AI integration
 - [x] Prompt handling
 - [x] Context enrichment
-- [x] Conversation storage
+- [x] Conversation storage with proper permission checks
 - [ ] Multi-model support
 - [ ] Streaming responses
 
@@ -128,7 +130,12 @@ This document tracks the implementation status of the Relex backend components.
    - Additional input validation required
    - Security headers to be configured
 
-3. **Reliability**
+3. **Configuration**
+   - ~~Inconsistent Firestore collection names (organizationMembers vs. organization_memberships)~~ - Fixed
+   - Environment variables for Stripe keys must be properly set during deployment
+   - Missing configuration for Vertex AI endpoint
+
+4. **Reliability**
    - Error handling needs improvement
    - Retry logic for external services
    - Better logging and monitoring
@@ -136,12 +143,13 @@ This document tracks the implementation status of the Relex backend components.
 ## Next Steps
 
 ### High Priority
-1. Add file versioning
-2. Improve error handling
-3. Set up comprehensive monitoring
-4. Implement rate limiting
-5. Add security headers
-6. Optimize permission checks with Firebase Custom Claims
+1. Ensure proper environment variable setup (Stripe keys) during deployment
+2. Add file versioning
+3. Improve error handling
+4. Set up comprehensive monitoring
+5. Implement rate limiting
+6. Add security headers
+7. Optimize permission checks with Firebase Custom Claims
 
 ### Medium Priority
 1. Implement advanced search
@@ -245,4 +253,33 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] DDoS protection
 - [ ] Security scanning
 - [ ] Penetration testing
-- [ ] Custom claims optimization 
+- [ ] Custom claims optimization
+
+## Organization Membership Management
+
+### Implemented
+- [x] Fixed collection name from `organizationMembers` to `organization_memberships`
+- [x] Add organization member with role validation
+- [x] Set organization member role with admin checks
+- [x] List organization members with pagination
+- [x] Remove organization member with safeguards
+- [x] Get user organization role
+- [x] List user organizations
+
+### Pending
+- [ ] Invite system for new members
+- [ ] Email notifications for role changes
+- [ ] Advanced role customization
+
+## Chat & Conversation Management
+
+### Implemented
+- [x] Store conversation with proper permission checks
+- [x] Retrieve conversation history
+- [x] Security checks on conversation access
+- [x] Permission verification before writing to case subcollections
+
+### Pending
+- [ ] Streaming responses
+- [ ] Message editing capabilities
+- [ ] Advanced conversation filtering 

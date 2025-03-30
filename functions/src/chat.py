@@ -231,9 +231,25 @@ def store_conversation(request: Request):
         if not response_text or not isinstance(response_text, str): # Allow empty response?
             return ({"error": "Bad Request", "message": "Valid response is required"}, 400)
 
+        # Fetch the case document to ensure it exists and get its organizationId
         case_ref = db.collection("cases").document(case_id)
-        if not case_ref.get().exists:
+        case_doc = case_ref.get()
+        if not case_doc.exists:
             return ({"error": "Not Found", "message": "Case not found"}, 404)
+            
+        # Get case data for permission check
+        case_data = case_doc.to_dict()
+        
+        # Add permission check before writing to the subcollection
+        permission_request = PermissionCheckRequest(
+            resourceType=TYPE_CASE,  # Make sure TYPE_CASE is imported from auth
+            resourceId=case_id,
+            action="update",  # Storing conversation implies updating case history
+            organizationId=case_data.get("organizationId")  # Pass org ID for permission context
+        )
+        has_permission, error_message = check_permission(user_id, permission_request)
+        if not has_permission:
+            return ({"error": "Forbidden", "message": error_message}), 403
 
         # Use prompt_id as the document ID for the conversation turn
         conversation_ref = case_ref.collection("conversations").document(prompt_id)

@@ -61,10 +61,11 @@ def create_organization(request: Request):
             transaction.set(org_ref, org_data)
 
             member_id = str(uuid.uuid4())
-            member_ref = db.collection('organizationMembers').document(member_id) # Corrected collection name
+            # Changed collection name from 'organizationMembers' to 'organization_memberships'
+            member_ref = db.collection('organization_memberships').document(member_id)
             member_data = {
                 'id': member_id, 'organizationId': organization_id, 'userId': user_id,
-                'role': 'administrator', # Changed role to 'administrator'
+                'role': 'administrator', # Role is correctly set to 'administrator'
                 'addedBy': user_id, # Added tracking field
                 'joinedAt': firestore.SERVER_TIMESTAMP
             }
@@ -258,8 +259,6 @@ def set_user_role(request: Request):
         logging.error(f"Error setting user role: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
-
-
 def update_organization(request: Request):
     logging.info("Logic function update_organization called")
     try:
@@ -302,22 +301,30 @@ def update_organization(request: Request):
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
         update_data['updatedBy'] = user_id # Track updater
 
-        org_ref.update(update_data)
-        updated_org_doc = org_ref.get()
-        updated_org_data = updated_org_doc.to_dict()
+        try:
+            org_ref.update(update_data)
+            updated_org_doc = org_ref.get()
+            updated_org_data = updated_org_doc.to_dict()
 
-        # Convert timestamps
-        if isinstance(updated_org_data.get("createdAt"), datetime.datetime):
-             updated_org_data["createdAt"] = updated_org_data["createdAt"].isoformat()
-        if isinstance(updated_org_data.get("updatedAt"), datetime.datetime):
-             updated_org_data["updatedAt"] = updated_org_data["updatedAt"].isoformat()
-        # ... convert other timestamps ...
+            # Convert timestamps
+            if isinstance(updated_org_data.get("createdAt"), datetime.datetime):
+                 updated_org_data["createdAt"] = updated_org_data["createdAt"].isoformat()
+            if isinstance(updated_org_data.get("updatedAt"), datetime.datetime):
+                 updated_org_data["updatedAt"] = updated_org_data["updatedAt"].isoformat()
+            if isinstance(updated_org_data.get("billingCycleStart"), datetime.datetime):
+                 updated_org_data["billingCycleStart"] = updated_org_data["billingCycleStart"].isoformat()
+            if isinstance(updated_org_data.get("billingCycleEnd"), datetime.datetime):
+                 updated_org_data["billingCycleEnd"] = updated_org_data["billingCycleEnd"].isoformat()
 
-        return flask.jsonify(updated_org_data), 200
+            return flask.jsonify(updated_org_data), 200
+        except Exception as e:
+            logging.error(f"Firestore update operation failed: {str(e)}", exc_info=True)
+            return flask.jsonify({"error": "Database Error", "message": f"Failed to update organization: {str(e)}"}), 500
+            
     except Exception as e:
         logging.error(f"Error updating organization: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-
+    
 def list_organization_users(request: Request):
     logging.info("Logic function list_organization_users called")
     try:
