@@ -55,7 +55,7 @@ service cloud.firestore {
       allow read: if isAuthenticated()
                     // Allow reading own membership
                     && (request.auth.uid == resource.data.userId
-                    // Allow admins/staff of the *same* org to read memberships (for listUsers etc)
+                    // Allow admins/staff of the *same* org to read memberships (for listMembers etc)
                     || isMemberOfOrg(resource.data.organizationId)); // Simplification: Any member can read other memberships in their org. Adjust if needed.
                     // More strict: (isAdminInOrg(resource.data.organizationId) || isStaffInOrg(resource.data.organizationId))
 

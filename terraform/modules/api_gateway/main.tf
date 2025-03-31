@@ -11,29 +11,46 @@
 #   }
 # }
 
+locals {
+  timestamp    = formatdate("YYYYMMDDhhmmss", timestamp())
+  random_suffix = substr(sha256(local.timestamp), 0, 6)
+}
+
 # Create the API resource
 resource "google_api_gateway_api" "api" {
-  provider = google-beta
-  api_id   = "relex-api"
+  provider     = google-beta
+  api_id       = "relex-api"
+  display_name = "Relex API"
+  project      = var.project_id
 }
 
 # Create the API Config with the OpenAPI spec from file
 resource "google_api_gateway_api_config" "api_config" {
   provider      = google-beta
   api           = google_api_gateway_api.api.api_id
-  api_config_id = "relex-api-config-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  api_config_id = "relex-api-config-${local.timestamp}-${local.random_suffix}"
   display_name  = "Relex API Config"
-
+  project       = var.project_id
+  
   openapi_documents {
     document {
       path = "spec.yaml"
-      contents = base64encode(templatefile(var.openapi_spec_path, {
-        project_id = var.project_id
-        region = var.region
-        function_uris = var.function_uris
-        api_domain = var.api_domain
-      }))
+      contents = base64encode(
+        templatefile(var.openapi_spec_path, {
+          project_id = var.project_id
+          api_domain = var.api_domain
+          region     = var.region
+          function_uris = {
+            for func_name in var.implemented_functions :
+            func_name => "https://${var.region}-${var.project_id}.cloudfunctions.net/${func_name}-dev"
+          }
+        })
+      )
     }
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 
   gateway_config {
@@ -41,19 +58,15 @@ resource "google_api_gateway_api_config" "api_config" {
       google_service_account = var.api_gateway_sa_email
     }
   }
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 # Deploy the API Gateway
 resource "google_api_gateway_gateway" "gateway" {
   provider     = google-beta
-  region       = var.region
   api_config   = google_api_gateway_api_config.api_config.id
-  gateway_id   = "relex-api-gateway"
+  gateway_id   = "relex-api-gateway-${local.timestamp}-${local.random_suffix}"
   display_name = "Relex API Gateway"
-
+  project      = var.project_id
+  
   depends_on = [google_api_gateway_api_config.api_config]
 } 

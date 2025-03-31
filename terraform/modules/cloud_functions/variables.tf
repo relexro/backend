@@ -76,24 +76,24 @@ variable "functions" {
       entry_point = "relex_backend_delete_organization" # Corrected
       env_vars    = {}
     },
-    "relex-backend-add-organization-user" = {
-      description = "Add a user to an organization account"
-      entry_point = "relex_backend_add_organization_user" # Corrected
+    "relex-backend-add-organization-member" = {
+      description = "Add a member to an organization account"
+      entry_point = "relex_backend_add_organization_member" # Updated to use member naming
       env_vars    = {}
     },
-    "relex-backend-remove-organization-user" = {
-      description = "Remove a user from an organization"
-      entry_point = "relex_backend_remove_organization_user" # Corrected
+    "relex-backend-remove-organization-member" = {
+      description = "Remove a member from an organization"
+      entry_point = "relex_backend_remove_organization_member" # Updated to use member naming
       env_vars    = {}
     },
-    "relex-backend-list-organization-users" = {
-      description = "List users in an organization"
-      entry_point = "relex_backend_list_organization_users" # Corrected
+    "relex-backend-list-organization-members" = {
+      description = "List members in an organization"
+      entry_point = "relex_backend_list_organization_members" # Updated to use member naming
       env_vars    = {}
     },
-    "relex-backend-set-user-role" = {
-      description = "Update a user's role in an organization"
-      entry_point = "relex_backend_set_user_role" # Corrected
+    "relex-backend-set-organization-member-role" = {
+      description = "Update a member's role in an organization"
+      entry_point = "relex_backend_set_organization_member_role" # Updated to use member naming
       env_vars    = {}
     },
 
@@ -182,26 +182,6 @@ variable "functions" {
     },
 
     # Organization Membership Functions
-    "relex-backend-add-organization-member" = {
-      description = "Add a member to an organization"
-      entry_point = "relex_backend_add_organization_member" # Corrected
-      env_vars    = {}
-    },
-    "relex-backend-remove-organization-member" = {
-      description = "Remove a member from an organization"
-      entry_point = "relex_backend_remove_organization_member" # Corrected
-      env_vars    = {}
-    },
-    "relex-backend-list-organization-members" = {
-      description = "List members of an organization"
-      entry_point = "relex_backend_list_organization_members" # Corrected
-      env_vars    = {}
-    },
-    "relex-backend-set-organization-member-role" = {
-      description = "Set a member's role in an organization"
-      entry_point = "relex_backend_set_organization_member_role" # Corrected
-      env_vars    = {}
-    },
     "relex-backend-get-user-organization-role" = {
       description = "Get a user's role in an organization"
       entry_point = "relex_backend_get_user_organization_role" # Corrected
@@ -309,7 +289,19 @@ variable "functions" {
        description = "List organization cases"
        entry_point = "relex_backend_list_organization_cases" # Matched main.py
        env_vars    = {}
-     }
+     },
+    
+    # Planned Functions (not yet implemented in main.py)
+    "relex-backend-redeem-voucher" = {
+      description = "Redeem a voucher code (planned)"
+      entry_point = "relex_backend_redeem_voucher" # Will be implemented in future
+      env_vars    = {}
+    },
+    "relex-backend-assign-case" = {
+      description = "Assign a case to a staff member (planned)"
+      entry_point = "relex_backend_assign_case" # Will be implemented in future
+      env_vars    = {}
+    }
   }
 }
 

@@ -53,7 +53,7 @@ PERMISSIONS: Dict[str, Dict[str, Set[str]]] = {
     TYPE_ORGANIZATION: {
         ROLE_ADMIN: {
             "read", "update", "delete",
-            "manage_members", "addUser", "setRole", "removeUser", "listUsers", # Consolidated member actions
+            "manage_members", "addMember", "setMemberRole", "removeMember", "listMembers", # Consolidated member actions
             "create_case",
             "list_cases",
             "assign_case",
@@ -62,7 +62,7 @@ PERMISSIONS: Dict[str, Dict[str, Set[str]]] = {
             "read",
             "create_case",
             "list_cases",
-            "listUsers" # Allow staff to see other members
+            "listMembers" # Allow staff to see other members
         },
     },
     TYPE_PARTY: {
@@ -259,11 +259,11 @@ def _check_organization_permissions(db: firestore.Client, user_id: str, req: Per
 
     # Map potentially more granular user-facing actions to internal permission flags
     action_map = {
-        "manage_members": ["addUser", "setRole", "removeUser", "listUsers"],
-         "addUser": ["manage_members"],
-         "setRole": ["manage_members"],
-         "removeUser": ["manage_members"],
-         "listUsers": ["manage_members", "read"], # Admins can manage, staff can read (view members)
+        "manage_members": ["addMember", "setMemberRole", "removeMember", "listMembers"],
+         "addMember": ["manage_members"],
+         "setMemberRole": ["manage_members"],
+         "removeMember": ["manage_members"],
+         "listMembers": ["manage_members", "read"], # Admins can manage, staff can read (view members)
          "create_case": ["create_case"],
          "list_cases": ["list_cases", "read"], # Staff can list cases if they can read org details
          "assign_case": ["assign_case"],
@@ -463,7 +463,7 @@ def get_user_role(request: flask.Request):
              perm_check_req = PermissionCheckRequest(
                  resourceType=TYPE_ORGANIZATION,
                  resourceId=organization_id,
-                 action="listUsers", # If user can list users, they can see roles
+                 action="listMembers", # If user can list members, they can see roles
                  organizationId=organization_id
              )
              allowed, message = check_permission(requesting_user_id, perm_check_req)

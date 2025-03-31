@@ -57,17 +57,17 @@ The API is organized into the following groups:
 - `DELETE /v1/organizations/{organizationId}` (requires admin role, no active subscription)
 
 ### Organization Membership
-- `POST /v1/organizations/{organizationId}/members`
-- `GET /v1/organizations/{organizationId}/members`
-- `PUT /v1/organizations/{organizationId}/members/{userId}`
-- `DELETE /v1/organizations/{organizationId}/members/{userId}`
+- `POST /v1/organizations/{organizationId}/members` (uses relex-backend-add-organization-member function)
+- `GET /v1/organizations/{organizationId}/members` (uses relex-backend-list-organization-members function)
+- `PUT /v1/organizations/{organizationId}/members/{userId}` (uses relex-backend-set-organization-member-role function)
+- `DELETE /v1/organizations/{organizationId}/members/{userId}` (uses relex-backend-remove-organization-member function)
 
 ### Organization Membership Details
 
 #### Add Member to Organization
 - **Method**: POST
 - **Path**: `/v1/organizations/{organizationId}/members`
-- **Description**: Adds a new member to an organization with a specific role. Only administrators can add members.
+- **Description**: Adds a new member to an organization with a specific role. Only administrators can add members. Internally uses the `relex-backend-add-organization-member` function.
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>
@@ -102,7 +102,7 @@ The API is organized into the following groups:
 #### List Organization Members
 - **Method**: GET
 - **Path**: `/v1/organizations/{organizationId}/members`
-- **Description**: Lists all members of an organization. Accessible by organization members.
+- **Description**: Lists all members of an organization. Accessible by organization members. Internally uses the `relex-backend-list-organization-members` function.
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>
@@ -130,7 +130,7 @@ The API is organized into the following groups:
 #### Update Member Role
 - **Method**: PUT
 - **Path**: `/v1/organizations/{organizationId}/members/{userId}`
-- **Description**: Updates a member's role in the organization. Only administrators can update roles.
+- **Description**: Updates a member's role in the organization. Only administrators can update roles. Internally uses the `relex-backend-set-organization-member-role` function.
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>
@@ -163,7 +163,7 @@ The API is organized into the following groups:
 #### Remove Member
 - **Method**: DELETE
 - **Path**: `/v1/organizations/{organizationId}/members/{userId}`
-- **Description**: Removes a member from an organization. Only administrators can remove members.
+- **Description**: Removes a member from an organization. Only administrators can remove members. Internally uses the `relex-backend-remove-organization-member` function.
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>
@@ -190,7 +190,7 @@ The API is organized into the following groups:
 - `GET /v1/organizations/{organizationId}/cases` (list organization cases)
 - `POST /v1/cases/{caseId}/archive`
 - `DELETE /v1/cases/{caseId}`
-- `PUT /v1/cases/{caseId}/assign` (assign case to staff - for Organization Admin only)
+- `PUT /v1/cases/{caseId}/assign` (assign case to staff - for Organization Admin only) (PLANNED - not yet implemented)
 
 ### Party Management
 - `POST /v1/parties` (create a new party)
@@ -216,7 +216,7 @@ The API is organized into the following groups:
 - `POST /v1/payments/checkout-session` (create checkout session)
 - `DELETE /v1/subscriptions/{subscriptionId}` (cancel subscription)
 - `POST /v1/payments/webhook` (handle Stripe webhooks)
-- `POST /v1/vouchers/redeem` (redeem a voucher code)
+- `POST /v1/vouchers/redeem` (redeem a voucher code) (PLANNED - not yet implemented)
 
 ## Detailed Endpoints
 
@@ -724,7 +724,7 @@ The API is organized into the following groups:
 #### Assign Case
 - **Method**: PUT
 - **Path**: `/v1/cases/{caseId}/assign`
-- **Description**: Assign a case to a staff member (organization admin only)
+- **Description**: Assign a case to a staff member (organization admin only). This is a planned feature that is not yet implemented. Currently returns a 501 Not Implemented response. The function stub exists in the codebase as `relex_backend_assign_case`.
 - **Body**:
   ```json
   {
@@ -1131,7 +1131,7 @@ The API is organized into the following groups:
 #### Redeem Voucher
 - **Method**: POST
 - **Path**: `/v1/vouchers/redeem`
-- **Description**: Redeem a voucher code for the user or organization
+- **Description**: Redeem a voucher code for the user or organization. This is a planned feature that is not yet implemented. Currently returns a 501 Not Implemented response. The function stub exists in the codebase as `relex_backend_redeem_voucher`.
 - **Headers**: 
   ```
   Authorization: Bearer <firebase_id_token>

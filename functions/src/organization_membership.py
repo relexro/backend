@@ -51,7 +51,7 @@ def add_organization_member(request: Request):
 
         permission_request = PermissionCheckRequest(
             resourceType=RESOURCE_TYPE_ORGANIZATION, resourceId=organization_id,
-            action="addUser", organizationId=organization_id
+            action="addMember", organizationId=organization_id
         )
         has_permission, error_message = check_permission(user_id, permission_request)
         if not has_permission:
@@ -101,7 +101,7 @@ def set_organization_member_role(request: Request):
 
         permission_request = PermissionCheckRequest(
             resourceType=RESOURCE_TYPE_ORGANIZATION, resourceId=organization_id,
-            action="setRole", organizationId=organization_id
+            action="setMemberRole", organizationId=organization_id
         )
         has_permission, error_message = check_permission(user_id, permission_request)
         if not has_permission:
@@ -154,7 +154,7 @@ def list_organization_members(request: Request):
 
         permission_request = PermissionCheckRequest(
             resourceType=RESOURCE_TYPE_ORGANIZATION, resourceId=organization_id,
-            action="listUsers", organizationId=organization_id
+            action="listMembers", organizationId=organization_id
         )
         has_permission, error_message = check_permission(user_id, permission_request)
         if not has_permission:
@@ -216,7 +216,7 @@ def remove_organization_member(request: Request):
 
         permission_request = PermissionCheckRequest(
             resourceType=RESOURCE_TYPE_ORGANIZATION, resourceId=organization_id,
-            action="removeUser", organizationId=organization_id
+            action="removeMember", organizationId=organization_id
         )
         has_permission, error_message = check_permission(user_id, permission_request)
         if not has_permission:
@@ -263,11 +263,11 @@ def get_user_organization_role(request: Request):
             return flask.jsonify({"error": "Not Found", "message": f"Organization {organization_id} not found"}), 404
 
         # Permission check: User can always check their own role.
-        # To check others' roles, need 'listUsers' permission.
+        # To check others' roles, need 'listMembers' permission.
         if requesting_user_id != target_user_id:
             permission_request = PermissionCheckRequest(
                 resourceType=RESOURCE_TYPE_ORGANIZATION, resourceId=organization_id,
-                action="listUsers", organizationId=organization_id
+                action="listMembers", organizationId=organization_id
             )
             has_permission, error_message = check_permission(requesting_user_id, permission_request)
             if not has_permission:

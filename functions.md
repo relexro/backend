@@ -48,12 +48,12 @@ Split across multiple files for different aspects:
   - Includes proper error handling and logging
 
 #### Membership Management (`organization_membership.py`)
-- `add_organization_member`: Member addition with role validation, using the correct `organization_memberships` collection
-- `set_organization_member_role`: Role updates with admin checks, operating on the `organization_memberships` collection
-- `list_organization_members`: Member listing with pagination, querying the `organization_memberships` collection
-- `remove_organization_member`: Member removal with safeguards, operating on the `organization_memberships` collection
-- `get_user_organization_role`: Role retrieval, working with the `organization_memberships` collection
-- `list_user_organizations`: Organization listing for users
+- `add_organization_member`: Member addition with role validation, using the correct `organization_memberships` collection. Exported as function `relex_backend_add_organization_member`. Used by the `/organizations/{organizationId}/members` POST endpoint.
+- `set_organization_member_role`: Role updates with admin checks, operating on the `organization_memberships` collection. Exported as function `relex_backend_set_organization_member_role`. Used by the `/organizations/{organizationId}/members/{userId}` PUT endpoint.
+- `list_organization_members`: Member listing with pagination, querying the `organization_memberships` collection. Exported as function `relex_backend_list_organization_members`. Used by the `/organizations/{organizationId}/members` GET endpoint.
+- `remove_organization_member`: Member removal with safeguards, operating on the `organization_memberships` collection. Exported as function `relex_backend_remove_organization_member`. Used by the `/organizations/{organizationId}/members/{userId}` DELETE endpoint.
+- `get_user_organization_role`: Role retrieval, working with the `organization_memberships` collection.
+- `list_user_organizations`: Organization listing for users.
 
 ### User Management (`user.py`)
 - `create_user_profile`: Profile creation (Firebase Auth trigger)
@@ -159,9 +159,9 @@ PERMISSIONS = {
     },
     "organization": {
         "administrator": {"read", "update", "delete", "manage_members", 
-                         "create_case", "list_cases", "assign_case", "addUser", 
-                         "setRole", "removeUser", "listUsers"},
-        "staff": {"read", "create_case", "list_cases", "listUsers"}
+                         "create_case", "list_cases", "assign_case", "addMember", 
+                         "setMemberRole", "removeMember", "listMembers"},
+        "staff": {"read", "create_case", "list_cases", "listMembers"}
     },
     "party": {
         "owner": {"read", "update", "delete", "create", "list"}
@@ -293,3 +293,19 @@ Common error responses:
 7. Firestore for data storage
 8. Firebase Storage for files
 9. Stripe for payments (individual cases)
+
+### Planned Functions (Not yet implemented)
+- `assign_case`: Will handle assigning cases to staff members within an organization
+  - Currently implemented as a stub function that returns 501 Not Implemented
+  - Exposed as `relex_backend_assign_case` in main.py
+  - Will be called via the `/v1/cases/{caseId}/assign` endpoint
+  - Included in the Terraform configuration and OpenAPI spec
+
+- `redeem_voucher`: Will handle voucher code redemption for users or organizations
+  - Currently implemented as a stub function that returns 501 Not Implemented
+  - Exposed as `relex_backend_redeem_voucher` in main.py
+  - Will be called via the `/v1/vouchers/redeem` endpoint 
+  - Included in the Terraform configuration and OpenAPI spec
+
+### Organization Cases List Function
+- `list_organization_cases`: A specialized version of the list_cases function that is focused on listing only cases belonging to a specific organization. This is exposed as `relex_backend_list_organization_cases` in main.py.

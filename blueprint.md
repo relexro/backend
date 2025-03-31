@@ -111,9 +111,9 @@ PERMISSIONS = {
     },
     "organization": {
         "administrator": {"read", "update", "delete", "manage_members", 
-                         "create_case", "list_cases", "assign_case", "addUser", 
-                         "setRole", "removeUser", "listUsers"},
-        "staff": {"read", "create_case", "list_cases", "listUsers"}
+                         "create_case", "list_cases", "assign_case", "addMember", 
+                         "setMemberRole", "removeMember", "listMembers"},
+        "staff": {"read", "create_case", "list_cases", "listMembers"}
     },
     "party": {
         "owner": {"read", "update", "delete", "create", "list"}
