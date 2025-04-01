@@ -28,6 +28,8 @@ Backend for Relex, an AI-powered legal chat application built using Firebase Fun
 - Python 3.10 or higher
 - Google Cloud SDK
 - Cloudflare account with access to relex.ro domain
+- Node.js and npm (for OpenAPI validation)
+- Redocly CLI: `npm install -g @redocly/cli` (for validating OpenAPI specifications)
 
 ### Configuration
 
@@ -98,6 +100,8 @@ Here's how to resolve this:
    cd terraform
    terraform apply -auto-approve
    ```
+
+This ensures your Terraform deployment process has the necessary permissions to create and manage secrets and Firebase rules.
 
 ### Firebase Rules Troubleshooting
 
@@ -195,6 +199,25 @@ gcloud functions call relex-backend-create-case --gen2 --region=europe-west3 --d
 ```
 
 **Note**: Always use gcloud CLI for monitoring and debugging functions rather than creating temporary testing solutions.
+
+## OpenAPI Validation
+
+The deployment process includes automatic validation of the OpenAPI specification file (`terraform/openapi_spec.yaml`) before applying Terraform changes. This ensures the API Gateway configuration is valid before deployment.
+
+### Prerequisites
+
+You must install the Redocly CLI tool for openapi validation made in deploy.sh:
+
+```bash
+npm install -g @redocly/cli
+```
+
+### Common Validation Issues
+
+- Missing model definitions referenced in API paths
+- Incorrect response formats
+- Invalid property types or formats
+- Missing required properties
 
 ## Authentication Testing
 

@@ -3,6 +3,9 @@ info:
   title: Relex API
   description: RESTful API for Relex Backend
   version: 1.0.0
+  license:
+    name: Proprietary
+    url: https://relex.ro
 # Host is substituted by Terraform using api_domain variable
 host: ${api_domain}
 basePath: /v1
@@ -42,11 +45,17 @@ paths:
           schema:
             $ref: '#/definitions/UserProfile'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     put:
       summary: Update user profile
       operationId: updateUserProfile
@@ -77,13 +86,21 @@ paths:
           schema:
             $ref: '#/definitions/UserProfile'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /users/me/organizations:
     get:
@@ -107,9 +124,13 @@ paths:
                 items:
                   $ref: '#/definitions/OrganizationSummary'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /users/me/cases:
     get:
@@ -159,9 +180,13 @@ paths:
               offset:
                 type: integer
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   # Organization endpoints
   /organizations:
@@ -206,11 +231,17 @@ paths:
           schema:
             $ref: '#/definitions/Organization'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /organizations/{organizationId}:
     get:
@@ -233,13 +264,21 @@ paths:
           schema:
             $ref: '#/definitions/Organization'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     put:
       summary: Update organization details
       operationId: updateOrganization
@@ -278,15 +317,25 @@ paths:
           schema:
             $ref: '#/definitions/Organization'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     delete:
       summary: Delete an organization
       operationId: deleteOrganization
@@ -311,15 +360,25 @@ paths:
               message:
                 type: string
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   # Case endpoints
   /cases:
@@ -368,17 +427,25 @@ paths:
           schema:
             $ref: '#/definitions/Case'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '402':
           description: Payment required (quota exhausted or no active subscription)
           schema:
             $ref: '#/definitions/PaymentRequired'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /organizations/{organizationId}/cases:
     post:
@@ -433,17 +500,25 @@ paths:
           schema:
             $ref: '#/definitions/Case'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '402':
           description: Payment required (quota exhausted or no active subscription)
           schema:
             $ref: '#/definitions/PaymentRequired'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     get:
       summary: List organization cases
       operationId: listOrganizationCases
@@ -500,13 +575,21 @@ paths:
               offset:
                 type: integer
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   # Organization members endpoints
   /organizations/{organizationId}/members:
@@ -536,15 +619,25 @@ paths:
                 items:
                   $ref: '#/definitions/OrganizationMember'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     post:
       summary: Add member to organization
       operationId: addOrganizationMember
@@ -582,17 +675,29 @@ paths:
           schema:
             $ref: '#/definitions/MembershipResponse'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '409':
-          $ref: '#/definitions/Conflict'
+          description: Conflict
+          schema:
+            $ref: '#/definitions/Conflict'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /organizations/{organizationId}/members/{userId}:
     put:
@@ -631,15 +736,25 @@ paths:
           schema:
             $ref: '#/definitions/MembershipResponse'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     delete:
       summary: Remove member from organization
       operationId: removeOrganizationMember
@@ -672,15 +787,25 @@ paths:
               organizationId:
                 type: string
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   # File endpoints
   /cases/{caseId}/files:
@@ -717,15 +842,25 @@ paths:
           schema:
             $ref: '#/definitions/FileResponse'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /files/{fileId}:
     get:
@@ -752,376 +887,25 @@ paths:
             type: string
             format: binary
         '400':
-          $ref: '#/definitions/BadRequest'
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '403':
-          $ref: '#/definitions/Forbidden'
-        '404':
-          $ref: '#/definitions/NotFound'
-        '500':
-          $ref: '#/definitions/InternalServerError'
-
-  # Payment endpoints
-  /payments/payment-intent:
-    post:
-      summary: Create a Stripe payment intent for case payment
-      operationId: createPaymentIntent
-      security:
-        - firebase: []
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-create-payment-intent'
-        address: ${function_uris["relex-backend-create-payment-intent"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - in: body
-          name: body
-          required: true
-          schema:
-            type: object
-            required:
-              - caseTier
-            properties:
-              caseTier:
-                type: integer
-                enum: [1, 2, 3]
-                description: Case tier level to determine the amount (1=€9.00, 2=€29.00, 3=€99.00)
-              currency:
-                type: string
-                default: "eur"
-                description: Currency for the payment (default is EUR)
-              description:
-                type: string
-                description: Description of what this payment is for
-              metadata:
-                type: object
-                description: Additional metadata to attach to the payment intent
-              caseId:
-                type: string
-                description: Optional ID of the case this payment is for
-      responses:
-        '201':
-          description: Payment intent created successfully
-          schema:
-            type: object
-            properties:
-              clientSecret:
-                type: string
-              paymentIntentId:
-                type: string
-              amount:
-                type: integer
-                description: Amount in cents
-              currency:
-                type: string
-              message:
-                type: string
-        '400':
-          $ref: '#/definitions/BadRequest'
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '500':
-          $ref: '#/definitions/InternalServerError'
-
-  /payments/checkout-session:
-    post:
-      summary: Create a Stripe checkout session for subscription or one-time payment
-      operationId: createCheckoutSession
-      security:
-        - firebase: []
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-create-checkout-session'
-        address: ${function_uris["relex-backend-create-checkout-session"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - in: body
-          name: body
-          required: true
-          schema:
-            type: object
-            properties:
-              planId:
-                type: string
-                description: ID of the subscription plan to purchase (e.g., 'personal_monthly', 'business_pro_yearly')
-              mode:
-                type: string
-                default: "subscription"
-                enum: ["subscription", "payment"]
-                description: Checkout mode - subscription or one-time payment
-              currency:
-                type: string
-                default: "eur"
-                description: Currency for the payment (if one-time payment)
-              amount:
-                type: integer
-                description: Amount in cents for a one-time payment (required if mode=payment)
-              successUrl:
-                type: string
-                description: URL to redirect to after successful payment
-              cancelUrl:
-                type: string
-                description: URL to redirect to after cancelled payment
-              metadata:
-                type: object
-                description: Additional metadata to attach to the checkout session
-              organizationId:
-                type: string
-                description: Optional ID of the organization this subscription is for
-              caseId:
-                type: string
-                description: Optional ID of the case this payment is for
-      responses:
-        '201':
-          description: Checkout session created successfully
-          schema:
-            type: object
-            properties:
-              sessionId:
-                type: string
-              url:
-                type: string
-              message:
-                type: string
-        '400':
-          $ref: '#/definitions/BadRequest'
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '500':
-          $ref: '#/definitions/InternalServerError'
-
-  /subscriptions/{subscriptionId}:
-    delete:
-      summary: Cancel a subscription
-      operationId: cancelSubscription
-      security:
-        - firebase: []
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-cancel-subscription'
-        address: ${function_uris["relex-backend-cancel-subscription"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: subscriptionId
-          in: path
-          required: true
-          type: string
-          description: ID of the subscription to cancel
-      responses:
-        '200':
-          description: Subscription cancelled successfully
-          schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-              message:
-                type: string
-        '400':
-          $ref: '#/definitions/BadRequest'
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '403':
-          $ref: '#/definitions/Forbidden'
-        '404':
-          $ref: '#/definitions/NotFound'
-        '500':
-          $ref: '#/definitions/InternalServerError'
-
-  /vouchers/redeem:
-    post:
-      summary: Redeem a voucher code (not implemented yet)
-      operationId: redeemVoucher
-      security:
-        - firebase: []
-      x-google-backend:
-        # Use the actual function reference now that it exists in variables.tf
-        address: ${function_uris["relex-backend-redeem-voucher"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - in: body
-          name: body
-          required: true
-          schema:
-            type: object
-            required:
-              - voucherCode
-            properties:
-              voucherCode:
-                type: string
-                description: The voucher code to redeem
-              organizationId:
-                type: string
-                description: Optional ID of the organization to apply the voucher to
-      responses:
-        '200':
-          description: Voucher redeemed successfully (Not Implemented)
-          schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-              message:
-                type: string
-              voucherType:
-                type: string
-                enum: [free_case, subscription_discount, credit]
-              value:
-                type: object
-                properties:
-                  amount:
-                    type: integer
-                    description: Credit amount in cents, or discount percentage, or number of free cases
-                  caseTier:
-                    type: integer
-                    description: Only for free_case type
-                  expiresAt:
-                    type: string
-                    format: date-time
-        '400':
-          $ref: '#/definitions/BadRequest'
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '404':
-          $ref: '#/definitions/NotFound'
-        '409':
-          $ref: '#/definitions/Conflict'
-        '501':
-          description: Not Implemented
-          schema:
-            type: object
-            properties:
-              error:
-                type: string
-                enum: [not_implemented]
-              message:
-                type: string
-
-  /payments/webhook:
-    post:
-      summary: Handle Stripe webhook events
-      operationId: handleStripeWebhook
-      # No security - called by Stripe
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-handle-stripe-webhook'
-        address: ${function_uris["relex-backend-handle-stripe-webhook"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - in: header
-          name: Stripe-Signature
-          type: string
-          required: true
-          description: Stripe signature header for verification
-        - in: body
-          name: body
-          required: true
-          schema:
-            type: object
-            description: Stripe webhook event payload (structure varies)
-      responses:
-        '200':
-          description: Webhook processed successfully (or acknowledged)
-          schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-                description: Indicates successful receipt/initial processing.
-              message:
-                type: string
-                example: Received
-        '400':
-          description: Bad Request (e.g., missing signature, invalid payload)
+          description: Bad request
           schema:
             $ref: '#/definitions/BadRequest'
         '401':
-          description: Unauthorized (e.g., signature verification failed)
+          description: Unauthorized
           schema:
             $ref: '#/definitions/Unauthorized'
+        '403':
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
+        '404':
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          description: Internal Server Error (failed to process event)
+          description: Internal server error
           schema:
             $ref: '#/definitions/InternalServerError'
-
-  # Party endpoints
-  /parties:
-    post:
-      summary: Create a new party
-      operationId: createParty
-      security:
-        - firebase: []
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-create-party'
-        address: ${function_uris["relex-backend-create-party"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - in: body
-          name: body
-          required: true
-          schema:
-            $ref: '#/definitions/PartyInput'
-      responses:
-        '201':
-          description: Party created successfully
-          schema:
-            $ref: '#/definitions/Party'
-        '400':
-          $ref: '#/definitions/BadRequest'
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '500':
-          $ref: '#/definitions/InternalServerError'
-    get:
-      summary: List parties associated with the user
-      operationId: listParties
-      security:
-        - firebase: []
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-list-parties'
-        address: ${function_uris["relex-backend-list-parties"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: partyType
-          in: query
-          required: false
-          type: string
-          enum: [individual, organization]
-          description: Filter parties by type
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          default: 20
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          default: 0
-      responses:
-        '200':
-          description: List of parties
-          schema:
-            type: object
-            properties:
-              parties:
-                type: array
-                items:
-                  $ref: '#/definitions/Party'
-              total:
-                type: integer
-              limit:
-                type: integer
-              offset:
-                type: integer
-        '401':
-          $ref: '#/definitions/Unauthorized'
-        '500':
-          $ref: '#/definitions/InternalServerError'
 
   /parties/{partyId}:
     get:
@@ -1130,7 +914,6 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-get-party'
         address: ${function_uris["relex-backend-get-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
@@ -1145,20 +928,27 @@ paths:
           schema:
             $ref: '#/definitions/Party'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     put:
       summary: Update a party
       operationId: updateParty
       security:
         - firebase: []
       x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-update-party'
         address: ${function_uris["relex-backend-update-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
@@ -1178,22 +968,31 @@ paths:
           schema:
             $ref: '#/definitions/Party'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     delete:
       summary: Delete a party
       operationId: deleteParty
       security:
         - firebase: []
       x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-delete-party'
         address: ${function_uris["relex-backend-delete-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
@@ -1206,17 +1005,25 @@ paths:
         '204':
           description: Party deleted successfully
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '409':
           description: Conflict - Party cannot be deleted (e.g., attached to cases)
           schema:
             $ref: '#/definitions/Conflict'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /cases/{caseId}/parties:
     post:
@@ -1225,7 +1032,6 @@ paths:
       security:
         - firebase: []
       x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-attach-party'
         address: ${function_uris["relex-backend-attach-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
@@ -1260,19 +1066,29 @@ paths:
               partyId:
                 type: string
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '409':
           description: Conflict (e.g., party already attached)
           schema:
             $ref: '#/definitions/Conflict'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /cases/{caseId}/parties/{partyId}:
     delete:
@@ -1309,13 +1125,21 @@ paths:
               partyId:
                 type: string
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   # --- Start of /api prefixed paths ---
   # These paths are kept, but corrected to use function_uris map
@@ -1361,11 +1185,17 @@ paths:
               message:
                 type: string
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /api/parties:
     post:
@@ -1396,11 +1226,17 @@ paths:
           schema:
             $ref: '#/definitions/Party'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     get:
       summary: List parties associated with the user (Alternative Path)
       operationId: listPartiesAlt
@@ -1449,9 +1285,13 @@ paths:
               offset:
                 type: integer
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /api/parties/{partyId}:
     get:
@@ -1480,13 +1320,21 @@ paths:
           schema:
             $ref: '#/definitions/Party'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     put:
       summary: Update a party (Alternative Path)
       operationId: updatePartyAlt
@@ -1520,13 +1368,21 @@ paths:
           schema:
             $ref: '#/definitions/Party'
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     delete:
       summary: Delete a party (Alternative Path)
       operationId: deletePartyAlt
@@ -1551,17 +1407,25 @@ paths:
         '204':
           description: Party deleted successfully
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '409':
           description: Conflict - Party cannot be deleted (e.g., attached to cases)
           schema:
             $ref: '#/definitions/Conflict'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /api/cases/{caseId}/parties:
     post:
@@ -1613,17 +1477,25 @@ paths:
               partyId:
                 type: string
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '409':
           description: Conflict (e.g., party already attached)
           schema:
             $ref: '#/definitions/Conflict'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /api/cases/{caseId}/parties/{partyId}:
     delete:
@@ -1667,13 +1539,21 @@ paths:
               partyId:
                 type: string
         '400':
-          $ref: '#/definitions/BadRequest'
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   # Original Case Actions (GET/DELETE/ARCHIVE/ASSIGN on /cases/{caseId})
   /cases/{caseId}:
@@ -1698,13 +1578,21 @@ paths:
           schema:
             $ref: '#/definitions/Case'
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
     delete:
       summary: Delete case (mark as deleted)
       operationId: deleteCase
@@ -1731,13 +1619,21 @@ paths:
               message:
                 type: string
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /cases/{caseId}/archive:
     post:
@@ -1774,17 +1670,25 @@ paths:
                 type: string
                 format: date-time
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '409':
           description: Conflict (e.g., case already archived or deleted)
           schema:
             $ref: '#/definitions/Conflict'
         '500':
-          $ref: '#/definitions/InternalServerError'
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /cases/{caseId}/assign:
     put:
@@ -1831,11 +1735,17 @@ paths:
                 type: string
                 x-nullable: true
         '401':
-          $ref: '#/definitions/Unauthorized'
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
         '403':
-          $ref: '#/definitions/Forbidden'
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
-          $ref: '#/definitions/NotFound'
+          description: Not found
+          schema:
+            $ref: '#/definitions/NotFound'
         '501':
           description: Not Implemented
           schema:
@@ -1847,339 +1757,35 @@ paths:
               message:
                 type: string
 
-# -------- Definitions --------
-# NOTE: Definitions remain unchanged from the previous complete version provided.
-# Make sure these definitions are complete and correct in your actual file.
 definitions:
-  UserProfile:
-    type: object
-    properties:
-      userId:
-        type: string
-      email:
-        type: string
-        format: email
-      displayName:
-        type: string
-        x-nullable: true
-      photoURL:
-        type: string
-        format: url
-        x-nullable: true
-      role:
-        type: string
-        enum: [user, admin]
-      subscriptionStatus:
-        type: string
-        enum: [active, inactive, canceled, past_due, trialing]
-        x-nullable: true
-      subscriptionPlanId:
-        type: string
-        description: ID of the subscription plan
-        x-nullable: true
-      billingCycleStart:
-        type: string
-        format: date-time
-        description: Start date of the current billing cycle
-        x-nullable: true
-      billingCycleEnd:
-        type: string
-        format: date-time
-        description: End date of the current billing cycle
-        x-nullable: true
-      caseQuotaTotal:
-        type: integer
-        description: Total number of cases included in the subscription for the current billing cycle
-        x-nullable: true
-      caseQuotaUsed:
-        type: integer
-        description: Number of cases used from the quota in the current billing cycle
-        x-nullable: true
-      stripeCustomerId:
-        type: string
-        description: Stripe customer ID for payment processing
-        x-nullable: true
-      stripeSubscriptionId:
-        type: string
-        description: Stripe subscription ID
-        x-nullable: true
-      languagePreference:
-        type: string
-        enum: [en, ro]
-        default: en
-      createdAt:
-        type: string
-        format: date-time
-      updatedAt:
-        type: string
-        format: date-time
-
-  Organization:
-    type: object
-    properties:
-      organizationId:
-        type: string
-      name:
-        type: string
-      type:
-        type: string
-        description: e.g., law_firm, company, individual_professional
-      address:
-        type: string
-        x-nullable: true
-      phone:
-        type: string
-        x-nullable: true
-      email:
-        type: string
-        format: email
-        x-nullable: true
-      createdAt:
-        type: string
-        format: date-time
-      ownerId:
-        type: string
-        description: User ID of the organization owner
-      subscriptionStatus:
-        type: string
-        enum: [active, inactive, canceled, past_due, trialing]
-        description: Current subscription status
-        x-nullable: true
-      subscriptionPlanId:
-        type: string
-        description: ID of the subscription plan
-        x-nullable: true
-      billingCycleStart:
-        type: string
-        format: date-time
-        description: Start date of the current billing cycle
-        x-nullable: true
-      billingCycleEnd:
-        type: string
-        format: date-time
-        description: End date of the current billing cycle
-        x-nullable: true
-      caseQuotaTotal:
-        type: integer
-        description: Total number of cases included in the subscription for the current billing cycle
-        x-nullable: true
-      caseQuotaUsed:
-        type: integer
-        description: Number of cases used from the quota in the current billing cycle
-        x-nullable: true
-      stripeCustomerId:
-        type: string
-        description: Stripe customer ID for payment processing
-        x-nullable: true
-      stripeSubscriptionId:
-        type: string
-        description: Stripe subscription ID
-        x-nullable: true
-    required: # Added required fields
-      - organizationId
-      - name
-      - type
-      - createdAt
-      - ownerId
-
-  OrganizationSummary:
-    type: object
-    properties:
-      organizationId:
-        type: string
-      name:
-        type: string
-      type:
-        type: string
-      role: # User's role within this org
-        type: string
-        enum: [owner, administrator, staff]
-    required:
-      - organizationId
-      - name
-      - type
-      - role
-
-  OrganizationMember:
-    type: object
-    properties:
-      userId:
-        type: string
-      role:
-        type: string
-        enum: [owner, administrator, staff]
-      addedAt:
-        type: string
-        format: date-time
-      email: # Denormalized for convenience
-        type: string
-        format: email
-      displayName: # Denormalized for convenience
-        type: string
-        x-nullable: true
-    required:
-      - userId
-      - role
-      - addedAt
-      - email
-
-  MembershipResponse: # Response for add/update member ops
-    type: object
-    properties:
-      success:
-        type: boolean
-      membershipId: # ID of the membership link itself
-        type: string
-      userId:
-        type: string
-      organizationId:
-        type: string
-      role:
-        type: string
-        enum: [owner, administrator, staff]
-      # Include denormalized info for immediate UI update
-      email:
-        type: string
-        format: email
-      displayName:
-        type: string
-        x-nullable: true
-    required:
-      - success
-      - membershipId
-      - userId
-      - organizationId
-      - role
-      - email
-
-  Case:
-    type: object
-    properties:
-      caseId:
-        type: string
-      title:
-        type: string
-      description:
-        type: string
-        x-nullable: true
-      caseType: # More specific than tier? e.g., litigation, consultation
-        type: string
-        x-nullable: true
-      userId: # Owner/creator user ID
-        type: string
-      organizationId: # Optional organization context
-        type: string
-        x-nullable: true
-      status:
-        type: string
-        enum: [open, archived, deleted, pending_payment]
-        default: open
-      createdAt:
-        type: string
-        format: date-time
-      updatedAt: # Added
-        type: string
-        format: date-time
-      archivedAt: # Added
-        type: string
-        format: date-time
-        x-nullable: true
-      deletedAt: # Added
-        type: string
-        format: date-time
-        x-nullable: true
-      assignedUserId: # Added
-        type: string
-        x-nullable: true
-      paymentStatus:
-        type: string
-        enum: [paid_intent, covered_by_quota, pending, not_required, refunded]
-        description: Payment status of the case
-        x-nullable: true
-      paymentIntentId: # Associated payment intent if paid individually
-        type: string
-        x-nullable: true
-      caseTier:
-        type: integer
-        enum: [1, 2, 3]
-        description: Case tier level (1=Basic, 2=Standard, 3=Complex)
-      casePrice:
-        type: integer
-        description: Price of the case in cents (at the time of creation/payment)
-        x-nullable: true
-      partyIds: # List of attached party IDs
-        type: array
-        items:
-          type: string
-        description: List of party IDs attached to this case
-    required:
-      - caseId
-      - title
-      - userId
-      - status
-      - createdAt
-      - updatedAt
-      - caseTier
-
-  FileResponse: # Response for upload
-    type: object
-    properties:
-      success:
-        type: boolean
-      fileId:
-        type: string
-      fileName:
-        type: string
-      fileUrl: # Potentially a signed URL for temporary access
-        type: string
-        format: url
-      caseId:
-        type: string
-      uploadedAt:
-        type: string
-        format: date-time
-    required:
-      - success
-      - fileId
-      - fileName
-      - fileUrl
-      - caseId
-      - uploadedAt
-
-  # Standard Error Responses
   BadRequest:
-    description: The request is invalid or malformed.
+    description: Bad request error response
     type: object
     properties:
       error:
         type: string
-        enum: [invalid_request, validation_error]
+        enum: [bad_request]
       message:
         type: string
-        description: General error message.
-      details: # Optional field for specific validation errors
-        type: object
-        description: Detailed validation errors (e.g., field-specific issues).
     required:
       - error
       - message
 
   Unauthorized:
-    description: Authentication failed or is missing.
+    description: Unauthorized error response
     type: object
     properties:
       error:
         type: string
-        enum: [unauthorized, token_expired, invalid_token]
+        enum: [unauthorized]
       message:
         type: string
-        description: Authentication error message.
     required:
       - error
       - message
 
   Forbidden:
-    description: Authenticated user lacks permission for the action.
+    description: Forbidden error response
     type: object
     properties:
       error:
@@ -2187,13 +1793,12 @@ definitions:
         enum: [forbidden]
       message:
         type: string
-        description: Permission denied message.
     required:
       - error
       - message
 
   NotFound:
-    description: The requested resource was not found.
+    description: Not found error response
     type: object
     properties:
       error:
@@ -2201,267 +1806,380 @@ definitions:
         enum: [not_found]
       message:
         type: string
-        description: Resource not found message.
-      resourceType: # Optional: type of resource not found
-        type: string
-      resourceId:   # Optional: ID of resource not found
-        type: string
     required:
       - error
       - message
 
   Conflict:
-    description: The request conflicts with the current state of the resource.
+    description: Conflict error response
     type: object
     properties:
       error:
         type: string
-        enum: [conflict, already_exists, state_conflict]
+        enum: [conflict]
       message:
         type: string
-        description: Resource state conflict message.
     required:
       - error
       - message
 
   InternalServerError:
-    description: An unexpected error occurred on the server.
+    description: Internal server error response
     type: object
     properties:
       error:
         type: string
-        enum: [internal_error]
+        enum: [internal_server_error]
       message:
-        type: string
-        description: Internal server error message.
-      errorId: # Optional: ID for tracking specific errors
         type: string
     required:
       - error
       - message
 
   PaymentRequired:
-    description: Payment is required to perform this action (e.g., quota exhausted).
+    description: Payment required error response
     type: object
     properties:
       error:
         type: string
-        enum: [payment_required, quota_exceeded]
+        enum: [payment_required]
       message:
         type: string
-        description: Payment required message.
-      requiredAction: # Optional: Hint on what action is needed
-        type: string
-        enum: [upgrade_plan, purchase_case, wait_for_cycle]
     required:
       - error
       - message
 
-  RateLimitExceeded:
-    description: Too many requests hit the API too quickly.
+  UserProfile:
     type: object
+    description: User profile information
     properties:
-      error:
+      id:
         type: string
-        enum: [rate_limit_exceeded]
-      message:
-        type: string
-        description: Rate limit exceeded message.
-      retryAfter: # Optional: Suggest when to retry (seconds)
-        type: integer
-    required:
-      - error
-      - message
-
-  # Subscription Plan (Example - might be fetched from Stripe/DB)
-  Plan:
-    type: object
-    properties:
-      planId:
-        type: string
-        description: Unique identifier for the plan (e.g., 'personal_monthly')
-      name:
-        type: string
-        description: Display name of the plan (e.g., 'Personal Monthly')
-      description:
-        type: string
-        description: Description of what the plan includes
-      type:
-        type: string
-        enum: [personal, business]
-        description: Target audience/type of plan
-      interval:
-        type: string
-        enum: [month, year] # Stripe uses 'month', 'year'
-        description: Billing interval
-      price:
-        type: integer
-        description: Price of the plan in cents
-      currency:
-        type: string
-        default: "eur"
-        description: Currency of the plan (ISO 4217 code)
-      caseQuotaTotal:
-        type: integer
-        description: Number of cases included in the plan per billing cycle
-        x-nullable: true
-      active:
-        type: boolean
-        description: Whether the plan is currently available for purchase
-      stripePriceId: # Link to Stripe Price object
-        type: string
-        description: Stripe price ID for this plan interval
-      features: # Optional list of included features
-        type: array
-        items:
-          type: string
-      createdAt:
-        type: string
-        format: date-time
-      updatedAt:
-        type: string
-        format: date-time
-    required:
-      - planId
-      - name
-      - type
-      - interval
-      - price
-      - currency
-      - active
-      - stripePriceId
-      - createdAt
-      - updatedAt
-
-  # Party Definitions (Input and Output separated for clarity)
-  PartyNameDetails:
-    type: object
-    description: Name information depending on party type
-    properties:
-      firstName:
-        type: string
-        description: Required for individual parties
-      lastName:
-        type: string
-        description: Required for individual parties
-      companyName:
-        type: string
-        description: Required for organization parties
-    # Required fields depend on partyType, handled by application logic/validation
-
-  PartyIdentityCodes:
-    type: object
-    description: Identification codes depending on party type
-    properties:
-      cnp:
-        type: string
-        description: Romanian Personal Numeric Code (13 digits). Required for individual parties
-      cui:
-        type: string
-        description: Romanian Fiscal Code. Required for organization parties
-      regCom:
-        type: string
-        description: Romanian Company Registration Number (e.g., Jxx/xxx/xxxx). Required for organization parties
-    # Required fields depend on partyType, handled by application logic/validation
-
-  PartyContactInfo:
-    type: object
-    properties:
-      address:
-        type: string
-        description: Required physical address for all party types
+        description: Unique identifier for the user
       email:
         type: string
         format: email
-        description: Optional contact email
-      phone:
+        description: User's email address
+      displayName:
         type: string
-        description: Optional contact phone number
-    required:
-      - address # Address is usually mandatory
-
-  PartySignatureData:
-    type: object
-    properties:
-      storagePath:
+        description: User's display name
+      photoURL:
         type: string
-        description: Path to the signature image/data in storage
-      capturedAt:
-        type: string
-        format: date-time
-        description: When the signature was captured
-
-  PartyInput: # Definition for creating a Party
-    type: object
-    required:
-      - partyType
-      - nameDetails
-      - identityCodes
-      - contactInfo
-    properties:
-      partyType:
-        type: string
-        enum: [individual, organization]
-        description: Type of party (individual or organization) that determines required fields
-      nameDetails:
-        $ref: '#/definitions/PartyNameDetails'
-      identityCodes:
-        $ref: '#/definitions/PartyIdentityCodes'
-      contactInfo:
-        $ref: '#/definitions/PartyContactInfo'
-      signatureData:
-        $ref: '#/definitions/PartySignatureData'
-        x-nullable: true
-
-  PartyUpdateInput: # Definition for updating a Party (fields are optional)
-    type: object
-    properties:
-      # partyType cannot be changed
-      nameDetails:
-        $ref: '#/definitions/PartyNameDetails'
-      identityCodes:
-        $ref: '#/definitions/PartyIdentityCodes'
-      contactInfo:
-        $ref: '#/definitions/PartyContactInfo'
-      signatureData:
-        $ref: '#/definitions/PartySignatureData'
-        x-nullable: true
-
-  Party: # Full Party object definition (output)
-    type: object
-    properties:
-      partyId:
-        type: string
-        description: Unique identifier for the party
-      userId: # User who created/owns this party record
-        type: string
-        description: Firebase user ID of the party owner
-      partyType:
-        type: string
-        enum: [individual, organization]
-      nameDetails:
-        $ref: '#/definitions/PartyNameDetails'
-      identityCodes:
-        $ref: '#/definitions/PartyIdentityCodes'
-      contactInfo:
-        $ref: '#/definitions/PartyContactInfo'
-      signatureData:
-        $ref: '#/definitions/PartySignatureData'
-        x-nullable: true
+        format: uri
+        description: URL to user's profile photo
       createdAt:
         type: string
         format: date-time
-        description: When the party was created
+        description: Timestamp when the user was created
       updatedAt:
         type: string
         format: date-time
-        description: When the party was last updated
+        description: Timestamp when the user was last updated
     required:
-      - partyId
+      - id
+      - email
+
+  OrganizationSummary:
+    type: object
+    description: Summary information about an organization
+    properties:
+      id:
+        type: string
+        description: Unique identifier for the organization
+      name:
+        type: string
+        description: Name of the organization
+      role:
+        type: string
+        enum: [admin, member]
+        description: User's role in the organization
+    required:
+      - id
+      - name
+      - role
+
+  Organization:
+    type: object
+    description: Detailed information about an organization
+    properties:
+      id:
+        type: string
+        description: Unique identifier for the organization
+      name:
+        type: string
+        description: Name of the organization
+      description:
+        type: string
+        description: Description of the organization
+      createdAt:
+        type: string
+        format: date-time
+        description: Timestamp when the organization was created
+      updatedAt:
+        type: string
+        format: date-time
+        description: Timestamp when the organization was last updated
+      createdBy:
+        type: string
+        description: User ID of the creator
+    required:
+      - id
+      - name
+
+  OrganizationMember:
+    type: object
+    description: Information about an organization member
+    properties:
+      userId:
+        type: string
+        description: Unique identifier for the user
+      email:
+        type: string
+        format: email
+        description: User's email address
+      displayName:
+        type: string
+        description: User's display name
+      photoURL:
+        type: string
+        format: uri
+        description: URL to user's profile photo
+      role:
+        type: string
+        enum: [admin, member]
+        description: User's role in the organization
+      joinedAt:
+        type: string
+        format: date-time
+        description: Timestamp when the user joined the organization
+    required:
       - userId
-      - partyType
-      - nameDetails
-      - identityCodes
-      - contactInfo
-      - createdAt
-      - updatedAt
+      - email
+      - role
+
+  MembershipResponse:
+    type: object
+    description: Response after membership operations
+    properties:
+      success:
+        type: boolean
+        description: Whether the operation was successful
+      message:
+        type: string
+        description: Success or error message
+      userId:
+        type: string
+        description: User ID involved in the membership operation
+      organizationId:
+        type: string
+        description: Organization ID involved in the membership operation
+      role:
+        type: string
+        enum: [admin, member]
+        description: User's role in the organization
+    required:
+      - success
+      - organizationId
+      - userId
+      - role
+
+  Case:
+    type: object
+    description: Case information
+    properties:
+      id:
+        type: string
+        description: Unique identifier for the case
+      title:
+        type: string
+        description: Title of the case
+      description:
+        type: string
+        description: Description of the case
+      status:
+        type: string
+        enum: [active, archived, deleted]
+        description: Status of the case
+      organizationId:
+        type: string
+        description: Organization ID the case belongs to
+      createdAt:
+        type: string
+        format: date-time
+        description: Timestamp when the case was created
+      updatedAt:
+        type: string
+        format: date-time
+        description: Timestamp when the case was last updated
+      createdBy:
+        type: string
+        description: User ID of the creator
+      assignedUserId:
+        type: string
+        description: User ID of the assigned user
+        x-nullable: true
+      assignedUserName:
+        type: string
+        description: Name of the assigned user
+        x-nullable: true
+      parties:
+        type: array
+        items:
+          type: object
+          properties:
+            id:
+              type: string
+              description: Party ID
+            name:
+              type: string
+              description: Party name
+            type:
+              type: string
+              description: Party type
+        description: Parties associated with the case
+    required:
+      - id
+      - title
+      - status
+      - organizationId
+
+  Party:
+    type: object
+    description: Party information
+    properties:
+      id:
+        type: string
+        description: Unique identifier for the party
+      name:
+        type: string
+        description: Name of the party
+      type:
+        type: string
+        enum: [individual, company, organization]
+        description: Type of party
+      contact:
+        type: object
+        properties:
+          email:
+            type: string
+            format: email
+            description: Contact email
+          phone:
+            type: string
+            description: Contact phone number
+          address:
+            type: string
+            description: Contact address
+      createdAt:
+        type: string
+        format: date-time
+        description: Timestamp when the party was created
+      updatedAt:
+        type: string
+        format: date-time
+        description: Timestamp when the party was last updated
+      organizationId:
+        type: string
+        description: Organization ID the party belongs to
+      createdBy:
+        type: string
+        description: User ID of the creator
+    required:
+      - id
+      - name
+      - type
+      - organizationId
+
+  PartyInput:
+    type: object
+    description: Input for creating a party
+    properties:
+      name:
+        type: string
+        description: Name of the party
+      type:
+        type: string
+        enum: [individual, company, organization]
+        description: Type of party
+      contact:
+        type: object
+        properties:
+          email:
+            type: string
+            format: email
+            description: Contact email
+          phone:
+            type: string
+            description: Contact phone number
+          address:
+            type: string
+            description: Contact address
+      organizationId:
+        type: string
+        description: Organization ID the party belongs to
+    required:
+      - name
+      - type
+      - organizationId
+
+  PartyUpdateInput:
+    type: object
+    description: Input for updating a party
+    properties:
+      name:
+        type: string
+        description: Name of the party
+      type:
+        type: string
+        enum: [individual, company, organization]
+        description: Type of party
+      contact:
+        type: object
+        properties:
+          email:
+            type: string
+            format: email
+            description: Contact email
+          phone:
+            type: string
+            description: Contact phone number
+          address:
+            type: string
+            description: Contact address
+
+  FileResponse:
+    type: object
+    description: Response after file operations
+    properties:
+      id:
+        type: string
+        description: Unique identifier for the file
+      name:
+        type: string
+        description: Name of the file
+      contentType:
+        type: string
+        description: MIME type of the file
+      size:
+        type: integer
+        description: Size of the file in bytes
+      url:
+        type: string
+        format: uri
+        description: URL to access the file
+      caseId:
+        type: string
+        description: Case ID the file belongs to
+      uploadedBy:
+        type: string
+        description: User ID of the uploader
+      uploadedAt:
+        type: string
+        format: date-time
+        description: Timestamp when the file was uploaded
+    required:
+      - id
+      - name
+      - contentType
+      - size
+      - caseId
