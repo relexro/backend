@@ -39,43 +39,6 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
-# Stripe Secret Manager Resources
-resource "google_secret_manager_secret" "stripe_secret_key" {
-  secret_id = "stripe-secret-key"
-  
-  replication {
-    auto {}
-  }
-  
-  labels = {
-    environment = var.environment
-  }
-}
-
-# Create a data source to see if the secret version exists
-data "google_secret_manager_secret_version" "stripe_secret_key" {
-  secret = google_secret_manager_secret.stripe_secret_key.id
-  version = "latest"
-}
-
-resource "google_secret_manager_secret" "stripe_webhook_secret" {
-  secret_id = "stripe-webhook-secret"
-  
-  replication {
-    auto {}
-  }
-  
-  labels = {
-    environment = var.environment
-  }
-}
-
-# Create a data source to see if the secret version exists
-data "google_secret_manager_secret_version" "stripe_webhook_secret" {
-  secret = google_secret_manager_secret.stripe_webhook_secret.id
-  version = "latest"
-}
-
 locals {
   env_suffix = var.environment == "prod" ? "" : "-${var.environment}"
   

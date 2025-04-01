@@ -237,3 +237,20 @@ def relex_backend_list_parties(request: Request):
 @functions_framework.http
 def relex_backend_list_organization_cases(request: Request):
     return _authenticate_and_call(request, logic_list_cases)
+
+# Add placeholder implementations for the missing functions
+def logic_assign_case(request: Request):
+    """Placeholder function for assigning cases to staff members."""
+    return {"error": "Not Implemented", "message": "This function is not yet implemented"}, 501
+
+def logic_redeem_voucher(request: Request):
+    """Placeholder function for voucher redemption."""
+    return {"error": "Not Implemented", "message": "This function is not yet implemented"}, 501
+
+@functions_framework.http
+def relex_backend_assign_case(request: Request):
+    return _authenticate_and_call(request, logic_assign_case)
+
+@functions_framework.http
+def relex_backend_redeem_voucher(request: Request):
+    return _authenticate_and_call(request, logic_redeem_voucher)

@@ -62,21 +62,3 @@ variable "project_number" {
   type        = string
   default     = "49787884280"
 }
-
-#variable "stripe_secret_key" {
-#  description = "Stripe Secret Key for payment processing"
-#  type        = string
-#  sensitive   = true
-#}
-
-#variable "stripe_webhook_secret" {
-#  description = "Stripe Webhook Secret for verifying webhook events"
-#  type        = string
-#  sensitive   = true
-#} 
-
-#variable "manage_secrets" {
-#  description = "Whether Terraform should manage secret values in Secret Manager. Set to false if you want to manage secret values outside of Terraform."
-#  type        = bool
-#  default     = false
-#}

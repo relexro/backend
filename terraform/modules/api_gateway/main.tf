@@ -36,16 +36,14 @@ resource "google_api_gateway_api_config" "api_config" {
     document {
       path = "spec.yaml"
       contents = base64encode(
-        templatefile(var.openapi_spec_path, {
-          project_id = var.project_id
-          api_domain = var.api_domain
-          region     = var.region
-          function_uris = {
-            for func_name in var.implemented_functions :
-            func_name => "https://${var.region}-${var.project_id}.cloudfunctions.net/${func_name}-dev"
-          }
-        })
-      )
+  templatefile(var.openapi_spec_path, { # Path to your openapi_spec.yaml (passed from root)
+    # Variables needed by the template file:
+    project_id    = var.project_id     # Pass project_id input variable
+    api_domain    = var.api_domain     # Pass api_domain input variable
+    region        = var.region         # Pass region input variable
+    function_uris = var.function_uris  # <-- Pass the function_uris map received as input DIRECTLY
+  })
+)
     }
   }
 
