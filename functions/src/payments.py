@@ -41,7 +41,7 @@ def logic_get_products(request):
     Handles GET requests for the /v1/products endpoint. This endpoint does not require user authentication.
 
     Args:
-        request (flask.Request): The Flask request object (not used for auth/body here).
+        request (functions_framework.Request): The request object (not used for auth/body here).
 
     Returns:
         tuple: (response_body_dict, status_code)

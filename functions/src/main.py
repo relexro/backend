@@ -37,7 +37,8 @@ from payments import (
     create_checkout_session as logic_create_checkout_session,
     handle_stripe_webhook as logic_handle_stripe_webhook,
     cancel_subscription as logic_cancel_subscription,
-    logic_redeem_voucher
+    logic_redeem_voucher,
+    logic_get_products
 )
 from organization_membership import (
     add_organization_member as logic_add_organization_member,
@@ -242,22 +243,16 @@ def relex_backend_list_organization_cases(request: Request):
 
 @functions_framework.http
 def relex_backend_assign_case(request: Request):
-    """HTTP Cloud Function for assigning/unassigning cases.
-    Args:
-        request (flask.Request): The request object.
-    Returns:
-        The response text, or any set of values that can be turned into a
-        Response object using `make_response`
-    """
     return _authenticate_and_call(request, logic_assign_case)
 
 @functions_framework.http
 def relex_backend_redeem_voucher(request: Request):
-    """HTTP Cloud Function for redeeming vouchers.
-    Args:
-        request (flask.Request): The request object.
-    Returns:
-        The response text, or any set of values that can be turned into a
-        Response object using `make_response`
-    """
     return _authenticate_and_call(request, logic_redeem_voucher)
+
+@functions_framework.http
+def relex_backend_get_products(request: Request):
+    try:
+        return logic_get_products(request)
+    except Exception as e:
+        logging.error(f"Error in get_products: {str(e)}", exc_info=True)
+        return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
