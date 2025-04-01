@@ -25,6 +25,7 @@ securityDefinitions:
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     x-google-audiences: "${project_id}"
 
+
 paths:
   # User profile endpoints
   /users/me:
@@ -810,32 +811,41 @@ paths:
   # File endpoints
   /cases/{caseId}/files:
     post:
-      summary: Upload file to a case
+      summary: Upload a file to a case
       operationId: uploadFile
       consumes:
-        - multipart/form-data
+        - application/json
       security:
         - firebase: []
       x-google-backend:
         # ASSUMPTION: Key is 'relex-backend-upload-file'
         address: ${function_uris["relex-backend-upload-file"]}
         path_translation: CONSTANT_ADDRESS
-        deadline: 60.0
+        deadline: 120.0
       parameters:
         - name: caseId
           in: path
           required: true
           type: string
-        - name: file
-          in: formData
+        - in: body
+          name: body
           required: true
-          type: file
-          description: The file to upload
-        - name: fileName
-          in: formData
-          required: false
-          type: string
-          description: Original filename
+          schema:
+            type: object
+            properties:
+              fileContent:
+                type: string
+                format: byte
+                description: Base64 encoded file content
+              fileName:
+                type: string
+                description: Original filename
+              contentType:
+                type: string
+                description: MIME type of the file
+            required:
+              - fileContent
+              - fileName
       responses:
         '201':
           description: File uploaded successfully
@@ -1156,138 +1166,23 @@ paths:
         - application/json
       produces:
         - application/json
-      # No security
+      security: []  # No Firebase auth - secured by Stripe signature
       x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-handle-stripe-webhook'
         address: ${function_uris["relex-backend-handle-stripe-webhook"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
-      parameters:
-        - in: header
-          name: Stripe-Signature
-          type: string
-          required: true
-          description: Stripe signature header for verification
-        - in: body
-          name: event
-          required: true
-          schema:
-            type: object
-            description: Stripe webhook event payload
       responses:
         '200':
-          description: Webhook event processed successfully
+          description: Webhook processed successfully
           schema:
             type: object
             properties:
-              success:
+              received: 
                 type: boolean
-              message:
-                type: string
         '400':
           description: Bad request
           schema:
             $ref: '#/definitions/BadRequest'
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-
-  /api/parties:
-    post:
-      summary: Create a new party (Alternative Path)
-      operationId: createPartyAlt
-      tags:
-        - Parties
-      security:
-        - firebase: []
-      consumes:
-        - application/json
-      produces:
-        - application/json
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-create-party'
-        address: ${function_uris["relex-backend-create-party"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - in: body
-          name: party
-          required: true
-          schema:
-            $ref: '#/definitions/PartyInput'
-      responses:
-        '201':
-          description: Party created successfully
-          schema:
-            $ref: '#/definitions/Party'
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-    get:
-      summary: List parties associated with the user (Alternative Path)
-      operationId: listPartiesAlt
-      tags:
-        - Parties
-      security:
-        - firebase: []
-      produces:
-        - application/json
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-list-parties'
-        address: ${function_uris["relex-backend-list-parties"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: partyType
-          in: query
-          required: false
-          type: string
-          enum: [individual, organization]
-          description: Filter parties by type
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          default: 20
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          default: 0
-      responses:
-        '200':
-          description: List of parties
-          schema:
-            type: object
-            properties:
-              parties:
-                type: array
-                items:
-                  $ref: '#/definitions/Party'
-              total:
-                type: integer
-              limit:
-                type: integer
-              offset:
-                type: integer
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
         '500':
           description: Internal server error
           schema:
@@ -1441,7 +1336,6 @@ paths:
       produces:
         - application/json
       x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-attach-party'
         address: ${function_uris["relex-backend-attach-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
@@ -1509,7 +1403,6 @@ paths:
       produces:
         - application/json
       x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-detach-party'
         address: ${function_uris["relex-backend-detach-party"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
@@ -1538,14 +1431,14 @@ paths:
                 type: string
               partyId:
                 type: string
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
         '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/Unauthorized'
+        '403':
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
         '404':
           description: Not found
           schema:
