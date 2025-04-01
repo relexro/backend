@@ -1650,6 +1650,25 @@ paths:
               message:
                 type: string
 
+  /products:
+    get:
+      summary: Get active products and prices from Stripe
+      operationId: getProducts
+      security: [] # No authentication required
+      x-google-backend:
+        address: ${function_uris["relex-backend-get-products"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      responses:
+        '200':
+          description: List of active products and prices
+          schema:
+            $ref: '#/definitions/ProductList'
+        '500':
+          description: Internal server error or Stripe API error
+          schema:
+            $ref: '#/definitions/InternalServerError'
+
 definitions:
   BadRequest:
     description: Bad request error response
@@ -2076,3 +2095,103 @@ definitions:
       - contentType
       - size
       - caseId
+
+  ProductList:
+    type: object
+    description: List of active products categorized by type
+    properties:
+      subscriptions:
+        type: array
+        items:
+          $ref: '#/definitions/SubscriptionProduct'
+      cases:
+        type: array
+        items:
+          $ref: '#/definitions/CaseProduct'
+    required:
+      - subscriptions
+      - cases
+
+  SubscriptionProduct:
+    type: object
+    description: Subscription product with pricing details
+    properties:
+      id:
+        type: string
+        description: Stripe product ID
+      name:
+        type: string
+        description: Product name
+      description:
+        type: string
+        description: Product description
+      plan_type:
+        type: string
+        description: Plan type (e.g., individual, org_basic, org_pro)
+      price:
+        $ref: '#/definitions/ProductPrice'
+    required:
+      - id
+      - name
+      - price
+
+  CaseProduct:
+    type: object
+    description: Case product with pricing details
+    properties:
+      id:
+        type: string
+        description: Stripe product ID
+      name:
+        type: string
+        description: Product name
+      description:
+        type: string
+        description: Product description
+      tier:
+        type: integer
+        description: Case tier (1, 2, or 3)
+        enum: [1, 2, 3]
+      price:
+        $ref: '#/definitions/ProductPrice'
+    required:
+      - id
+      - name
+      - price
+
+  ProductPrice:
+    type: object
+    description: Price information for a product
+    properties:
+      id:
+        type: string
+        description: Stripe price ID
+      amount:
+        type: integer
+        description: Price amount in smallest currency unit (e.g., cents)
+      currency:
+        type: string
+        description: Three-letter ISO currency code (e.g., eur)
+      type:
+        type: string
+        enum: [recurring, one_time]
+        description: Price type
+      recurring:
+        type: object
+        description: Recurring price details (only for subscription products)
+        properties:
+          interval:
+            type: string
+            enum: [month, year]
+            description: Billing interval
+          interval_count:
+            type: integer
+            description: Number of intervals between billings
+        required:
+          - interval
+          - interval_count
+    required:
+      - id
+      - amount
+      - currency
+      - type

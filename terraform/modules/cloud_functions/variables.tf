@@ -144,6 +144,18 @@ variable "functions" {
         }
       ]
     },
+    "relex-backend-get-products" = {
+      description = "Get active products and prices from Stripe"
+      entry_point = "relex_backend_get_products"
+      env_vars    = {}
+      secret_env_vars = [
+        {
+          key     = "STRIPE_SECRET_KEY"
+          secret  = "stripe-secret-key"
+          version = "latest"
+        }
+      ]
+    },
     "relex-backend-create-checkout-session" = {
       description = "Create a Stripe checkout session"
       entry_point = "relex_backend_create_checkout_session" # Matched main.py

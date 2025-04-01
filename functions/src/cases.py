@@ -574,3 +574,152 @@ def detach_party_from_case(request: Request):
     except Exception as e:
         logging.error(f"Error detaching party: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "Failed to detach party"}, 500)
+
+def logic_assign_case(request: Request):
+    """Assigns or unassigns an organization case to a staff member.
+
+    Handles PUT requests for /v1/cases/{caseId}/assign.
+
+    Args:
+        request (flask.Request): The Flask request object.
+            - Expects 'caseId' to be the last part of the URL path (e.g., extracted via request.path.split('/')[-1]).
+            - Expects JSON body containing {'assignedUserId': 'user_id_to_assign' or None}.
+            - Expects 'user_id' attribute attached by an auth wrapper, representing the requesting user.
+
+    Returns:
+        tuple: (response_body_dict, status_code)
+    """
+    try:
+        # Extract case ID from the URL path with validation
+        path_parts = request.path.strip('/').split('/')
+        if len(path_parts) < 4 or path_parts[-3] != 'cases' or path_parts[-1] != 'assign':
+            return {
+                'error': 'InvalidPath',
+                'message': 'Invalid URL path format. Expected /v1/cases/{caseId}/assign'
+            }, 400
+        case_id = path_parts[-2]  # caseId is now second to last part
+        
+        # Get and validate request body
+        try:
+            body = request.get_json()
+        except Exception:
+            return {
+                'error': 'InvalidJSON',
+                'message': 'Request body must be valid JSON'
+            }, 400
+            
+        if not isinstance(body, dict) or 'assignedUserId' not in body:
+            return {
+                'error': 'InvalidRequest',
+                'message': 'Request body must contain assignedUserId field'
+            }, 400
+        
+        assigned_user_id = body['assignedUserId']  # Can be None for unassign
+        if assigned_user_id is not None and not isinstance(assigned_user_id, str):
+            return {
+                'error': 'InvalidRequest',
+                'message': 'assignedUserId must be a string or null'
+            }, 400
+        
+        # Get the requesting user ID from the request
+        requesting_user_id = getattr(request, 'user_id', None)
+        if not requesting_user_id:
+            return {
+                'error': 'Unauthorized',
+                'message': 'Authentication required'
+            }, 401
+            
+        # Fetch and validate the case
+        case_ref = db.collection('cases').document(case_id)
+        case_doc = case_ref.get()
+        
+        if not case_doc.exists:
+            return {
+                'error': 'NotFound',
+                'message': f'Case {case_id} not found'
+            }, 404
+            
+        case_data = case_doc.to_dict()
+        organization_id = case_data.get('organizationId')
+        
+        if not organization_id:
+            return {
+                'error': 'InvalidCase',
+                'message': 'Case is not associated with an organization'
+            }, 400
+            
+        # Check permissions
+        permission_request = PermissionCheckRequest(
+            resourceType=TYPE_CASE,
+            resourceId=case_id,
+            action="assign_case",
+            organizationId=organization_id
+        )
+        has_permission, error_message = check_permission(requesting_user_id, permission_request)
+        
+        if not has_permission:
+            return {
+                'error': 'Forbidden',
+                'message': error_message or 'Permission denied'
+            }, 403
+            
+        assigned_user_name = None
+        # Validate target user if assigning
+        if assigned_user_id is not None:
+            # Check organization membership
+            memberships_query = db.collection('organization_memberships').where(
+                'organizationId', '==', organization_id
+            ).where('userId', '==', assigned_user_id).limit(1)
+            
+            membership_docs = memberships_query.get()
+            if not membership_docs:
+                return {
+                    'error': 'NotFound',
+                    'message': 'Target user not found in this organization'
+                }, 404
+                
+            membership_data = membership_docs[0].to_dict()
+            if membership_data.get('role') != 'staff':
+                return {
+                    'error': 'InvalidRole',
+                    'message': "Target user must have 'staff' role"
+                }, 400
+                
+            # Get user details for response
+            user_ref = db.collection('users').document(assigned_user_id)
+            user_doc = user_ref.get()
+            if user_doc.exists:
+                assigned_user_name = user_doc.to_dict().get('displayName')
+        
+        # Update the case
+        update_data = {
+            'assignedUserId': assigned_user_id,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        case_ref.update(update_data)
+        
+        # Prepare success response
+        action_type = 'unassigned' if assigned_user_id is None else 'assigned'
+        response = {
+            'success': True,
+            'message': f'Case {action_type} successfully',
+            'caseId': case_id,
+            'assignedUserId': assigned_user_id,
+            'assignedUserName': assigned_user_name
+        }
+        
+        # Log the action
+        logging.info(
+            f"Case {case_id} {action_type} by user {requesting_user_id} " +
+            f"to user {assigned_user_id if assigned_user_id else 'none'}"
+        )
+        
+        return response, 200
+        
+    except Exception as e:
+        logging.error(f"Error in logic_assign_case: {str(e)}")
+        return {
+            'error': 'InternalError',
+            'message': 'An internal error occurred'
+        }, 500

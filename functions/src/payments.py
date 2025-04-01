@@ -6,6 +6,7 @@ from firebase_admin import firestore # Use Firestore from firebase_admin
 import stripe
 import os
 import json
+from datetime import datetime, timezone, timedelta
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -30,8 +31,148 @@ else:
     # Depending on your needs, you might want to raise an exception here
     # or allow the application to continue but log the error prominently.
 
+# Constants for product caching
+CACHE_TTL = 3600  # Cache duration in seconds (1 hour)
+CACHE_DOC_PATH = "cache/stripe_products"  # Firestore path for cache
+
+def logic_get_products(request):
+    """Fetches active products and prices directly from Stripe, using Firestore for caching.
+
+    Handles GET requests for the /v1/products endpoint. This endpoint does not require user authentication.
+
+    Args:
+        request (flask.Request): The Flask request object (not used for auth/body here).
+
+    Returns:
+        tuple: (response_body_dict, status_code)
+    """
+    logging.info("Request received for logic_get_products")
+    cache_ref = db.document(CACHE_DOC_PATH)
+    current_time_utc = datetime.now(timezone.utc)
+
+    # 1. Check Firestore Cache
+    try:
+        cache_doc = cache_ref.get()
+        if cache_doc.exists:
+            cache_data = cache_doc.to_dict()
+            cached_at_ts = cache_data.get("cachedAt") # Firestore Timestamp object
+            cached_products = cache_data.get("data")
+
+            if isinstance(cached_at_ts, datetime) and cached_products:
+                # Ensure cached_at_ts is timezone-aware (Firestore timestamps are UTC)
+                if cached_at_ts.tzinfo is None:
+                     cached_at_ts = cached_at_ts.replace(tzinfo=timezone.utc)
+
+                if cached_at_ts + timedelta(seconds=CACHE_TTL) > current_time_utc:
+                    logging.info("Serving product list from Firestore cache.")
+                    # Return the cached data structure directly
+                    return cached_products, 200
+                else:
+                    logging.info("Firestore cache is stale.")
+            else:
+                logging.warning("Firestore cache document exists but is invalid.")
+        else:
+            logging.info("Product cache document not found in Firestore.")
+
+    except Exception as e:
+        logging.error(f"Error reading Firestore cache ({CACHE_DOC_PATH}): {str(e)}", exc_info=True)
+        # Proceed to fetch from Stripe if cache read fails
+
+    # 2. Cache Miss or Stale: Fetch from Stripe
+    logging.info("Fetching products from Stripe...")
+    if not stripe.api_key:
+        logging.error("Stripe API key not configured.")
+        return {"error": "Configuration Error", "message": "Stripe API key not configured"}, 500
+
+    products_response = {
+        "subscriptions": [],
+        "cases": []
+    }
+
+    try:
+        # 3. Fetch Active Products with Default Prices from Stripe
+        # Use expand to include the default_price object directly
+        stripe_products = stripe.Product.list(active=True, expand=['data.default_price'])
+
+        # 4. Process Stripe Products
+        for product in stripe_products.auto_paging_iter():
+            price = product.default_price # Access the expanded price object
+            # Ensure the product has an active default price
+            if not price or not price.active:
+                logging.warning(f"Product {product.id} ({product.name}) skipped (no active default price).")
+                continue
+
+            # Structure common product data
+            product_data = {
+                "id": product.id,
+                "name": product.name,
+                "description": product.description,
+                "price": {
+                    "id": price.id,
+                    "amount": price.unit_amount, # Amount in cents/smallest unit
+                    "currency": price.currency,
+                    "type": price.type, # 'recurring' or 'one_time'
+                }
+            }
+            # Add recurring interval details if applicable
+            if price.type == 'recurring' and price.recurring:
+                product_data["price"]["recurring"] = {
+                    "interval": price.recurring.interval, # e.g., 'month', 'year'
+                    "interval_count": price.recurring.interval_count
+                }
+
+            # 5. Categorize using Stripe Metadata (CRUCIAL ASSUMPTION)
+            # Assume metadata keys 'product_group' ('subscription' or 'case_tier')
+            # and 'tier' ('1', '2', '3' for cases) are set on Stripe Products.
+            product_group = product.metadata.get('product_group')
+            case_tier = product.metadata.get('tier')
+
+            if product_group == 'subscription':
+                # Optionally add plan type (e.g., individual, org_basic) if stored in metadata
+                plan_type = product.metadata.get('plan_type')
+                if plan_type:
+                    product_data['plan_type'] = plan_type
+                products_response["subscriptions"].append(product_data)
+            elif product_group == 'case_tier' and price.type == 'one_time':
+                 # Add tier information if available in metadata
+                 if case_tier:
+                     try:
+                         product_data['tier'] = int(case_tier) # Store tier as integer
+                     except ValueError:
+                         logging.warning(f"Invalid non-integer tier metadata '{case_tier}' for product {product.id}")
+                 products_response["cases"].append(product_data)
+            else:
+                # Log products that don't fit the expected categories
+                logging.warning(f"Product {product.id} ({product.name}) could not be categorized based on metadata. Group: '{product_group}', Price Type: '{price.type}'.")
+
+        # Sort case tiers numerically for consistent frontend display
+        products_response["cases"].sort(key=lambda x: x.get('tier', 99)) # Sort by tier, putting untiered last
+
+        # 6. Write Fresh Data to Firestore Cache
+        try:
+            cache_payload = {
+                "data": products_response, # Store the structured response
+                "cachedAt": firestore.SERVER_TIMESTAMP # Use server timestamp for consistency
+            }
+            cache_ref.set(cache_payload) # Overwrite the cache document
+            logging.info(f"Firestore cache updated ({CACHE_DOC_PATH}). Fetched {len(products_response['subscriptions'])} subscriptions and {len(products_response['cases'])} cases from Stripe.")
+        except Exception as e:
+            # Log error writing cache, but still return the fresh data fetched from Stripe
+            logging.error(f"Error writing to Firestore cache ({CACHE_DOC_PATH}): {str(e)}", exc_info=True)
+
+        # 7. Return Fresh Data
+        return products_response, 200
+
+    except stripe.error.StripeError as e:
+        logging.error(f"Stripe API error fetching products: {str(e)}")
+        # Don't update cache on error, return appropriate error
+        return {"error": "Stripe Error", "message": f"Failed to retrieve products from Stripe: {str(e)}"}, 500
+    except Exception as e:
+        logging.error(f"Unexpected error fetching products: {str(e)}", exc_info=True)
+        # Don't update cache on error, return internal server error
+        return {"error": "Internal Server Error", "message": "An unexpected error occurred"}, 500
+
 # Renamed function to avoid conflict with framework decorator if deployed individually
-# This function now contains only the business logic.
 def create_payment_intent(request):
     """Create a Stripe Payment Intent.
 
@@ -308,9 +449,207 @@ def create_checkout_session(request):
         return ({"error": "Internal Server Error", "message": "Failed to create checkout session"}, 500)
 
 # Placeholder for voucher logic if needed later
-# def redeem_voucher(request):
-#     """Redeem a voucher code."""
-#     pass
+def logic_redeem_voucher(request):
+    """Redeems a voucher code for a user or organization.
+
+    Handles POST requests for /v1/vouchers/redeem.
+
+    Args:
+        request (flask.Request): The Flask request object.
+            - Expects JSON body containing {'voucherCode': 'CODE', 'organizationId': 'org_id' (optional)}.
+            - Expects 'user_id' attribute attached by an auth wrapper, representing the requesting user.
+
+    Returns:
+        tuple: (response_body_dict, status_code)
+    """
+    try:
+        # Get and validate request body
+        try:
+            body = request.get_json()
+        except Exception:
+            return {
+                'error': 'InvalidJSON',
+                'message': 'Request body must be valid JSON'
+            }, 400
+            
+        if not isinstance(body, dict) or 'voucherCode' not in body:
+            return {
+                'error': 'InvalidRequest',
+                'message': 'Request body must contain voucherCode field'
+            }, 400
+        
+        voucher_code = body.get('voucherCode')
+        organization_id = body.get('organizationId')  # Optional
+        
+        if not isinstance(voucher_code, str) or not voucher_code.strip():
+            return {
+                'error': 'InvalidRequest',
+                'message': 'voucherCode must be a non-empty string'
+            }, 400
+            
+        if organization_id is not None and (not isinstance(organization_id, str) or not organization_id.strip()):
+            return {
+                'error': 'InvalidRequest',
+                'message': 'organizationId must be a non-empty string if provided'
+            }, 400
+        
+        # Get the requesting user ID from the request
+        requesting_user_id = getattr(request, 'user_id', None)
+        if not requesting_user_id:
+            return {
+                'error': 'Unauthorized',
+                'message': 'Authentication required'
+            }, 401
+            
+        # Check organization permissions if needed
+        if organization_id:
+            permission_request = PermissionCheckRequest(
+                resourceType=TYPE_ORGANIZATION,
+                resourceId=organization_id,
+                action="manage_billing",
+                organizationId=organization_id
+            )
+            has_permission, error_message = check_permission(requesting_user_id, permission_request)
+            
+            if not has_permission:
+                return {
+                    'error': 'Forbidden',
+                    'message': error_message or 'Permission denied to redeem voucher for this organization'
+                }, 403
+
+        # Use a transaction for atomic operations
+        @db.transaction()
+        def redeem_voucher_transaction(transaction):
+            # Fetch and validate voucher
+            voucher_ref = db.collection('vouchers').document(voucher_code)
+            voucher_doc = voucher_ref.get(transaction=transaction)
+            
+            if not voucher_doc.exists:
+                raise ValueError('Voucher code not found')
+                
+            voucher_data = voucher_doc.to_dict()
+            
+            # Validate voucher state
+            if not voucher_data.get('isActive'):
+                raise ValueError('Voucher is not active')
+                
+            expires_at = voucher_data.get('expiresAt')
+            if expires_at and expires_at.timestamp() < datetime.now(timezone.utc).timestamp():
+                raise ValueError('Voucher has expired')
+                
+            usage_limit = voucher_data.get('usageLimit', 0)
+            usage_count = voucher_data.get('usageCount', 0)
+            if usage_limit > 0 and usage_count >= usage_limit:
+                raise ValueError('Voucher usage limit reached')
+                
+            # Get target entity (user or organization)
+            target_ref = None
+            if organization_id:
+                target_ref = db.collection('organizations').document(organization_id)
+            else:
+                target_ref = db.collection('users').document(requesting_user_id)
+                
+            target_doc = target_ref.get(transaction=transaction)
+            if not target_doc.exists:
+                raise ValueError('Target profile not found')
+                
+            target_data = target_doc.to_dict()
+            
+            # Apply benefit based on voucher type
+            voucher_type = voucher_data.get('voucherType')
+            value = voucher_data.get('value', {})
+            updates = {
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }
+            
+            if voucher_type == 'credit':
+                amount = value.get('amount', 0)
+                if amount <= 0:
+                    raise ValueError('Invalid credit amount')
+                current_balance = target_data.get('voucherBalance', 0)
+                updates['voucherBalance'] = current_balance + amount
+                
+            elif voucher_type == 'free_case':
+                tier = value.get('tier')
+                if not isinstance(tier, int) or tier < 1 or tier > 3:  # Assuming tiers 1-3 are valid
+                    raise ValueError('Invalid case tier')
+                quantity = value.get('quantity', 1)
+                if not isinstance(quantity, int) or quantity < 1:
+                    raise ValueError('Invalid case quantity')
+                free_cases = target_data.get('freeCases', {})
+                tier_key = f'tier{tier}'
+                updates['freeCases'] = {
+                    **free_cases,
+                    tier_key: free_cases.get(tier_key, 0) + quantity
+                }
+                
+            elif voucher_type == 'subscription_discount':
+                discount_type = value.get('type')
+                if discount_type not in ['percentage', 'amount']:
+                    raise ValueError('Invalid discount type')
+                discount_value = value.get('value', 0)
+                if not isinstance(discount_value, (int, float)) or discount_value <= 0:
+                    raise ValueError('Invalid discount value')
+                months = value.get('months', 1)
+                if not isinstance(months, int) or months < 1:
+                    raise ValueError('Invalid discount duration')
+                updates['pendingDiscount'] = {
+                    'type': discount_type,
+                    'value': discount_value,
+                    'months': months
+                }
+            else:
+                raise ValueError('Invalid voucher type')
+                
+            # Update target entity
+            target_ref.update(updates, transaction=transaction)
+            
+            # Update voucher usage
+            voucher_updates = {
+                'usageCount': usage_count + 1,
+                f'redeemedBy.{requesting_user_id}': {
+                    'timestamp': firestore.SERVER_TIMESTAMP,
+                    'organizationId': organization_id
+                }
+            }
+            voucher_ref.update(voucher_updates, transaction=transaction)
+            
+            return {
+                'voucherType': voucher_type,
+                'value': value,
+                'description': voucher_data.get('description')
+            }
+
+        try:
+            # Execute transaction
+            result = redeem_voucher_transaction()
+            
+            return {
+                'success': True,
+                'message': 'Voucher redeemed successfully',
+                'voucherType': result['voucherType'],
+                'value': result['value'],
+                'description': result['description']
+            }, 200
+            
+        except ValueError as e:
+            return {
+                'error': 'InvalidVoucher',
+                'message': str(e)
+            }, 400
+            
+        except firestore.exceptions.TransactionError:
+            return {
+                'error': 'TransactionError',
+                'message': 'Failed to redeem voucher due to concurrent modification'
+            }, 409
+            
+    except Exception as e:
+        logging.error(f"Error in logic_redeem_voucher: {str(e)}")
+        return {
+            'error': 'InternalError',
+            'message': 'An internal error occurred'
+        }, 500
 
 # Placeholder for subscription status check if needed later
 # def check_subscription_status(request):

@@ -217,6 +217,7 @@ The API is organized into the following groups:
 - `DELETE /v1/subscriptions/{subscriptionId}` (cancel subscription)
 - `POST /v1/payments/webhook` (handle Stripe webhooks)
 - `POST /v1/vouchers/redeem` (redeem a voucher code) (PLANNED - not yet implemented)
+- `GET /v1/products` (retrieve active products and prices)
 
 ## Detailed Endpoints
 
@@ -1047,6 +1048,57 @@ The API is organized into the following groups:
   ```
 
 ### Payments
+
+#### Get Products and Prices
+- **Method**: GET
+- **Path**: `/v1/products`
+- **Description**: Retrieves active products (subscriptions, case tiers) and prices from Stripe. Uses a Firestore-based cache; data may be up to 1 hour old.
+- **Authentication**: None required
+- **Response**:
+  ```json
+  {
+    "subscriptions": [
+      {
+        "id": "prod_xyz",
+        "name": "Professional Monthly",
+        "description": "Professional subscription plan, billed monthly",
+        "plan_type": "org_pro_monthly",
+        "price": {
+          "id": "price_xyz",
+          "amount": 50000, // in cents (€500.00)
+          "currency": "eur",
+          "type": "recurring",
+          "recurring": {
+            "interval": "month",
+            "interval_count": 1
+          }
+        }
+      }
+    ],
+    "cases": [
+      {
+        "id": "prod_abc",
+        "name": "Basic Case",
+        "description": "Tier 1 case processing",
+        "tier": 1,
+        "price": {
+          "id": "price_abc",
+          "amount": 900, // in cents (€9.00)
+          "currency": "eur",
+          "type": "one_time"
+        }
+      }
+    ]
+  }
+  ```
+- **Error Responses**:
+  - `500 Internal Server Error`: Server-side error or Stripe API error
+  ```json
+  {
+    "error": "Stripe Error",
+    "message": "Failed to retrieve products from Stripe: detailed error message"
+  }
+  ```
 
 #### Create Payment Intent
 - **Method**: POST

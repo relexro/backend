@@ -259,6 +259,7 @@ The API is designed around RESTful principles, with each endpoint corresponding 
 - `create_checkout_session`: Creates a Stripe checkout session for subscriptions
 - `cancel_subscription`: Cancels an active subscription
 - `handle_stripe_webhook`: Processes Stripe webhook events to update database records
+- `get_products`: Retrieves active products and prices from Stripe with Firestore caching (1-hour TTL)
 
 ### Chat Management Endpoints
 

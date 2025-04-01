@@ -98,6 +98,14 @@ Split across multiple files for different aspects:
   - Updates the case's attachedPartyIds array using ArrayRemove
 
 ### Payment Processing (`payments.py`)
+- `logic_get_products`:
+  - Fetches active products and prices from Stripe with Firestore caching
+  - Uses 1-hour cache TTL to minimize Stripe API calls
+  - Categorizes products into subscriptions and case tiers based on metadata
+  - Handles both recurring subscription prices and one-time case payments
+  - Returns structured response with prices in cents/smallest currency unit
+  - No authentication required - public endpoint
+
 - `create_payment_intent`: 
   - Creates Stripe payment intent based on case tier (1, 2, 3)
   - Maps tier to appropriate amount (Tier 1=900, Tier 2=2900, Tier 3=9900 cents)

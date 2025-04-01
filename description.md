@@ -101,7 +101,11 @@ The Relex backend is a serverless application built using Python Firebase Functi
 
 ### 7. Payment System Implementation Status
 
-* **Implemented:** Stripe setup, Payment Intent/Checkout Session creation, webhook handler for subscription events, cancellation [cite: functions/src/payments.py]. Subscription fields in `users`/`organizations` schemas [cite: context.md]. `plans` collection defined [cite: context.md].
+* **Implemented:** 
+    * Stripe setup, Payment Intent/Checkout Session creation, webhook handler for subscription events, cancellation [cite: functions/src/payments.py]. 
+    * Subscription fields in `users`/`organizations` schemas [cite: context.md]. 
+    * `plans` collection defined [cite: context.md].
+    * Product/price listing endpoint (`GET /v1/products`) with Firestore caching to minimize Stripe API calls.
 * **To Do:**
     * **Quota Logic:** Implement quota checking/decrementing in `create_case`. Handle "quota exhausted" error.
     * **Quota Reset:** Ensure `invoice.paid` webhook resets `caseQuotaUsed` and updates billing cycle dates.

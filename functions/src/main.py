@@ -17,7 +17,8 @@ from cases import (
     upload_file as logic_upload_file,
     download_file as logic_download_file,
     attach_party_to_case as logic_attach_party,
-    detach_party_from_case as logic_detach_party
+    detach_party_from_case as logic_detach_party,
+    logic_assign_case
 )
 from organization import (
     create_organization as logic_create_organization,
@@ -35,7 +36,8 @@ from payments import (
     create_payment_intent as logic_create_payment_intent,
     create_checkout_session as logic_create_checkout_session,
     handle_stripe_webhook as logic_handle_stripe_webhook,
-    cancel_subscription as logic_cancel_subscription
+    cancel_subscription as logic_cancel_subscription,
+    logic_redeem_voucher
 )
 from organization_membership import (
     add_organization_member as logic_add_organization_member,
@@ -238,19 +240,24 @@ def relex_backend_list_parties(request: Request):
 def relex_backend_list_organization_cases(request: Request):
     return _authenticate_and_call(request, logic_list_cases)
 
-# Add placeholder implementations for the missing functions
-def logic_assign_case(request: Request):
-    """Placeholder function for assigning cases to staff members."""
-    return {"error": "Not Implemented", "message": "This function is not yet implemented"}, 501
-
-def logic_redeem_voucher(request: Request):
-    """Placeholder function for voucher redemption."""
-    return {"error": "Not Implemented", "message": "This function is not yet implemented"}, 501
-
 @functions_framework.http
 def relex_backend_assign_case(request: Request):
+    """HTTP Cloud Function for assigning/unassigning cases.
+    Args:
+        request (flask.Request): The request object.
+    Returns:
+        The response text, or any set of values that can be turned into a
+        Response object using `make_response`
+    """
     return _authenticate_and_call(request, logic_assign_case)
 
 @functions_framework.http
 def relex_backend_redeem_voucher(request: Request):
+    """HTTP Cloud Function for redeeming vouchers.
+    Args:
+        request (flask.Request): The request object.
+    Returns:
+        The response text, or any set of values that can be turned into a
+        Response object using `make_response`
+    """
     return _authenticate_and_call(request, logic_redeem_voucher)
