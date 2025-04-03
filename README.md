@@ -157,7 +157,7 @@ functions-framework --target=cases_create_case
 The Cloud Functions use the following environment variables:
 
 - `GOOGLE_CLOUD_PROJECT`: The Google Cloud project ID (default: "relexro")
-- `GOOGLE_CLOUD_REGION`: The Google Cloud region (default: "europe-west3")
+- `GOOGLE_CLOUD_REGION`: The Google Cloud region (default: "europe-west1")
 - `STRIPE_SECRET_KEY`: The Stripe secret key (used in payment functions)
 - `STRIPE_WEBHOOK_SECRET`: The Stripe webhook signing secret (used to verify webhook authenticity)
 
@@ -182,20 +182,20 @@ The gcloud CLI is the recommended tool for monitoring and debugging Cloud Functi
 gcloud functions deploy relex-backend-create-case \
   --gen2 \
   --runtime=python310 \
-  --region=europe-west3 \
+  --region=europe-west1 \
   --source=./functions/src \
   --entry-point=cases_create_case \
   --trigger-http \
   --allow-unauthenticated
 
 # View logs for a function
-gcloud functions logs read relex-backend-create-case --gen2 --region=europe-west3
+gcloud functions logs read relex-backend-create-case --gen2 --region=europe-west1
 
 # Describe a function to get details
-gcloud functions describe relex-backend-create-case --gen2 --region=europe-west3
+gcloud functions describe relex-backend-create-case --gen2 --region=europe-west1
 
 # Test a function directly with HTTP
-gcloud functions call relex-backend-create-case --gen2 --region=europe-west3 --data '{"title": "Test Case", "description": "Test Description"}'
+gcloud functions call relex-backend-create-case --gen2 --region=europe-west1 --data '{"title": "Test Case", "description": "Test Description"}'
 ```
 
 **Note**: Always use gcloud CLI for monitoring and debugging functions rather than creating temporary testing solutions.
@@ -237,7 +237,7 @@ We've included a simple HTML utility for testing Firebase Authentication:
 4. Once authenticated, you'll see your user ID and can access your ID token
 
 5. Test API endpoints by entering the function URL in the input field and clicking "Test API with Token"
-   - Example URL to test: `https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user`
+   - Example URL to test: `https://europe-west1-relexro.cloudfunctions.net/relex-backend-validate-user`
 
 6. The API response will be displayed, showing your authenticated user information
 
@@ -272,7 +272,7 @@ For testing without a browser, you can obtain an ID token using gcloud:
    ```bash
    curl -X GET \
      -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-     https://europe-west3-relexro.cloudfunctions.net/relex-backend-validate-user
+     https://europe-west1-relexro.cloudfunctions.net/relex-backend-validate-user
    ```
 
 Expected response (HTTP 200):
@@ -316,7 +316,7 @@ The DNS configuration is managed via Terraform in the `modules/cloudflare` modul
 
 3. **Container Health Check Failures**: If you see "Container Healthcheck failed" errors, check the logs with:
    ```bash
-   gcloud functions logs read <function-name> --gen2 --region=europe-west3
+   gcloud functions logs read <function-name> --gen2 --region=europe-west1
    ```
 
 4. **Import Errors**: Make sure all imported modules are listed in requirements.txt with correct versions.
@@ -339,7 +339,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"name": "Test Organization", "type": "law_firm", "email": "test@example.com"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-organization
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-create-organization
 ```
 
 2. Add members with different roles:
@@ -349,14 +349,14 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"organizationId": "ORGANIZATION_ID", "userId": "STAFF_USER_ID", "role": "staff"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-add-organization-member
 
 # Add administrator
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"organizationId": "ORGANIZATION_ID", "userId": "ADMIN_USER_ID", "role": "administrator"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-add-organization-member
 ```
 
 #### 2. Test Case Creation
@@ -369,7 +369,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"title": "Admin Test Case", "description": "Case created by admin", "organizationId": "ORGANIZATION_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-create-case
 ```
 
 2. Create organization case as staff member:
@@ -378,7 +378,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"title": "Staff Test Case", "description": "Case created by staff", "organizationId": "ORGANIZATION_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-create-case
 ```
 
 3. Create individual case (requires payment):
@@ -388,14 +388,14 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"amount": 5000, "currency": "usd", "caseTitle": "Individual Test Case", "caseDescription": "Test case with payment"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-payment-intent-for-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-create-payment-intent-for-case
 
 # Then create the case with the payment intent ID
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"title": "Individual Test Case", "description": "Test case with payment", "paymentIntentId": "PAYMENT_INTENT_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-create-case
 ```
 
 4. Test creating a case with non-member account (should fail with 403 Forbidden):
@@ -404,7 +404,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"title": "Unauthorized Case", "description": "Should fail", "organizationId": "ORGANIZATION_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-create-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-create-case
 ```
 
 #### 3. Test Listing Cases
@@ -413,14 +413,14 @@ curl -X POST \
 ```bash
 curl -X GET \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases?organizationId=ORGANIZATION_ID"
+  "https://europe-west1-relexro.cloudfunctions.net/relex-backend-list-cases?organizationId=ORGANIZATION_ID"
 ```
 
 2. List individual cases for the authenticated user:
 ```bash
 curl -X GET \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-cases"
+  "https://europe-west1-relexro.cloudfunctions.net/relex-backend-list-cases"
 ```
 
 #### 4. Test Case Operations with Different Roles
@@ -432,14 +432,14 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"caseId": "CASE_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-archive-case
 
 # As staff member (should fail with 403 Forbidden)
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"caseId": "CASE_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-archive-case
 ```
 
 2. Archive an individual case:
@@ -449,14 +449,14 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"caseId": "INDIVIDUAL_CASE_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-archive-case
 
 # As different user (should fail with 403 Forbidden)
 curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"caseId": "INDIVIDUAL_CASE_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-archive-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-archive-case
 ```
 
 3. Delete a case:
@@ -466,7 +466,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{"caseId": "CASE_ID"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-delete-case
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-delete-case
 ```
 
 #### 5. Test File Operations
@@ -478,7 +478,7 @@ curl -X POST \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -F "file=@/path/to/file.pdf" \
   -F "caseId=CASE_ID" \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-upload-file
 ```
 
 2. Upload file to an individual case:
@@ -488,7 +488,7 @@ curl -X POST \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -F "file=@/path/to/file.pdf" \
   -F "caseId=INDIVIDUAL_CASE_ID" \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-upload-file
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-upload-file
 ```
 
 #### 6. Verifying the Dual Case Ownership Model
@@ -699,11 +699,11 @@ After performing these operations, you can verify the permission checks by:
 1. Using the Firebase Console to check the documents in Firestore
 2. Examining the logs of the Cloud Functions:
    ```bash
-   gcloud functions logs read relex-backend-create-case --gen2 --region=europe-west3
-   gcloud functions logs read relex-backend-archive-case --gen2 --region=europe-west3
-   gcloud functions logs read relex-backend-delete-case --gen2 --region=europe-west3
-   gcloud functions logs read relex-backend-upload-file --gen2 --region=europe-west3
-   gcloud functions logs read relex-backend-list-cases --gen2 --region=europe-west3
+   gcloud functions logs read relex-backend-create-case --gen2 --region=europe-west1
+   gcloud functions logs read relex-backend-archive-case --gen2 --region=europe-west1
+   gcloud functions logs read relex-backend-delete-case --gen2 --region=europe-west1
+   gcloud functions logs read relex-backend-upload-file --gen2 --region=europe-west1
+   gcloud functions logs read relex-backend-list-cases --gen2 --region=europe-west1
    ```
 
 The permission model ensures that:
@@ -720,7 +720,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ID_TOKEN>" \
   -d '{"organizationId": "org123", "userId": "user456", "role": "staff"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-add-organization-member
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-add-organization-member
 ```
 
 Expected response (HTTP 200):
@@ -743,7 +743,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ID_TOKEN>" \
   -d '{"organizationId": "org123", "userId": "user456", "newRole": "administrator"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-set-organization-member-role
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-set-organization-member-role
 ```
 
 Expected response (HTTP 200):
@@ -764,7 +764,7 @@ Expected response (HTTP 200):
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-organization-members?organizationId=org123"
+  "https://europe-west1-relexro.cloudfunctions.net/relex-backend-list-organization-members?organizationId=org123"
 ```
 
 Expected response (HTTP 200):
@@ -796,7 +796,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ID_TOKEN>" \
   -d '{"organizationId": "org123", "userId": "user456"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-remove-organization-member
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-remove-organization-member
 ```
 
 Expected response (HTTP 200):
@@ -815,7 +815,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ID_TOKEN>" \
   -d '{"userId": "user456", "organizationId": "org123"}' \
-  https://europe-west3-relexro.cloudfunctions.net/relex-backend-get-user-organization-role
+  https://europe-west1-relexro.cloudfunctions.net/relex-backend-get-user-organization-role
 ```
 
 Expected response (HTTP 200):
@@ -832,7 +832,7 @@ You can test the `list_user_organizations` function using curl or a tool like Po
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations"
+  "https://europe-west1-relexro.cloudfunctions.net/relex-backend-list-user-organizations"
 ```
 
 This will return all organizations the authenticated user belongs to.
@@ -862,7 +862,7 @@ You can also specify a user ID to view organizations for a specific user (only w
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations?userId=YOUR_USER_ID"
+  "https://europe-west1-relexro.cloudfunctions.net/relex-backend-list-user-organizations?userId=YOUR_USER_ID"
 ```
 
 Attempting to view another user's organizations will result in a 403 Forbidden error:
@@ -870,7 +870,7 @@ Attempting to view another user's organizations will result in a 403 Forbidden e
 ```bash
 curl -X GET \
   -H "Authorization: Bearer <ID_TOKEN>" \
-  "https://europe-west3-relexro.cloudfunctions.net/relex-backend-list-user-organizations?userId=ANOTHER_USER_ID"
+  "https://europe-west1-relexro.cloudfunctions.net/relex-backend-list-user-organizations?userId=ANOTHER_USER_ID"
 ```
 
 Expected response (HTTP 403):
