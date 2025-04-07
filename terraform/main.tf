@@ -41,21 +41,21 @@ provider "cloudflare" {
 
 locals {
   env_suffix = var.environment == "prod" ? "" : "-${var.environment}"
-  
+
   # Environment-specific resource names
   # function_names has been removed as it's handled by the cloud_functions module
-  
+
   bucket_names = {
     for k, v in var.bucket_names : k => "relexro-${v}${local.env_suffix}"
   }
-  
+
   service_account_name = "${var.service_account_name}${local.env_suffix}"
-  
+
   api_gateway_name = "relex-api${local.env_suffix}"
-  
+
   # Environment-specific domain configuration
   api_domain = var.environment == "prod" ? "api.${var.domain_name}" : "api-${var.environment}.${var.domain_name}"
-  
+
   # Common tags for all resources
   common_labels = {
     environment = var.environment
@@ -97,7 +97,8 @@ module "apis" {
 module "firebase" {
   source     = "./modules/firebase"
   project_id = var.project_id
-  
+  firestore_location = var.region
+
   depends_on = [module.apis]
 }
 
@@ -122,9 +123,9 @@ module "cloud_functions" {
   functions_zip_path              = "${path.module}/functions-source.zip"
   functions_service_account_email = google_service_account.functions.email
   api_gateway_sa_email            = google_service_account.functions.email
-  
+
   # All functions are defined in ./modules/cloud_functions/variables.tf
-  
+
   depends_on = [
     module.apis,
     module.storage,
@@ -185,9 +186,9 @@ resource "google_storage_bucket" "functions_source" {
   name                        = "${local.bucket_names["functions"]}-source"
   location                    = var.region
   uniform_bucket_level_access = true
-  
+
   labels = local.common_labels
-  
+
   lifecycle_rule {
     condition {
       age = 30
@@ -202,14 +203,14 @@ resource "google_storage_bucket" "files" {
   name                        = local.bucket_names["files"]
   location                    = var.region
   uniform_bucket_level_access = true
-  
+
   labels = local.common_labels
 }
 
 # Cloud Functions source code
 resource "google_storage_bucket_object" "function_source" {
   for_each = var.functions
-  
+
   name   = "${each.key}/function-source-${filemd5("../functions/src/main.py")}.zip"
   bucket = google_storage_bucket.functions_source.name
   source = data.archive_file.function_source.output_path
@@ -225,11 +226,11 @@ data "archive_file" "function_source" {
 # Cloud Functions
 resource "google_cloudfunctions2_function" "functions" {
   for_each = var.functions
-  
+
   name        = local.function_names[each.key]
   location    = var.region
   description = "Cloud Function for ${each.value.name} (${var.environment})"
-  
+
   build_config {
     runtime     = "python310"
     entry_point = each.value.entry_point
@@ -240,7 +241,7 @@ resource "google_cloudfunctions2_function" "functions" {
       }
     }
   }
-  
+
   service_config {
     max_instance_count             = each.value.max_instance_count
     min_instance_count            = each.value.min_instance_count
@@ -250,14 +251,14 @@ resource "google_cloudfunctions2_function" "functions" {
     service_account_email         = google_service_account.functions.email
     ingress_settings             = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
-    
+
     environment_variables = merge(
       each.value.env_vars,
       {
         ENVIRONMENT = var.environment
       }
     )
-    
+
     dynamic "secret_environment_variables" {
       for_each = lookup(each.value, "secret_env_vars", [])
       content {
@@ -268,7 +269,7 @@ resource "google_cloudfunctions2_function" "functions" {
       }
     }
   }
-  
+
   labels = local.common_labels
 }
 
@@ -276,7 +277,7 @@ resource "google_cloudfunctions2_function" "functions" {
 resource "google_api_gateway_api" "api" {
   provider = google-beta
   api_id   = local.api_gateway_name
-  
+
   labels = local.common_labels
 }
 
@@ -284,7 +285,7 @@ resource "google_api_gateway_api" "api" {
 resource "google_api_gateway_api_config" "api" {
   provider = google-beta
   api      = google_api_gateway_api.api.api_id
-  
+
   openapi_documents {
     document {
       path     = "openapi.yaml"
@@ -298,11 +299,11 @@ resource "google_api_gateway_api_config" "api" {
       }))
     }
   }
-  
+
   lifecycle {
     create_before_destroy = true
   }
-  
+
   labels = local.common_labels
 }
 
@@ -312,7 +313,7 @@ resource "google_api_gateway_gateway" "gateway" {
   api_config = google_api_gateway_api_config.api.id
   gateway_id = local.api_gateway_name
   region     = var.region
-  
+
   labels = local.common_labels
 }
 

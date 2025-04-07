@@ -15,4 +15,14 @@ output "firestore_security_rules" {
 output "firestore_rules_release" {
   value = google_firebaserules_release.firestore.name
   description = "Name of the deployed Firestore security rules release"
-} 
+}
+
+output "default_firestore_database" {
+  value = "(default)"
+  description = "Name of the default Firestore database"
+}
+
+output "default_firestore_rules_release" {
+  value = google_firebaserules_release.default_firestore.name
+  description = "Name of the deployed default Firestore security rules release"
+}
