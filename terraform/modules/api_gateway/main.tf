@@ -38,7 +38,8 @@ resource "google_api_gateway_api" "api" {
   lifecycle {
     prevent_destroy = true
     ignore_changes = [
-      display_name
+      display_name,
+      labels
     ]
   }
 }
@@ -64,7 +65,8 @@ resource "google_api_gateway_api_config" "api_config" {
     # Prevent recreation when only metadata changes
     ignore_changes = [
       labels,
-      display_name
+      display_name,
+      gateway_config
     ]
   }
 
@@ -89,7 +91,8 @@ resource "google_api_gateway_gateway" "gateway" {
     # Prevent recreation of the gateway when only metadata changes
     ignore_changes = [
       labels,
-      display_name
+      display_name,
+      api_config
     ]
   }
 }

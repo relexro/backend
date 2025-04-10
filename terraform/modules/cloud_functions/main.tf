@@ -96,10 +96,8 @@ resource "google_cloudfunctions2_function" "functions" {
       labels,
       build_config[0].worker_pool,
       build_config[0].docker_repository,
-      service_config[0].environment_variables["GOOGLE_CLOUD_PROJECT"],
-      service_config[0].environment_variables["GOOGLE_CLOUD_REGION"],
-      service_config[0].environment_variables["GCS_BUCKET"],
-      service_config[0].environment_variables["ENVIRONMENT"]
+      service_config[0].service_account_email,
+      service_config[0].environment_variables["LOG_EXECUTION_ID"]
     ]
 
     # Prevent replacement when only the source code changes

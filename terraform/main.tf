@@ -62,6 +62,8 @@ locals {
     managed_by  = "terraform"
     project     = "relex"
   }
+
+  functions_service_account_email = "serviceAccount:${google_service_account.functions.email}"
 }
 
 # --- Service Account Definition ---
@@ -76,7 +78,8 @@ resource "google_service_account" "functions" {
   lifecycle {
     prevent_destroy = true
     ignore_changes = [
-      description
+      description,
+      display_name
     ]
   }
 }
@@ -85,7 +88,7 @@ resource "google_service_account" "functions" {
 resource "google_project_iam_member" "functions_invoker" {
   project = var.project_id
   role    = "roles/cloudfunctions.invoker"
-  member  = "serviceAccount:${google_service_account.functions.email}"
+  member  = local.functions_service_account_email
   
   # Using the more effective lifecycle configuration
   lifecycle {
@@ -134,8 +137,8 @@ module "cloud_functions" {
   functions_bucket_name           = module.storage.functions_bucket_name
   functions_source_path           = "${path.module}/../functions/src"
   functions_zip_path              = "${path.module}/functions-source.zip"
-  functions_service_account_email = google_service_account.functions.email
-  api_gateway_sa_email            = google_service_account.functions.email
+  functions_service_account_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
+  api_gateway_sa_email            = trimprefix(local.functions_service_account_email, "serviceAccount:")
 
   # All functions are defined in ./modules/cloud_functions/variables.tf
 
@@ -153,7 +156,7 @@ module "api_gateway" {
   region               = var.region
   openapi_spec_path    = "${path.module}/openapi_spec.yaml"
   function_uris        = module.cloud_functions.function_uris
-  api_gateway_sa_email = google_service_account.functions.email
+  api_gateway_sa_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
   api_domain           = local.api_domain
 
   depends_on = [
@@ -182,8 +185,8 @@ module "cloudflare" {
 module "iam" {
   source                                = "./modules/iam"
   project_id                            = var.project_id
-  api_gateway_sa_email                  = google_service_account.functions.email
-  relex_functions_service_account_email = google_service_account.functions.email
+  api_gateway_sa_email                  = trimprefix(local.functions_service_account_email, "serviceAccount:")
+  relex_functions_service_account_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
 
   depends_on = [
     google_service_account.functions

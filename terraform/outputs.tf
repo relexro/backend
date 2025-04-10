@@ -47,7 +47,7 @@ output "firebase_web_app_id" {
 
 output "service_account_email" {
   description = "Email of the service account used by Cloud Functions"
-  value       = google_service_account.functions.email
+  value       = trimprefix(local.functions_service_account_email, "serviceAccount:")
 }
 
 output "storage_buckets" {

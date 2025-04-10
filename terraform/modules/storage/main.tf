@@ -14,7 +14,9 @@ resource "google_storage_bucket" "functions_bucket" {
     prevent_destroy = true
     # Prevent recreation when only metadata changes
     ignore_changes = [
-      labels
+      labels,
+      force_destroy,
+      versioning
     ]
   }
 }
@@ -42,7 +44,10 @@ resource "google_storage_bucket" "files_bucket" {
     prevent_destroy = true
     # Prevent recreation when only metadata changes
     ignore_changes = [
-      labels
+      labels,
+      force_destroy,
+      versioning,
+      cors
     ]
   }
 } 
