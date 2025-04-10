@@ -243,6 +243,16 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Case Type Configurations: Read-only for authenticated users
+    match /caseTypeConfigs/{caseTypeId} {
+      // Allow any authenticated user to read case type configurations
+      // These are used to configure the chat agent behavior
+      allow read: if isAuthenticated();
+
+      // Only allow system admins to create/update/delete (handled by backend functions)
+      allow create, update, delete: if false;
+    }
+
     // Deny access to all other collections by default
   }
 }

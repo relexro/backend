@@ -35,11 +35,11 @@ The Relex backend is a serverless application built using Python Firebase Functi
 
 ### 4. Firestore Schema
 
-* **Implemented:** Core collections (`users`, `organizations`, `organization_memberships`, `cases`, `documents`, `payments`, `checkoutSessions`, `plans`, `parties`) defined in `context.md` [cite: context.md]. Collection name consistency fixed.
+* **Implemented:** Core collections (`users`, `organizations`, `organization_memberships`, `cases`, `documents`, `payments`, `checkoutSessions`, `plans`, `parties`, `caseTypeConfigs`) defined in `context.md` [cite: context.md]. Collection name consistency fixed.
 * **To Do:**
     * **Labels Collection:** Implement `labels` collection (predefined).
     * **Vouchers Collection:** Implement `vouchers` collection.
-    * **Case Schema:** Add `assignedUserId`. Refine `paymentStatus` Update `create_case`.
+    * **Case Schema:** Add `assignedUserId`. Refine `paymentStatus` Update `create_case`. Added `caseTypeId` field for dynamic chat agent configuration.
     * **User/Org Schema:** Ensure schemas include all required subscription/quota fields (`caseQuotaTotal`, `caseQuotaUsed`, `billingCycleStart`, `billingCycleEnd`, `voucherBalance` etc.) [cite: context.md].
     * **Indexing:** Define and configure necessary Firestore indexes.
 
@@ -54,7 +54,7 @@ The Relex backend is a serverless application built using Python Firebase Functi
 ### 6. Function Modules Status
 
 * **`auth.py` [cite: functions/src/auth.py]:**
-    * Implemented: 
+    * Implemented:
         * Enhanced `check_permissions` with resource-specific checkers (case, organization, party, document)
         * Centralized permissions map with predefined actions per role
         * Pydantic validation for request schemas
@@ -66,44 +66,44 @@ The Relex backend is a serverless application built using Python Firebase Functi
 * **`user.py` [cite: functions/src/user.py]:**
     * Implemented: `get_user_profile`, `update_user_profile`, `create_user_profile`.
     * To Do: Ensure schema includes `voucherBalance`.
-    
+
 * **`organization.py` [cite: functions/src/organization.py]:**
-    * Implemented: 
+    * Implemented:
         * `create_organization` (fixed collection name to `organization_memberships`)
         * `get_organization`
         * `update_organization` (improved error handling)
         * `delete_organization` (with transaction-based cleanup)
     * Fixed: Collection name inconsistency resolved across all functions.
     * To Do: Ensure schema includes subscription/quota fields. Align/deprecate superseded functions.
-    
+
 * **`organization_membership.py` [cite: functions/src/organization_membership.py]:**
     * Implemented: Core membership management functions with corrected collection name (`organization_memberships`).
     * Fixed: Collection name inconsistency resolved across all functions.
     * To Do: Enhance error handling for edge cases.
-    
+
 * **`cases.py` [cite: functions/src/cases.py]:**
     * Implemented: `create_case` (lacks quota check), `get_case`, `list_cases` (basic filtering), `archive_case`, `delete_case`, `upload_file`, `download_file`, `attach_party_to_case`, `detach_party_from_case`.
     * To Do: **Implement Quota Check in `create_case`**, implement case assignment (`assignedUserId`), add label filtering, integrate enhanced `check_permissions`. Implement 1GB limit check.
-    
+
 * **`payments.py` [cite: functions/src/payments.py]:**
     * Implemented: `create_payment_intent`, `create_checkout_session`, `handle_stripe_webhook` (various events with improved error handling and nested data access), `cancel_subscription`.
     * Fixed: Added more robust error handling for Stripe API calls and safer nested data access.
     * To Do: **Implement Voucher Redemption Logic**, ensure webhook correctly updates quotas/billing cycle. Configure Stripe Price IDs. Add tests.
-    
+
 * **`chat.py` [cite: functions/src/chat.py]:**
     * Implemented: Basic endpoints with enhanced permission checking in `store_conversation` to verify parent case permissions.
     * Fixed: Added proper permission check to `store_conversation`.
     * To Do: Implement functional `sendChatMessage` and `getChatHistory` endpoints using `conversations` subcollection. Defer actual AI integration.
-    
+
 * **`party.py` [cite: functions/src/party.py]:**
     * Implemented: Full CRUD operations (`create_party`, `get_party`, `update_party`, `delete_party`, `list_parties`), attach/detach functions via `cases.py`.
     * To Do: Enhance search and filtering capabilities.
 
 ### 7. Payment System Implementation Status
 
-* **Implemented:** 
-    * Stripe setup, Payment Intent/Checkout Session creation, webhook handler for subscription events, cancellation [cite: functions/src/payments.py]. 
-    * Subscription fields in `users`/`organizations` schemas [cite: context.md]. 
+* **Implemented:**
+    * Stripe setup, Payment Intent/Checkout Session creation, webhook handler for subscription events, cancellation [cite: functions/src/payments.py].
+    * Subscription fields in `users`/`organizations` schemas [cite: context.md].
     * `plans` collection defined [cite: context.md].
     * Product/price listing endpoint (`GET /v1/products`) with Firestore caching to minimize Stripe API calls.
 * **To Do:**

@@ -138,14 +138,14 @@ if not case.get("organizationId"):
 # For organization cases
 else:
     allowed = check_permissions(
-        user["userId"], 
+        user["userId"],
         resource_id=case_id,
         organization_id=case["organizationId"],
         action="action_name"
     )
     if not allowed:
         return {"error": "Forbidden", "message": "Insufficient permissions"}, 403
-    
+
     # Check payment status if required
     if action_requires_payment and case["paymentStatus"] != "paid":
         return {"error": "Payment Required", "message": "Case payment pending"}, 402
@@ -240,6 +240,7 @@ cases/{caseId}
 ├── assignedUserId: string (**Optional** - ID of the staff user this case is assigned to, only for org cases)
 ├── status: string ("open", "archived", "deleted")
 ├── caseTier: number (e.g., 1, 2, 3 - indicates complexity tier)
+├── caseTypeId: string (**Required** - Type of legal case, e.g., "divorce", "commercial_dispute")
 ├── casePrice: number (e.g., 900, 2900, 9900 - price in cents based on tier)
 ├── paymentStatus: string ("paid_intent", "paid_checkout", "pending", "failed", "covered_by_quota")
 ├── paymentIntentId: string (**Optional** - Links to Stripe Payment Intent for this case's fee)
@@ -248,6 +249,18 @@ cases/{caseId}
 ├── updatedAt: timestamp
 ├── archivedAt: timestamp (optional)
 └── deletedAt: timestamp (optional)
+```
+
+### Case Type Configuration Structure
+
+Defines behavior for the chat agent based on case type:
+
+```
+caseTypeConfigs/{caseTypeId}
+├── caseTypeId: string (matches Document ID, e.g., 'divorce', 'commercial_dispute')
+├── agentGoal: string (primary goal for the chat agent for this case type)
+├── agentInstructions: array of strings (specific instructions for the agent)
+└── relevantSources: array of strings (optional, sources to prioritize for this case type)
 ```
 
 ### Party Structure

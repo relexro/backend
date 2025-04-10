@@ -51,6 +51,7 @@ def create_case(request: Request):
         title = data.get("title")
         description = data.get("description")
         case_tier = data.get("caseTier")
+        case_type_id = data.get("caseTypeId")  # New required field
         organization_id = data.get("organizationId") # Optional
         payment_intent_id = data.get("paymentIntentId") # Optional for non-subscription cases
 
@@ -60,6 +61,8 @@ def create_case(request: Request):
             return ({"error": "Bad Request", "message": "Valid description is required"}, 400)
         if case_tier not in [1, 2, 3]:
              return ({"error": "Bad Request", "message": "caseTier must be 1, 2, or 3"}, 400)
+        if not case_type_id or not isinstance(case_type_id, str) or not case_type_id.strip():
+            return ({"error": "Bad Request", "message": "Valid caseTypeId is required"}, 400)
         if organization_id and (not isinstance(organization_id, str) or not organization_id.strip()):
             return ({"error": "Bad Request", "message": "organizationId must be a non-empty string if provided"}, 400)
         if payment_intent_id and (not isinstance(payment_intent_id, str) or not payment_intent_id.strip()):
@@ -104,13 +107,14 @@ def create_case(request: Request):
             "description": description.strip(),
             "status": "open",
             "caseTier": case_tier,
+            "caseTypeId": case_type_id.strip(),  # New required field
             "casePrice": expected_amount,
             "paymentStatus": "pending",  # This would be set based on the logic
             "creationDate": firestore.SERVER_TIMESTAMP,
             "organizationId": organization_id  # Will be None if not provided
         }
         case_ref.set(case_data)
-        
+
         return ({"caseId": case_ref.id, "status": "open"}, 201)
 
     except Exception as e:
@@ -598,7 +602,7 @@ def logic_assign_case(request: Request):
                 'message': 'Invalid URL path format. Expected /v1/cases/{caseId}/assign'
             }, 400
         case_id = path_parts[-2]  # caseId is now second to last part
-        
+
         # Get and validate request body
         try:
             body = request.get_json()
@@ -607,20 +611,20 @@ def logic_assign_case(request: Request):
                 'error': 'InvalidJSON',
                 'message': 'Request body must be valid JSON'
             }, 400
-            
+
         if not isinstance(body, dict) or 'assignedUserId' not in body:
             return {
                 'error': 'InvalidRequest',
                 'message': 'Request body must contain assignedUserId field'
             }, 400
-        
+
         assigned_user_id = body['assignedUserId']  # Can be None for unassign
         if assigned_user_id is not None and not isinstance(assigned_user_id, str):
             return {
                 'error': 'InvalidRequest',
                 'message': 'assignedUserId must be a string or null'
             }, 400
-        
+
         # Get the requesting user ID from the request
         requesting_user_id = getattr(request, 'user_id', None)
         if not requesting_user_id:
@@ -628,26 +632,26 @@ def logic_assign_case(request: Request):
                 'error': 'Unauthorized',
                 'message': 'Authentication required'
             }, 401
-            
+
         # Fetch and validate the case
         case_ref = db.collection('cases').document(case_id)
         case_doc = case_ref.get()
-        
+
         if not case_doc.exists:
             return {
                 'error': 'NotFound',
                 'message': f'Case {case_id} not found'
             }, 404
-            
+
         case_data = case_doc.to_dict()
         organization_id = case_data.get('organizationId')
-        
+
         if not organization_id:
             return {
                 'error': 'InvalidCase',
                 'message': 'Case is not associated with an organization'
             }, 400
-            
+
         # Check permissions
         permission_request = PermissionCheckRequest(
             resourceType=TYPE_CASE,
@@ -656,13 +660,13 @@ def logic_assign_case(request: Request):
             organizationId=organization_id
         )
         has_permission, error_message = check_permission(requesting_user_id, permission_request)
-        
+
         if not has_permission:
             return {
                 'error': 'Forbidden',
                 'message': error_message or 'Permission denied'
             }, 403
-            
+
         assigned_user_name = None
         # Validate target user if assigning
         if assigned_user_id is not None:
@@ -670,35 +674,35 @@ def logic_assign_case(request: Request):
             memberships_query = db.collection('organization_memberships').where(
                 'organizationId', '==', organization_id
             ).where('userId', '==', assigned_user_id).limit(1)
-            
+
             membership_docs = memberships_query.get()
             if not membership_docs:
                 return {
                     'error': 'NotFound',
                     'message': 'Target user not found in this organization'
                 }, 404
-                
+
             membership_data = membership_docs[0].to_dict()
             if membership_data.get('role') != 'staff':
                 return {
                     'error': 'InvalidRole',
                     'message': "Target user must have 'staff' role"
                 }, 400
-                
+
             # Get user details for response
             user_ref = db.collection('users').document(assigned_user_id)
             user_doc = user_ref.get()
             if user_doc.exists:
                 assigned_user_name = user_doc.to_dict().get('displayName')
-        
+
         # Update the case
         update_data = {
             'assignedUserId': assigned_user_id,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
-        
+
         case_ref.update(update_data)
-        
+
         # Prepare success response
         action_type = 'unassigned' if assigned_user_id is None else 'assigned'
         response = {
@@ -708,15 +712,15 @@ def logic_assign_case(request: Request):
             'assignedUserId': assigned_user_id,
             'assignedUserName': assigned_user_name
         }
-        
+
         # Log the action
         logging.info(
             f"Case {case_id} {action_type} by user {requesting_user_id} " +
             f"to user {assigned_user_id if assigned_user_id else 'none'}"
         )
-        
+
         return response, 200
-        
+
     except Exception as e:
         logging.error(f"Error in logic_assign_case: {str(e)}")
         return {
