@@ -71,6 +71,14 @@ resource "google_service_account" "functions" {
   account_id   = local.service_account_name
   display_name = "Service Account for Cloud Functions ${var.environment}"
   description  = "Used by Cloud Functions in the ${var.environment} environment"
+
+  # Prevent accidental destruction of this critical resource
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes = [
+      description
+    ]
+  }
 }
 
 # IAM bindings for the service account
@@ -78,6 +86,11 @@ resource "google_project_iam_member" "functions_invoker" {
   project = var.project_id
   role    = "roles/cloudfunctions.invoker"
   member  = "serviceAccount:${google_service_account.functions.email}"
+  
+  # Using the more effective lifecycle configuration
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 
@@ -95,8 +108,8 @@ module "apis" {
 
 # Enable Firebase services (Authentication, Firestore)
 module "firebase" {
-  source     = "./modules/firebase"
-  project_id = var.project_id
+  source             = "./modules/firebase"
+  project_id         = var.project_id
   firestore_location = var.region
 
   depends_on = [module.apis]
@@ -135,13 +148,13 @@ module "cloud_functions" {
 
 # Create API Gateway with function URIs
 module "api_gateway" {
-  source              = "./modules/api_gateway"
-  project_id          = var.project_id
-  region              = var.region
-  openapi_spec_path   = "${path.module}/openapi_spec.yaml"
-  function_uris       = module.cloud_functions.function_uris
+  source               = "./modules/api_gateway"
+  project_id           = var.project_id
+  region               = var.region
+  openapi_spec_path    = "${path.module}/openapi_spec.yaml"
+  function_uris        = module.cloud_functions.function_uris
   api_gateway_sa_email = google_service_account.functions.email
-  api_domain          = local.api_domain
+  api_domain           = local.api_domain
 
   depends_on = [
     module.apis,
@@ -151,9 +164,9 @@ module "api_gateway" {
 
 # Configure Cloudflare DNS for API Gateway
 module "cloudflare" {
-  source           = "./modules/cloudflare"
-  domain_name      = var.domain_name
-  subdomain        = local.api_domain
+  source      = "./modules/cloudflare"
+  domain_name = var.domain_name
+  subdomain   = local.api_domain
   # Ensure the output name matches what your api_gateway module provides
   gateway_hostname = module.api_gateway.gateway_hostname
   zone_id          = var.cloudflare_zone_id
@@ -167,9 +180,9 @@ module "cloudflare" {
 
 # Set up IAM roles and permissions using the IAM module
 module "iam" {
-  source                             = "./modules/iam"
-  project_id                         = var.project_id
-  api_gateway_sa_email               = google_service_account.functions.email
+  source                                = "./modules/iam"
+  project_id                            = var.project_id
+  api_gateway_sa_email                  = google_service_account.functions.email
   relex_functions_service_account_email = google_service_account.functions.email
 
   depends_on = [

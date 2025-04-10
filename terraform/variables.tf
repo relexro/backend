@@ -29,7 +29,7 @@ variable "service_account_name" {
 variable "bucket_names" {
   description = "Names of the Cloud Storage buckets to create"
   type        = map(string)
-  default     = {
+  default = {
     "files"     = "files"
     "functions" = "functions"
   }

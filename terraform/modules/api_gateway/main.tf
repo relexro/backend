@@ -23,6 +23,9 @@ locals {
 
   # Create a hash of the OpenAPI content
   openapi_hash = substr(sha256(local.openapi_content), 0, 8)
+  
+  # Create a stable ID for the gateway that doesn't change with every deployment
+  gateway_id = "relex-api-gateway"
 }
 
 # Create the API resource
@@ -31,6 +34,13 @@ resource "google_api_gateway_api" "api" {
   api_id       = "relex-api"
   display_name = "Relex API"
   project      = var.project_id
+  
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes = [
+      display_name
+    ]
+  }
 }
 
 # Create the API Config with the OpenAPI spec from file
@@ -69,7 +79,7 @@ resource "google_api_gateway_api_config" "api_config" {
 resource "google_api_gateway_gateway" "gateway" {
   provider     = google-beta
   api_config   = google_api_gateway_api_config.api_config.id
-  gateway_id   = "relex-api-gateway-${local.openapi_hash}"
+  gateway_id   = local.gateway_id
   display_name = "Relex API Gateway"
   project      = var.project_id
 

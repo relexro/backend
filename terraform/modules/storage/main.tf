@@ -9,6 +9,14 @@ resource "google_storage_bucket" "functions_bucket" {
   versioning {
     enabled = true
   }
+  
+  lifecycle {
+    prevent_destroy = true
+    # Prevent recreation when only metadata changes
+    ignore_changes = [
+      labels
+    ]
+  }
 }
 
 # Create a bucket for storing uploaded files
@@ -28,5 +36,13 @@ resource "google_storage_bucket" "files_bucket" {
     method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
     response_header = ["*"]
     max_age_seconds = 3600
+  }
+  
+  lifecycle {
+    prevent_destroy = true
+    # Prevent recreation when only metadata changes
+    ignore_changes = [
+      labels
+    ]
   }
 } 
