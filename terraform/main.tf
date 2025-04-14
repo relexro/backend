@@ -46,12 +46,12 @@ locals {
   # function_names has been removed as it's handled by the cloud_functions module
 
   bucket_names = {
-    for k, v in var.bucket_names : k => "relexro-${v}${local.env_suffix}"
+    for k, v in var.bucket_names : k => "${split("-", var.project_id)[0]}-${v}${local.env_suffix}"
   }
 
   service_account_name = "${var.service_account_name}${local.env_suffix}"
 
-  api_gateway_name = "relex-api${local.env_suffix}"
+  api_gateway_name = "${split("-", var.project_id)[0]}-api${local.env_suffix}"
 
   # Environment-specific domain configuration
   api_domain = var.environment == "prod" ? "api.${var.domain_name}" : "api-${var.environment}.${var.domain_name}"
@@ -60,10 +60,34 @@ locals {
   common_labels = {
     environment = var.environment
     managed_by  = "terraform"
-    project     = "relex"
+    project     = split("-", var.project_id)[0]
   }
 
   functions_service_account_email = "serviceAccount:${google_service_account.functions.email}"
+  
+  # Create a complete map of function URIs for the API Gateway
+  # This ensures the OpenAPI spec can reference all functions without actually deploying them
+  complete_function_uris = merge(
+    module.cloud_functions.function_uris,
+    {
+      for func_name in [
+        "relex-backend-get-user-profile", "relex-backend-update-user-profile",
+        "relex-backend-list-user-organizations", "relex-backend-list-cases",
+        "relex-backend-create-organization", "relex-backend-get-organization",
+        "relex-backend-update-organization", "relex-backend-delete-organization",
+        "relex-backend-create-case", "relex-backend-list-organization-cases",
+        "relex-backend-list-organization-members", "relex-backend-add-organization-member",
+        "relex-backend-set-organization-member-role", "relex-backend-remove-organization-member",
+        "relex-backend-upload-file", "relex-backend-download-file",
+        "relex-backend-get-party", "relex-backend-update-party",
+        "relex-backend-delete-party", "relex-backend-attach-party",
+        "relex-backend-detach-party", "relex-backend-get-case",
+        "relex-backend-delete-case", "relex-backend-archive-case",
+        "relex-backend-assign-case", "relex-backend-handle-stripe-webhook",
+        "relex-backend-get-products", "relex-backend-get-chat-history"
+      ] : func_name => lookup(module.cloud_functions.function_uris, "relex-backend-send-chat-message", "https://placeholder-function-url")
+    }
+  )
 }
 
 # --- Service Account Definition ---
@@ -140,12 +164,34 @@ module "cloud_functions" {
   functions_service_account_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
   api_gateway_sa_email            = trimprefix(local.functions_service_account_email, "serviceAccount:")
 
-  # All functions are defined in ./modules/cloud_functions/variables.tf
+  # Define the consolidated RAG-enabled functions
+  additional_functions = {
+    "relex-backend-send-chat-message" = {
+      description = "Send chat message to Vertex AI"
+      entry_point = "relex_backend_send_chat_message"
+      env_vars = {
+        VERTEX_AI_SEARCH_SERVING_CONFIG = module.rag_system.engine_serving_config_path
+        VERTEX_AI_LOCATION              = "global"
+      }
+      timeout = 300  # 5 minutes
+      memory  = "512Mi"
+    }
+    "relex-backend-get-chat-history" = {
+      description = "Get chat history for a case"
+      entry_point = "relex_backend_get_chat_history"
+      env_vars = {
+        VERTEX_AI_LOCATION = "global"
+      }
+      timeout = 30  # 30 seconds
+      memory  = "256Mi"
+    }
+  }
 
   depends_on = [
     module.apis,
     module.storage,
-    google_service_account.functions
+    google_service_account.functions,
+    module.rag_system  # Add dependency on RAG system
   ]
 }
 
@@ -155,7 +201,7 @@ module "api_gateway" {
   project_id           = var.project_id
   region               = var.region
   openapi_spec_path    = "${path.module}/openapi_spec.yaml"
-  function_uris        = module.cloud_functions.function_uris
+  function_uris        = local.complete_function_uris
   api_gateway_sa_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
   api_domain           = local.api_domain
 
@@ -190,6 +236,20 @@ module "iam" {
 
   depends_on = [
     google_service_account.functions
+  ]
+}
+
+# Add RAG module after other modules
+module "rag_system" {
+  source     = "./modules/rag"
+  project_id = var.project_id
+  # Optional: override default suffixes if needed
+  # datastore_id_suffix = "main-rag-datastore"
+  # engine_id_suffix    = "main-rag-engine"
+  search_add_ons = ["SEARCH_ADD_ON_LLM"]  # Enable LLM add-on for RAG
+
+  depends_on = [
+    module.apis  # Ensure required APIs are enabled
   ]
 }
 

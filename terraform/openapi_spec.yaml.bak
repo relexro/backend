@@ -27,162 +27,6 @@ securityDefinitions:
 
 
 paths:
-  # Case-specific chat endpoints
-  /cases/{caseId}/messages:
-    post:
-      summary: Send a chat message in the context of a specific case
-      operationId: sendCaseMessage
-      security:
-        - firebase: []
-      x-google-backend:
-        address: ${function_uris["relex-backend-send-chat-message"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 300.0
-      parameters:
-        - name: caseId
-          in: path
-          required: true
-          type: string
-          description: ID of the case for this conversation
-        - in: body
-          name: body
-          required: true
-          schema:
-            type: object
-            required:
-              - message
-            properties:
-              message:
-                type: string
-                description: The message to send to the chat
-      responses:
-        '200':
-          description: AI response to the user's message
-          schema:
-            type: object
-            properties:
-              id:
-                type: string
-                description: Unique ID of this message
-              content:
-                type: string
-                description: The AI's response message
-              timestamp:
-                type: string
-                format: date-time
-                description: Time the message was processed
-              sources:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    title:
-                      type: string
-                      description: Title or filename of the source
-                    url:
-                      type: string
-                      description: URL to the source if available
-                    snippet:
-                      type: string
-                      description: Relevant excerpt from the source
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '403':
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/Forbidden'
-        '404':
-          description: Case not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-    get:
-      summary: Get chat history for a specific case
-      operationId: getCaseMessages
-      security:
-        - firebase: []
-      x-google-backend:
-        address: ${function_uris["relex-backend-get-chat-history"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: caseId
-          in: path
-          required: true
-          type: string
-          description: ID of the case to retrieve chat history for
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          description: Maximum number of messages to return
-        - name: before
-          in: query
-          required: false
-          type: string
-          format: date-time
-          description: Return messages before this timestamp
-      responses:
-        '200':
-          description: Chat history for the case
-          schema:
-            type: object
-            properties:
-              messages:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    role:
-                      type: string
-                      enum: [user, assistant]
-                    content:
-                      type: string
-                    timestamp:
-                      type: string
-                      format: date-time
-                    sources:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          title:
-                            type: string
-                          url:
-                            type: string
-                          snippet:
-                            type: string
-              hasMore:
-                type: boolean
-                description: Whether more messages exist before the oldest returned message
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '403':
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/Forbidden'
-        '404':
-          description: Case not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-
   # User profile endpoints
   /users/me:
     get:
@@ -260,6 +104,53 @@ paths:
             $ref: '#/definitions/InternalServerError'
 
   # Chat endpoint
+  /chat/message:
+    post:
+      summary: Send a chat message to Vertex AI
+      operationId: sendChatMessage
+      security:
+        - firebase: []
+      x-google-backend:
+        address: ${function_uris["relex-backend-send-chat-message"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 300.0
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - message
+            properties:
+              message:
+                type: string
+                description: The message to send to the chat
+              conversationId:
+                type: string
+                description: Optional conversation ID for continuing a conversation
+      responses:
+        '200':
+          description: Chat response
+          schema:
+            type: object
+            properties:
+              response:
+                type: string
+              conversationId:
+                type: string
+        '400':
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
+        '500':
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
 
   /users/me/organizations:
     get:
@@ -1824,6 +1715,162 @@ paths:
             $ref: '#/definitions/ProductList'
         '500':
           description: Internal server error or Stripe API error
+          schema:
+            $ref: '#/definitions/InternalServerError'
+
+  # Case-specific chat endpoints
+  /cases/{caseId}/messages:
+    post:
+      summary: Send a chat message in the context of a specific case
+      operationId: sendCaseMessage
+      security:
+        - firebase: []
+      x-google-backend:
+        address: ${function_uris["relex-backend-send-chat-message"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 300.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+          description: ID of the case for this conversation
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - message
+            properties:
+              message:
+                type: string
+                description: The message to send to the chat
+      responses:
+        '200':
+          description: AI response to the user's message
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Unique ID of this message
+              content:
+                type: string
+                description: The AI's response message
+              timestamp:
+                type: string
+                format: date-time
+                description: Time the message was processed
+              sources:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                      description: Title or filename of the source
+                    url:
+                      type: string
+                      description: URL to the source if available
+                    snippet:
+                      type: string
+                      description: Relevant excerpt from the source
+        '400':
+          description: Bad request
+          schema:
+            $ref: '#/definitions/BadRequest'
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
+        '403':
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
+        '404':
+          description: Case not found
+          schema:
+            $ref: '#/definitions/NotFound'
+        '500':
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
+    get:
+      summary: Get chat history for a specific case
+      operationId: getCaseMessages
+      security:
+        - firebase: []
+      x-google-backend:
+        address: ${function_uris["relex-backend-get-chat-history"]}
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          type: string
+          description: ID of the case to retrieve chat history for
+        - name: limit
+          in: query
+          required: false
+          type: integer
+          description: Maximum number of messages to return
+        - name: before
+          in: query
+          required: false
+          type: string
+          format: date-time
+          description: Return messages before this timestamp
+      responses:
+        '200':
+          description: Chat history for the case
+          schema:
+            type: object
+            properties:
+              messages:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    role:
+                      type: string
+                      enum: [user, assistant]
+                    content:
+                      type: string
+                    timestamp:
+                      type: string
+                      format: date-time
+                    sources:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          title:
+                            type: string
+                          url:
+                            type: string
+                          snippet:
+                            type: string
+              hasMore:
+                type: boolean
+                description: Whether more messages exist before the oldest returned message
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
+        '403':
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/Forbidden'
+        '404':
+          description: Case not found
+          schema:
+            $ref: '#/definitions/NotFound'
+        '500':
+          description: Internal server error
           schema:
             $ref: '#/definitions/InternalServerError'
 

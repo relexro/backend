@@ -906,3 +906,54 @@ To test the authentication endpoints with real Google credentials, follow these 
 
 2. First, ensure you have the `gcloud` CLI installed and are logged in:
 ```
+```
+
+## Vertex AI Search Data Import
+
+The RAG (Retrieval Augmented Generation) module in Terraform creates the necessary infrastructure for Vertex AI Search, but data import must be performed manually after deployment.
+
+### Automated Import
+
+The easiest way to import data is using the provided script:
+
+```bash
+# Basic usage
+./scripts/import_rag_data.sh --project-id=your-project-id --bucket-name=your-bucket-name
+
+# Example with full options
+./scripts/import_rag_data.sh \
+  --project-id=relex-123456 \
+  --bucket-name=relex-vertex-data \
+  --jurisprudence-path=jurisprudenta \
+  --legislation-path=legislatie
+```
+
+### Manual Import
+
+If you prefer to import data manually:
+
+1. Update your Google Cloud SDK components:
+   ```bash
+   gcloud components update
+   gcloud components install alpha beta
+   ```
+
+2. Set environment variables for your project:
+   ```bash
+   export PROJECT_ID="your-project-id"
+   export PROJECT_NAME=$(echo $PROJECT_ID | cut -d'-' -f1)
+   export DATASTORE_ID="${PROJECT_NAME}-main-rag-datastore"
+   ```
+
+3. Import your documents from Cloud Storage:
+   ```bash
+   gcloud discovery-engine documents import \
+     --project=${PROJECT_ID} \
+     --location=global \
+     --collection=default_collection \
+     --data-store=${DATASTORE_ID} \
+     --gcs-source-uri=gs://${PROJECT_ID}-rag-data/* \
+     --content-config=CONTENT_UNSTRUCTURED_TEXT
+   ```
+
+For complete detailed instructions, refer to the [RAG Data Import Guide](docs/rag_data_import.md).

@@ -109,28 +109,6 @@ variable "functions" {
       env_vars    = {}
     },
 
-    # Chat Functions
-    "relex-backend-receive-prompt" = {
-      description = "Receive a prompt from a user"
-      entry_point = "relex_backend_receive_prompt" # Corrected
-      env_vars    = {}
-    },
-    "relex-backend-send-to-vertex-ai" = {
-      description = "Send a prompt to Vertex AI"
-      entry_point = "relex_backend_send_to_vertex_ai" # Corrected
-      env_vars    = {}
-    },
-    "relex-backend-store-conversation" = {
-      description = "Store a conversation"
-      entry_point = "relex_backend_store_conversation" # Corrected
-      env_vars    = {}
-    },
-    "relex-backend-enrich-prompt" = {
-      description = "Enrich a prompt with case context"
-      entry_point = "relex_backend_enrich_prompt" # Corrected
-      env_vars    = {}
-    },
-
     # Payment Functions
     "relex-backend-create-payment-intent" = {
       description = "Create a Stripe payment intent"
@@ -317,28 +295,19 @@ variable "functions" {
   }
 }
 
-locals {
-  # Add environment suffix to function names except in prod
-  function_names = {
-    for k, v in var.functions :
-    k => "${k}${var.environment == "prod" ? "" : "-${var.environment}"}"
-  }
-  
-  # Common environment variables for all functions
-  common_env_vars = {
-    ENVIRONMENT           = var.environment
-    GOOGLE_CLOUD_PROJECT = var.project_id
-    GOOGLE_CLOUD_REGION  = var.region
-    GCS_BUCKET          = var.functions_bucket_name
-  }
-  
-  # Merge common and function-specific env vars
-  functions_with_env = {
-    for k, v in var.functions : k => merge(
-      v,
-      {
-        env_vars = merge(local.common_env_vars, v.env_vars)
-      }
-    )
-  }
+variable "additional_functions" {
+  description = "Additional functions to be merged with the default functions (useful for functions with dynamic environment variables)"
+  type = map(object({
+    description = string
+    entry_point = string
+    env_vars    = map(string)
+    secret_env_vars = optional(list(object({
+      key     = string
+      secret  = string
+      version = string
+    })))
+    timeout = optional(number)
+    memory  = optional(string)
+  }))
+  default = {}
 } 

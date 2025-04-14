@@ -9,7 +9,7 @@ locals {
   ]))
 
   # Create a stable hash for the functions configuration
-  functions_config_hash = sha256(jsonencode(var.functions))
+  functions_config_hash = sha256(jsonencode(local.merged_functions))
 
   # Combine the source hash and config hash for a complete hash
   combined_hash = sha256("${local.source_dir_hash}${local.functions_config_hash}")

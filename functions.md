@@ -230,8 +230,51 @@ def upload_file(request):
 
 ### Chat Integration
 ```python
+def send_chat_message(request):
+    """Unified chat endpoint that handles the full RAG + LLM flow.
+    
+    - Authenticates user and verifies case access permissions
+    - Stores user message in Cloud Storage
+    - Retrieves case type configuration with agent instructions
+    - Fetches relevant case context (history, documents)
+    - Queries the main RAG system (Vertex AI Search) with TXT direct indexing
+    - Constructs a comprehensive prompt
+    - Calls external LLM with prepared context
+    - Stores response and returns to user
+    """
+    # Auth check and case validation
+    # Store user message in GCS (chat_history.jsonl)
+    # Get caseTypeId and config from Firestore
+    # Fetch chat history from GCS
+    # Get processed document text if relevant
+    # Query Vertex AI Search for legislation/jurisprudence
+    # Build prompt with all context sources
+    # Call external LLM API
+    # Store AI response in GCS
+    # Return formatted response with sources
+```
+
+```python
+def get_chat_history(request):
+    """Retrieves chat history for a case.
+    
+    - Authenticates user and verifies case access permissions
+    - Reads chat history from Cloud Storage
+    - Supports pagination and filtering
+    """
+    # Auth check and case validation
+    # Read messages from GCS
+    # Apply pagination/filtering
+    # Return formatted message list
+```
+
+```python
 def store_conversation(request):
-    """Store a conversation in a case's subcollection."""
+    """Store a conversation in a case's subcollection (legacy).
+    
+    Note: This function is being replaced by the unified chat flow
+    that stores messages directly in Cloud Storage.
+    """
     # Authenticate user
     # Validate input data (caseId, promptId, prompt, response)
     # Get case document to ensure it exists

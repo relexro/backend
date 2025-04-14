@@ -206,10 +206,65 @@ The API is organized into the following groups:
 - `GET /v1/files/{fileId}` (download a file)
 
 ### Chat
-- `POST /v1/cases/{caseId}/messages` (send a message in the case chat)
-- `GET /v1/cases/{caseId}/messages` (get chat history for a case)
-- `POST /v1/cases/{caseId}/enrich-prompt` (enrich a prompt with case context)
-- `POST /v1/cases/{caseId}/send-to-vertex` (send a prompt to Vertex AI)
+
+#### Send Chat Message
+- **Method**: POST
+- **Path**: `/v1/cases/{caseId}/messages`
+- **Description**: Send a message in the case chat. This endpoint handles receiving user messages, orchestrating context retrieval, RAG queries using Vertex AI Search (directly from TXT files), external LLM calls, and response storage.
+- **Body**:
+  ```json
+  {
+    "content": "string"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "messageId": "string",
+    "content": "string",
+    "timestamp": "string",
+    "userId": "string",
+    "messageType": "user|ai",
+    "sources": [
+      {
+        "title": "string",
+        "url": "string",
+        "snippet": "string"
+      }
+    ]
+  }
+  ```
+
+#### Get Chat History
+- **Method**: GET
+- **Path**: `/v1/cases/{caseId}/messages`
+- **Query Parameters**:
+  - `limit`: number (default: 50)
+  - `before`: timestamp (for pagination)
+- **Description**: Get the chat history for a case, retrieving messages from cloud storage
+- **Response**:
+  ```json
+  {
+    "messages": [
+      {
+        "messageId": "string",
+        "content": "string",
+        "timestamp": "string",
+        "userId": "string",
+        "userName": "string",
+        "messageType": "user|ai",
+        "sources": [
+          {
+            "title": "string",
+            "url": "string",
+            "snippet": "string"
+          }
+        ]
+      }
+    ],
+    "hasMore": true
+  }
+  ```
 
 ### Payments
 - `POST /v1/payments/payment-intent` (create payment intent)
@@ -962,90 +1017,6 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/files/{fileId}`
 - **Response**: File content (application/octet-stream)
-
-### Chat
-
-#### Send Chat Message
-- **Method**: POST
-- **Path**: `/v1/cases/{caseId}/messages`
-- **Description**: Send a message in the case chat
-- **Body**:
-  ```json
-  {
-    "content": "string",
-    "messageType": "user|system"
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "messageId": "string",
-    "content": "string",
-    "timestamp": "string",
-    "userId": "string",
-    "messageType": "user|system"
-  }
-  ```
-
-#### Get Chat History
-- **Method**: GET
-- **Path**: `/v1/cases/{caseId}/messages`
-- **Query Parameters**:
-  - `limit`: number (default: 50)
-  - `before`: timestamp (for pagination)
-- **Description**: Get the chat history for a case
-- **Response**:
-  ```json
-  {
-    "messages": [
-      {
-        "messageId": "string",
-        "content": "string",
-        "timestamp": "string",
-        "userId": "string",
-        "userName": "string",
-        "messageType": "user|system"
-      }
-    ],
-    "hasMore": true
-  }
-  ```
-
-#### Enrich Prompt
-- **Method**: POST
-- **Path**: `/v1/cases/{caseId}/enrich-prompt`
-- **Description**: Enrich a chat prompt with case context
-- **Body**:
-  ```json
-  {
-    "prompt": "string"
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "enrichedPrompt": "string"
-  }
-  ```
-
-#### Send to Vertex AI
-- **Method**: POST
-- **Path**: `/v1/cases/{caseId}/send-to-vertex`
-- **Description**: Send a prompt to Vertex AI and get a response
-- **Body**:
-  ```json
-  {
-    "prompt": "string",
-    "enrichContext": true // whether to automatically enrich with case context
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "response": "string",
-    "messageId": "string"
-  }
-  ```
 
 ### Payments
 

@@ -256,3 +256,41 @@ def relex_backend_get_products(request: Request):
     except Exception as e:
         logging.error(f"Error in get_products: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
+
+@functions_framework.http
+def relex_backend_send_chat_message(request: Request):
+    """New unified chat message endpoint.
+    
+    TODO: Implement the following data flow:
+    1. Authenticate user & verify case permissions
+    2. Store user message in GCS (chat_history.jsonl)
+    3. Fetch caseTypeId from Firestore and retrieve caseTypeConfig
+    4. Fetch recent chat history from GCS
+    5. Fetch relevant document text (if needed) from processed docs
+    6. Query Vertex AI Search (Main RAG) with user message
+    7. Construct comprehensive prompt (instructions, history, docs, RAG results)
+    8. Call external LLM API
+    9. Store LLM response in GCS (chat_history.jsonl)
+    10. Return response to user
+    """
+    # TODO: Replace with actual implementation
+    return flask.jsonify({
+        "error": "Not Implemented", 
+        "message": "This function is still under development"
+    }), 501
+
+@functions_framework.http
+def relex_backend_get_chat_history(request: Request):
+    """Retrieves chat history for a specific case.
+    
+    TODO: Implement the following:
+    1. Authenticate user & verify case permissions
+    2. Read chat_history.jsonl from GCS for the case
+    3. Apply pagination/filtering based on query parameters
+    4. Return formatted messages
+    """
+    # TODO: Replace with actual implementation
+    return flask.jsonify({
+        "error": "Not Implemented", 
+        "message": "This function is still under development"
+    }), 501
