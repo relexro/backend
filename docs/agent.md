@@ -87,3 +87,52 @@ graph TD
      V --> A; // Loop back after sending message to user
 
     style H fill:#D5E8D4,stroke:#82B366
+
+    Workflow Explanation:
+
+Load Context/State (Node B): When the agent handler function is invoked, it first loads the current /cases/{caseId} document, specifically the case_details and case_processing_state, using the get_case_details tool internally or direct Firestore access. If resuming after a timeout, case_processing_state dictates the starting point.
+Determine Phase (Node C): Checks the case status (e.g., tier_pending, payment_pending, active). Directs flow to Phase 1 or Phase 2.
+Phase 1: Tiering & Payment (Nodes D-I, H):
+(Node D) Gemini determines the tier using user input and definitions (tiers_ro.md), guided by prompts from prompts.md.
+(Node E) The check_quota tool is called.
+(Node F) Based on the tool result:
+If no quota, (Node G) Gemini formulates a message asking the user to pay, the case status is updated to payment_pending, and the agent pauses (Node I). Payment completion (via Stripe webhook updating the case status) acts as the trigger to resume and transition.
+If quota is OK, (Node H) the case status is updated to active, case_details is updated with the tier and initial info, and the flow transitions to Phase 2.
+Phase 2: Active Case Resolution (Nodes J-W): This is the main operational loop.
+(Node J) Gemini analyzes the current situation (new user input, case_details, results from previous step) and decides the next logical action, guided by its system prompt and potentially recent Grok guidance.
+(Node K) Based on Gemini's decision, the flow branches:
+Ask User (Node L): Gemini crafts a question, the response is sent to the user (Node V), and the agent waits (Node U -> A).
+Research (Node M, N): Gemini formulates a BigQuery query, calls query_bigquery (Node N), processes results (Node W), updates case_details (via tool call within W or next step), and loops back to plan (Node J).
+Consult Grok (Node O, P): Gemini prepares context, calls Grok API (Node P), receives guidance (Node W), updates case_details, and loops back (Node J).
+Draft (Node Q, R): Gemini generates Markdown, calls generate_draft_pdf (Node R), processes success/failure (Node W), updates case_details, potentially notifies user (Node L -> V), and loops back (Node J).
+Update Context (Node S): Explicit step if only an update is needed, calls update_case_details, processes result (Node W), loops back (Node J).
+Error (Node T): If a tool fails irrecoverably according to the protocol (Retry -> Grok -> User -> Ticket), this node triggers the error handling logic (e.g., calling create_support_ticket), updates status, potentially notifies user, and enters wait state (Node U).
+(Node W) This logical step processes the results from tool calls or LLM responses, critically involving Gemini calling update_case_details to persist new information before deciding the next step via Node J.
+(Node U) Represents the agent entering a wait state, saving its progress via case_processing_state if nearing timeout.
+4. State Management and Recovery
+Given the potential length of agent operations and the stateless nature of Cloud Functions, robust state management is crucial.
+
+Primary State: The case_details object within the /cases/{caseId} Firestore document serves as the agent's persistent memory. It is read at the beginning of an interaction and updated frequently via the update_case_details tool after significant actions or information processing.
+Volatile State: LangGraph inherently manages the current step within the defined graph during a single function invocation.
+Timeout Recovery: To handle function timeouts (MVP approach, max 5-10 mins):
+The agent_handler.py function should monitor execution time.
+If approaching the timeout limit during an agent step (e.g., waiting for LLM or tool), the agent should be interrupted.
+A snapshot of the current state (e.g., the last successful node, pending action details) is saved to the case_processing_state field in Firestore.
+The function returns an error or specific code indicating a timeout requiring user action.
+The frontend displays a message and potentially a "Reload/Resume" button.
+When the user reloads/resumes, the agent_handler.py reads case_processing_state and instructs LangGraph to restart the flow from the saved point.
+5. Error Handling Protocol
+Tool failures or unexpected LLM responses are handled systematically:
+
+Automatic Retry (Gemini): For transient tool errors, Gemini attempts to retry the tool call (up to 2 times), potentially adjusting parameters based on the error message.
+Consult Grok (Gemini): If retries fail, Gemini synthesizes the context and the error, then consults Grok for alternative strategies or advice.
+Ask User (Gemini): If Grok advises or if the error clearly requires user input (e.g., ambiguous party name, missing document), Gemini formulates a clear, non-technical question for the user.
+Create Support Ticket (Gemini -> Tool): If the issue remains unresolved after user interaction, or if it's a fundamental platform issue, Gemini generates a summary and calls the create_support_ticket tool. The case status is set to paused_support, and the user is notified.
+6. Privacy and Security
+PII Isolation: Sensitive party data (CNP, full address, etc.) is stored only in the /parties/{partyId} collection in Firestore. Access must be strictly controlled via Firestore Security Rules and IAM permissions.
+LLM Data Handling: Gemini and Grok never receive raw PII. Gemini works with partyIds (e.g., party0) resolved via get_party_id_by_name.
+Secure PDF Generation: The generate_draft_pdf tool is the designated component responsible for fetching PII from /parties (using the partyId provided in placeholders like {{party0.cnp}}) only for parties attached to the specific case_id and substituting it just before PDF generation. This tool requires elevated, carefully audited permissions.
+Authentication & Authorization: All API endpoints, especially the agent interaction endpoint, enforce strict authentication and authorization checks to ensure users only access their own cases or cases within their authorized organization.
+(Refer also to api.md security considerations).
+
+This detailed architecture and workflow provide the foundation for a powerful, context-aware, and secure Lawyer AI Agent within the Relex platform.
