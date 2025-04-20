@@ -21,3 +21,10 @@ click==8.0.3
 # Keep using Pydantic v1 (this matches your code after applying the fix to auth.py)
 pydantic==1.10.12
 typing-extensions>=4.2.0
+
+# Agent dependencies
+langgraph==0.0.19
+google-generativeai==0.3.2
+grok-client==0.1.0  # Placeholder version, replace with actual when available
+weasyprint==60.2  # For PDF generation
+markdown2==2.4.12  # For Markdown processing
