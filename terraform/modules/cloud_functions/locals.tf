@@ -1,6 +1,6 @@
 locals {
   # Merge default functions with additional functions
-  merged_functions = merge(var.functions, var.additional_functions)
+  merged_functions = merge(var.functions)
 
   # Create function names with environment suffix (only in non-prod)
   function_names = {

@@ -360,3 +360,69 @@ Common error responses:
 
 ### Organization Cases List Function
 - `list_organization_cases`: A specialized version of the list_cases function that is focused on listing only cases belonging to a specific organization. This is exposed as `relex_backend_list_organization_cases` in main.py.
+
+
+----- UPDATES -----
+# Backend Cloud Functions Overview
+
+The Relex backend logic is implemented as a set of Python Cloud Functions triggered via HTTP requests routed by API Gateway, and potentially by other events (e.g., Stripe webhooks, Pub/Sub).
+
+*(Refer to `backend_folder/functions/src/` for source code.)*
+
+## Core Function Modules (`*.py` files in `src`)
+
+* **`main.py`:** Entry point, likely defining the Flask/FastAPI app and registering blueprints/routers from other modules. Handles request dispatching.
+* **`auth.py`:** Handles user registration, login (JWT generation), potentially password reset flows.
+* **`user.py`:** Manages user profile CRUD operations.
+* **`organization.py`:** Manages organization CRUD, member invitations.
+* **`organization_membership.py`:** Handles logic related to user roles within organizations.
+* **`party.py`:** Manages CRUD operations for `/parties` collection. **Includes strict security controls for PII.**
+* **`cases.py`:** Handles CRUD for `/cases` collection (metadata), attaching/detaching parties, managing attachments (links to Cloud Storage).
+* **`payments.py`:** Integrates with Stripe for creating checkout sessions (subscriptions, per-case payments), handling payment webhooks, updating subscription statuses in Firestore.
+
+## NEW/Modified Functions for Lawyer AI Agent
+
+* **`agent_handler.py` (or significantly modified `chat.py`):**
+    * **Trigger:** HTTP POST to `/cases/{caseId}/agent/message`.
+    * **Responsibilities:**
+        * Authenticates and authorizes the request.
+        * Loads case context (`case_details`, `case_processing_state`, history) from Firestore.
+        * Initializes and invokes the LangGraph Lawyer AI Agent with the current state and user message.
+        * Manages the agent execution lifecycle (within the function's timeout).
+        * Handles state saving before timeout, potentially using `case_processing_state`.
+        * Saves updated `case_details` and agent history to Firestore upon completion or state save.
+        * Formats and returns the agent's final reply to the frontend.
+    * **Dependencies:** LangGraph library, Google AI SDK (Gemini), Grok API client, Firestore client, other tool functions.
+* **`agent_tools.py` (or integrated within relevant modules):**
+    * **Purpose:** Contains the implementations of the function tools defined in `tools.md`. These are called *by* the LangGraph agent, not directly by the frontend.
+    * **Functions:**
+        * `query_bigquery_tool(...)`: Executes SQL on BigQuery.
+        * `get_party_id_by_name_tool(...)`: Looks up party ID in `case_details`.
+        * `generate_draft_pdf_tool(...)`: Securely generates PDF, substitutes PII, uploads to GCS, updates Firestore. **Requires careful permission setup.**
+        * `check_quota_tool(...)`: Checks Firestore for subscription quota.
+        * `get_case_details_tool(...)`: Reads from Firestore.
+        * `update_case_details_tool(...)`: Writes updates to Firestore.
+        * `create_support_ticket_tool(...)`: Integrates with support system/Firestore.
+        * `(Optional) consult_grok_tool(...)`: Wraps Grok API call if needed.
+    * **Security:** Tool implementations must validate inputs and handle errors robustly. The PDF tool needs special care regarding PII access.
+
+## Other Key Functions/Endpoints
+
+* **`get_drafts_list.py` (or within `cases.py`):**
+    * **Trigger:** HTTP GET to `/cases/{caseId}/drafts`.
+    * **Responsibilities:** Reads `case_details.draft_status` array and returns the list of draft metadata.
+* **`download_draft.py` (or within `cases.py`):**
+    * **Trigger:** HTTP GET to `/cases/{caseId}/drafts/{draftFirestoreId}`.
+    * **Responsibilities:** Finds the draft metadata, gets the GCS path, fetches the PDF from Cloud Storage, and returns it to the user. Requires permissions check.
+
+## Dependencies
+
+* Key Python libraries listed in `requirements.txt` (e.g., `google-cloud-firestore`, `google-cloud-storage`, `google-cloud-bigquery`, `langgraph`, `google-generativeai`, potentially `stripe`, PDF generation library like `weasyprint` or `markdown-pdf`, API framework like `Flask` or `FastAPI`).
+
+## Deployment & Infrastructure
+
+* Deployed as Google Cloud Functions.
+* Managed via Terraform (see `backend_folder/terraform/`).
+* API exposed via API Gateway configured using `openapi_spec.yaml`.
+
+This structure provides a modular and scalable backend capable of supporting both standard CRUD operations and the complex interactions of the Lawyer AI Agent.

@@ -1,0 +1,114 @@
+Prompt 1: Agent Setup & Core Structure
+
+Objective: Set up the basic structure for the new Relex Lawyer AI Agent using LangGraph and prepare the main handler function.
+
+Tasks:
+1.  **Dependencies:** Ensure necessary libraries (`langgraph`, `google-generativeai`, potentially a Grok client library, etc.) are added to `requirements.txt`.
+2.  **New Files:** Create new Python files within `functions/src/` for the agent logic (e.g., `agent_orchestrator.py`, `agent_nodes.py`, `agent_tools.py`).
+3.  **Refactor `main.py`:**
+    * Modify the `_authenticate_and_call` wrapper or create a new one specifically for the agent endpoint (`/v1/cases/{caseId}/agent/message`) to handle the expected long timeouts (e.g., 5-10 minutes).
+    * Modify the entry point function `relex_backend_send_chat_message` (or create a new one like `relex_backend_handle_agent_message`) in `main.py`. This function will be the main HTTP handler.
+    * Remove or comment out the old chat-related function exports in `main.py` (`relex_backend_receive_prompt`, `relex_backend_send_to_vertex_ai`, `relex_backend_store_conversation`, `relex_backend_enrich_prompt`) and the corresponding logic in `chat.py`. The old `relex_backend_get_chat_history` might also be removed or adapted later if history is stored differently.
+4.  **Create `agent_handler.py`:** Implement the main logic within this new file (or the refactored `chat.py`). This function, called by `main.py`, should:
+    * Perform authentication and authorization for the case.
+    * Load the initial case state (`case_details`, `case_processing_state`) from Firestore.
+    * Initialize the LangGraph agent/graph (details in next prompt).
+    * Invoke the LangGraph agent with the user message and current state.
+    * Handle the response from the agent, including saving updated state.
+    * Return the agent's reply to the user, including the `drafts_ready` flag if applicable.
+    * Incorporate basic logic for timeout handling (saving state to `case_processing_state` if timeout is near).
+5.  **Agent Orchestrator (`agent_orchestrator.py`):**
+    * Define the main LangGraph `StateGraph`.
+    * Define the agent state schema (e.g., using `TypedDict`) to hold information passed between nodes (like current `case_details`, user message, tool results, Grok guidance).
+    * Set up the entry point and basic conditional edges based on the major phases (Tiering vs. Active Resolution) described in `agent.md`.
+6.  **Agent Nodes (`agent_nodes.py`):**
+    * Create placeholder functions for the main nodes identified in the `agent.md` workflow diagram (e.g., `determine_tier_node`, `check_quota_node`, `process_input_node`, `consult_grok_node`, `execute_tool_node`, `generate_draft_node`, `handle_error_node`, `save_state_node`). These will be fleshed out later.
+
+Reference Documents: `agent.md`, `architecture.md`, `data_models.md`, `main.py`, `chat.py`.
+
+
+Prompt 2: Implement Agent Tools
+
+Objective: Implement the Python functions for the Lawyer AI Agent's tools.
+
+Tasks:
+1.  **Create/Update `agent_tools.py`:** Implement the logic for each function tool defined in the generated `tools.json` and detailed in `tools.md`.
+    * `query_bigquery`: Connect to BigQuery, execute the provided SQL against the specified table (`legislatie` or `jurisprudenta`), handle potential errors, and return results.
+    * `get_party_id_by_name`: Query the `case_details.parties_involved_context` in Firestore for the given `case_id` and `mentioned_name` to return the corresponding `partyId`.
+    * `generate_draft_pdf`:
+        * Accept Markdown content, `case_id`, `draft_name`, `revision`.
+        * Parse Markdown to identify placeholders `{{partyId.fieldName}}`.
+        * For each `partyId`, verify it's listed in the case's `attachedPartyIds`.
+        * **Securely** fetch the required PII fields from the `/parties/{partyId}` Firestore document.
+        * Substitute placeholders in the Markdown with fetched PII.
+        * Use a suitable library (e.g., WeasyPrint, markdown-pdf) to convert the substituted Markdown to a UTF-8 PDF.
+        * Upload the generated PDF to Cloud Storage at the correct path (`cases/{case_id}/drafts/{draft_name}_rev{revision}.pdf`).
+        * Update the `case_details.draft_status` array in Firestore with metadata (path, name, revision, timestamp).
+        * Return the GCS path and Firestore draft ID.
+        * Implement robust error handling for PII fetching, substitution, PDF conversion, and storage.
+    * `check_quota`: Query Firestore (`users` or `organizations` collection) based on `user_id`/`organization_id` to check `subscriptionStatus` and compare `caseQuotaUsed` with `caseQuotaTotal` for the given `tier`. Return `{"has_quota": boolean}`.
+    * `get_case_details`: Read and return the full `case_details` object from `/cases/{case_id}`.
+    * `update_case_details`: Update fields within the `case_details` object for a given `case_id` using Firestore `update`. Ensure it handles nested updates and array appends correctly (e.g., adding to `facts` or `draft_status`). Update the top-level `updatedAt` and `case_details.last_updated` timestamps.
+    * `create_support_ticket`: Implement logic to create a record (e.g., in a `/support_tickets` Firestore collection or integrate with an external system if specified) containing the `case_id` and `issue_description`.
+2.  **Error Handling:** Ensure all tools return structured responses indicating success or failure, including informative error messages as specified in `tools.md`.
+3.  **Dependencies:** Add any new library dependencies (e.g., PDF library, BigQuery client) to `requirements.txt`.
+
+Reference Documents: `tools.md`, `tools.json`, `data_models.md`.
+
+Prompt 3: Integrate LLMs (Gemini & Grok)
+
+Objective: Integrate Gemini and Grok LLM calls within the LangGraph agent nodes.
+
+Tasks:
+1.  **LLM Clients:** Initialize clients for Google AI (Gemini Flash 2.5) and Grok (Grok 3 Mini) APIs. Ensure API keys are securely accessed (e.g., via environment variables or Secret Manager).
+2.  **Gemini Integration (Assistant Nodes):**
+    * Implement logic within relevant nodes in `agent_nodes.py` (e.g., `determine_tier_node`, `process_input_node`, `formulate_question_node`, `generate_markdown_node`) to call the Gemini API.
+    * Construct prompts based on templates/placeholders defined in `prompt.txt` and the current agent state/context. Remember prompts must be in Romanian.
+    * Parse Gemini's responses to extract required information (e.g., determined tier, next action, generated Markdown, user question).
+    * Handle potential API errors.
+    * Manage the `gemini_session_id` for context continuity if required by the API/library.
+3.  **Grok Integration (Reasoner Consultation):**
+    * Implement logic within the `consult_grok_node` (or similar) in `agent_nodes.py`.
+    * Prepare the context summary and specific question for Grok based on Gemini's analysis and the state.
+    * Call the Grok API (ensure communication is in Romanian).
+    * Parse Grok's natural language response to understand the guidance, required actions, or plan.
+    * Handle potential API errors.
+    * Manage the `grok_session_id` for context continuity.
+4.  **Tool Calling Logic:** Implement the logic within the agent (likely coordinated by Gemini in `process_input_node` or a dedicated `plan_step_node`) to parse LLM responses that request tool usage. Extract the tool name and parameters, and prepare for the `execute_tool_node`.
+
+Reference Documents: `agent.md`, `prompts.md`, `agent_nodes.py`, Gemini API docs, Grok API docs.
+
+Prompt 4: Finalize State Management & Agent Handler
+
+Objective: Implement robust state management using Firestore tools and complete the main agent handler function.
+
+Tasks:
+1.  **Integrate Firestore Tools:** Within the LangGraph nodes (`agent_nodes.py`), ensure calls to `get_case_details` and `update_case_details` tools are correctly implemented where needed (e.g., start of loops, after processing info, after tool execution, after LLM calls).
+2.  **Implement State Recovery Logic:**
+    * In the `agent_handler.py`, refine the timeout detection logic.
+    * Before timeout, determine the current step/state within the LangGraph execution.
+    * Call `update_case_details` to save this state (e.g., last successful node, pending action) into the `case_processing_state` field of the case document.
+    * When the handler starts, check `case_processing_state`. If a saved state exists, initialize the LangGraph agent to resume from that point instead of starting fresh. Clear the `case_processing_state` once resumed successfully.
+3.  **Complete `agent_handler.py`:**
+    * Ensure the full request-response cycle is handled: Load state -> Invoke LangGraph agent -> Wait for completion (or timeout) -> Save final state -> Format and return response.
+    * Handle potential errors returned by the LangGraph agent execution.
+    * Ensure the `drafts_ready` boolean flag is correctly included in the response if the `generate_draft_pdf` tool was called successfully during the agent run.
+4.  **Refine `main.py`:** Ensure the agent handler function is correctly exported and mapped to the `POST /v1/cases/{caseId}/agent/message` endpoint in the API Gateway configuration (`openapi_spec.yaml` might need updating if function names changed). Ensure the long timeout is configured for this specific function deployment in Terraform.
+
+Reference Documents: `agent.md`, `data_models.md`, `tools.md`, `agent_handler.py`, `agent_orchestrator.py`, `agent_nodes.py`, `main.py`.
+
+Prompt 5: Testing
+
+Objective: Add initial tests for the new Lawyer AI Agent components.
+
+Tasks:
+1.  **Unit Tests:** Create unit tests (using `pytest` and `pytest-mock`) for the implemented function tools in `agent_tools.py`. Mock external dependencies like Firestore, BigQuery, GCS, PDF library, and LLM APIs. Verify correct parameter handling, output formatting, and basic error conditions.
+2.  **Integration Tests (Basic):** Create basic integration tests for the `agent_handler.py` function. Mock the LangGraph agent invocation itself, but test the handler's ability to:
+    * Perform authentication.
+    * Load initial state from mocked Firestore.
+    * Invoke the (mocked) agent.
+    * Save state to mocked Firestore.
+    * Format the response correctly.
+3.  **Focus:** Concentrate on testing the tool logic and the handler's interaction with Firestore and the agent invocation mechanism. Deeper testing of the LangGraph flow and LLM interactions can be done separately.
+
+Reference Documents: `tools.md`, `agent_tools.py`, `agent_handler.py`, `pytest` documentation.

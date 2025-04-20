@@ -1,0 +1,162 @@
+[
+    {
+      "type": "function",
+      "function": {
+        "name": "query_bigquery",
+        "description": "Executes a SQL query against the specified Romanian legal BigQuery table (`legislatie` or `jurisprudenta`) to retrieve legislation or case law summaries/full text. Formulate queries carefully based on guidance.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query_string": {
+              "type": "string",
+              "description": "The SQL query string to execute on BigQuery."
+            },
+            "table_name": {
+              "type": "string",
+              "enum": ["legislatie", "jurisprudenta"],
+              "description": "The target table name ('legislatie' or 'jurisprudenta')."
+            }
+          },
+          "required": ["query_string", "table_name"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_party_id_by_name",
+        "description": "Looks up the internal partyId (e.g., 'party0', 'party1') for a party mentioned by name within the current case context. Used to resolve names for document placeholders.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "case_id": {
+              "type": "string",
+              "description": "The ID of the current case context."
+            },
+            "mentioned_name": {
+              "type": "string",
+              "description": "The first name or alias used by the user to refer to the party."
+            }
+          },
+          "required": ["case_id", "mentioned_name"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "generate_draft_pdf",
+        "description": "Takes Markdown content with placeholders (e.g., {{party0.cnp}}), securely substitutes PII from attached parties, converts to PDF (UTF-8), stores in Cloud Storage (versioned), and updates case details. Only this tool handles PII.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "case_id": {
+              "type": "string",
+              "description": "The ID of the current case."
+            },
+            "markdown_content": {
+              "type": "string",
+              "description": "The full draft content in Markdown format with placeholders."
+            },
+            "draft_name": {
+              "type": "string",
+              "description": "The base name for the document (e.g., 'Cerere_chemare_judecata')."
+            },
+            "revision": {
+              "type": "integer",
+              "description": "The revision number for this draft version."
+            }
+          },
+          "required": ["case_id", "markdown_content", "draft_name", "revision"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "check_quota",
+        "description": "Checks if the user or organization associated with the case has available quota for the specified case tier based on their active subscription.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "description": "The ID of the user initiating the check."
+            },
+            "organization_id": {
+              "type": "string",
+              "description": "The ID of the organization, if applicable (null otherwise)."
+            },
+            "tier": {
+              "type": "integer",
+              "description": "The case tier (1, 2, or 3) determined by the agent."
+            }
+          },
+          "required": ["user_id", "tier"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_case_details",
+        "description": "Retrieves the entire `case_details` object (which contains the agent's understanding of the case context, facts, documents, research, etc.) from the Firestore document for the specified case.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "case_id": {
+              "type": "string",
+              "description": "The ID of the case to retrieve details for."
+            }
+          },
+          "required": ["case_id"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "update_case_details",
+        "description": "Updates specific fields within the `case_details` object in the Firestore document for the specified case. Used frequently to persist the agent's evolving understanding and progress.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "case_id": {
+              "type": "string",
+              "description": "The ID of the case to update."
+            },
+            "updates": {
+              "type": "object",
+              "description": "A dictionary containing fields and values to update within `case_details` (e.g., {\"summary.current\": \"new text\", \"facts\": [...]}). Appends to lists where appropriate."
+            }
+          },
+          "required": ["case_id", "updates"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "create_support_ticket",
+        "description": "Creates a support ticket when the agent encounters an unrecoverable error. Also pauses the case.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "case_id": {
+              "type": "string",
+              "description": "The ID of the case experiencing the issue."
+            },
+            "issue_description": {
+              "type": "string",
+              "description": "Detailed description of the problem encountered by the agent."
+            },
+            "agent_state_snapshot": {
+              "type": "object",
+              "description": "(Optional) Snapshot of relevant agent state at time of failure."
+            }
+          },
+          "required": ["case_id", "issue_description"]
+        }
+      }
+    }
+  ]

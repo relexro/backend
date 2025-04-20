@@ -164,34 +164,10 @@ module "cloud_functions" {
   functions_service_account_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
   api_gateway_sa_email            = trimprefix(local.functions_service_account_email, "serviceAccount:")
 
-  # Define the consolidated RAG-enabled functions
-  additional_functions = {
-    "relex-backend-send-chat-message" = {
-      description = "Send chat message to Vertex AI"
-      entry_point = "relex_backend_send_chat_message"
-      env_vars = {
-        VERTEX_AI_SEARCH_SERVING_CONFIG = module.rag_system.engine_serving_config_path
-        VERTEX_AI_LOCATION              = "global"
-      }
-      timeout = 300  # 5 minutes
-      memory  = "512Mi"
-    }
-    "relex-backend-get-chat-history" = {
-      description = "Get chat history for a case"
-      entry_point = "relex_backend_get_chat_history"
-      env_vars = {
-        VERTEX_AI_LOCATION = "global"
-      }
-      timeout = 30  # 30 seconds
-      memory  = "256Mi"
-    }
-  }
-
   depends_on = [
     module.apis,
     module.storage,
-    google_service_account.functions,
-    module.rag_system  # Add dependency on RAG system
+    google_service_account.functions
   ]
 }
 
@@ -238,7 +214,7 @@ module "iam" {
     google_service_account.functions
   ]
 }
-
+/*
 # Add RAG module after other modules
 module "rag_system" {
   source     = "./modules/rag"
@@ -251,7 +227,7 @@ module "rag_system" {
   depends_on = [
     module.apis  # Ensure required APIs are enabled
   ]
-}
+} */
 
 # The following resources are now handled by the cloud_functions module
 # and should be commented out to prevent duplicate resource creation

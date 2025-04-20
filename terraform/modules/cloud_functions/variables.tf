@@ -291,23 +291,28 @@ variable "functions" {
       description = "Assign a case to a staff member (planned)"
       entry_point = "relex_backend_assign_case" # Will be implemented in future
       env_vars    = {}
+    },
+    "relex-backend-send-chat-message" = {
+      description = "Send chat message to Vertex AI"
+      entry_point = "relex_backend_send_chat_message"
+      env_vars = {
+        VERTEX_AI_SEARCH_SERVING_CONFIG = "module.rag_system.engine_serving_config_path"
+        VERTEX_AI_LOCATION              = "global"
+      }
+      timeout = 300  # 5 minutes
+      memory  = "512Mi"
     }
+    "relex-backend-get-chat-history" = {
+      description = "Get chat history for a case"
+      entry_point = "relex_backend_get_chat_history"
+      env_vars = {
+        VERTEX_AI_LOCATION = "global"
+      }
+      timeout = 30  # 30 seconds
+      memory  = "256Mi"
+    }
+
+    
   }
 }
-
-variable "additional_functions" {
-  description = "Additional functions to be merged with the default functions (useful for functions with dynamic environment variables)"
-  type = map(object({
-    description = string
-    entry_point = string
-    env_vars    = map(string)
-    secret_env_vars = optional(list(object({
-      key     = string
-      secret  = string
-      version = string
-    })))
-    timeout = optional(number)
-    memory  = optional(string)
-  }))
-  default = {}
-} 
+ 

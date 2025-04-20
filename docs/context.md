@@ -538,3 +538,45 @@ Chat messages are stored in a subcollection `conversations` under each case. Eac
 4. Support for sharing cases across organizations
 5. Implement Firestore security rules
 6. Add comprehensive logging and monitoring
+
+
+------ UPDATES -----
+
+# Project Context and Goals
+
+## Project Name: Relex
+
+## Elevator Pitch:
+
+Relex is an AI-powered legal tech platform for the Romanian market that simplifies case management and provides intelligent assistance through an integrated Lawyer AI Agent. It helps users understand their legal standing, gather information, and generate necessary documents.
+
+## Problem Space:
+
+Navigating the Romanian legal system can be complex, time-consuming, and expensive for individuals and small organizations. Accessing relevant legal information, managing case documents, understanding procedures, and drafting correct legal paperwork are significant hurdles. Existing solutions may lack integration, intelligence, or specific focus on the Romanian legal context.
+
+## Goals:
+
+1.  **Simplify Case Management:** Provide an intuitive interface for organizing cases, parties, and documents.
+2.  **Provide AI-Powered Assistance:** Offer intelligent guidance through the Lawyer AI Agent, capable of understanding case context, performing research, and drafting documents.
+3.  **Improve Accessibility:** Make legal information and process navigation more accessible through AI interaction and targeted research.
+4.  **Increase Efficiency:** Reduce the time and effort required for common legal tasks like research and document drafting.
+5.  **Ensure Privacy & Security:** Handle sensitive user and case data securely, with specific safeguards for PII.
+6.  **Target Romanian Market:** Focus specifically on Romanian law, procedures, and language.
+7.  **Sustainable Monetization:** Implement a fair subscription and per-case payment model based on case complexity.
+
+## Key Innovations (Post-Agent Implementation):
+
+* **Integrated Lawyer AI Agent:** Moving beyond simple chat/RAG to a multi-step, reasoning agent using LangGraph, Gemini, and Grok.
+* **Automated Tiering & Gating:** Agent automatically assesses case complexity and manages access based on subscription quotas or per-case payments.
+* **Contextual Legal Research:** Agent performs targeted queries against a dedicated Romanian legal BigQuery database.
+* **AI-Generated Drafts:** Agent generates versioned PDF documents with secure placeholder substitution for PII.
+* **Evolving Case Context:** Agent maintains a rich `case_details` object in Firestore, acting as a dynamic understanding of the case.
+
+## Success Metrics:
+
+* User adoption and retention rates.
+* Subscription conversion and renewal rates.
+* Successful case tier determinations and payment completions.
+* User satisfaction ratings with agent interactions and generated drafts (potentially measured via feedback mechanisms).
+* Frequency and success rate of agent tool usage (BigQuery queries, PDF generation).
+* System uptime and performance.
