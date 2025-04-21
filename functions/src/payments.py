@@ -96,54 +96,56 @@ def logic_get_products(request):
 
         # 4. Process Stripe Products
         for product in stripe_products.auto_paging_iter():
-            price = product.default_price # Access the expanded price object
+            price = product.get('default_price') # Access the expanded price object
             # Ensure the product has an active default price
-            if not price or not price.active:
-                logging.warning(f"Product {product.id} ({product.name}) skipped (no active default price).")
+            if not price or not price.get('active'):
+                logging.warning(f"Product {product.get('id')} ({product.get('name')}) skipped (no active default price).")
                 continue
 
             # Structure common product data
             product_data = {
-                "id": product.id,
-                "name": product.name,
-                "description": product.description,
+                "id": product.get('id'),
+                "name": product.get('name'),
+                "description": product.get('description'),
                 "price": {
-                    "id": price.id,
-                    "amount": price.unit_amount, # Amount in cents/smallest unit
-                    "currency": price.currency,
-                    "type": price.type, # 'recurring' or 'one_time'
+                    "id": price.get('id'),
+                    "amount": price.get('unit_amount'), # Amount in cents/smallest unit
+                    "currency": price.get('currency'),
+                    "type": price.get('type'), # 'recurring' or 'one_time'
                 }
             }
             # Add recurring interval details if applicable
-            if price.type == 'recurring' and price.recurring:
+            if price.get('type') == 'recurring' and price.get('recurring'):
+                recurring = price.get('recurring', {})
                 product_data["price"]["recurring"] = {
-                    "interval": price.recurring.interval, # e.g., 'month', 'year'
-                    "interval_count": price.recurring.interval_count
+                    "interval": recurring.get('interval'), # e.g., 'month', 'year'
+                    "interval_count": recurring.get('interval_count')
                 }
 
             # 5. Categorize using Stripe Metadata (CRUCIAL ASSUMPTION)
             # Assume metadata keys 'product_group' ('subscription' or 'case_tier')
             # and 'tier' ('1', '2', '3' for cases) are set on Stripe Products.
-            product_group = product.metadata.get('product_group')
-            case_tier = product.metadata.get('tier')
+            metadata = product.get('metadata', {})
+            product_group = metadata.get('product_group')
+            case_tier = metadata.get('tier')
 
             if product_group == 'subscription':
                 # Optionally add plan type (e.g., individual, org_basic) if stored in metadata
-                plan_type = product.metadata.get('plan_type')
+                plan_type = metadata.get('plan_type')
                 if plan_type:
                     product_data['plan_type'] = plan_type
                 products_response["subscriptions"].append(product_data)
-            elif product_group == 'case_tier' and price.type == 'one_time':
+            elif product_group == 'case_tier' and price.get('type') == 'one_time':
                  # Add tier information if available in metadata
                  if case_tier:
                      try:
                          product_data['tier'] = int(case_tier) # Store tier as integer
                      except ValueError:
-                         logging.warning(f"Invalid non-integer tier metadata '{case_tier}' for product {product.id}")
+                         logging.warning(f"Invalid non-integer tier metadata '{case_tier}' for product {product.get('id')}")
                  products_response["cases"].append(product_data)
             else:
                 # Log products that don't fit the expected categories
-                logging.warning(f"Product {product.id} ({product.name}) could not be categorized based on metadata. Group: '{product_group}', Price Type: '{price.type}'.")
+                logging.warning(f"Product {product.get('id')} ({product.get('name')}) could not be categorized based on metadata. Group: '{product_group}', Price Type: '{price.get('type')}'")
 
         # Sort case tiers numerically for consistent frontend display
         products_response["cases"].sort(key=lambda x: x.get('tier', 99)) # Sort by tier, putting untiered last
@@ -252,13 +254,13 @@ def create_payment_intent(request):
             )
 
             # Store payment intent details in Firestore for tracking
-            payment_ref = db.collection("payments").document(payment_intent.id)
+            payment_ref = db.collection("payments").document(payment_intent.get('id'))
             payment_data = {
-                "paymentIntentId": payment_intent.id,
+                "paymentIntentId": payment_intent.get('id'),
                 "amount": amount,
                 "caseTier": case_tier,
                 "currency": currency,
-                "status": payment_intent.status, # Initial status (e.g., requires_payment_method)
+                "status": payment_intent.get('status'), # Initial status (e.g., requires_payment_method)
                 "description": description,
                 "userId": user_id,
                 "caseId": case_id, # Link to case if provided
@@ -267,10 +269,10 @@ def create_payment_intent(request):
             payment_ref.set(payment_data)
 
             # Return the client secret (needed by frontend) and payment intent ID
-            logging.info(f"Payment intent created with ID: {payment_intent.id}")
+            logging.info(f"Payment intent created with ID: {payment_intent.get('id')}")
             return ({
-                "clientSecret": payment_intent.client_secret,
-                "paymentIntentId": payment_intent.id,
+                "clientSecret": payment_intent.get('client_secret'),
+                "paymentIntentId": payment_intent.get('id'),
                 "message": "Payment intent created successfully"
             }, 201) # 201 Created
         except stripe.error.StripeError as e:
@@ -421,11 +423,11 @@ def create_checkout_session(request):
             )
 
             # Store checkout session details in Firestore for tracking
-            session_ref = db.collection("checkoutSessions").document(checkout_session.id)
+            session_ref = db.collection("checkoutSessions").document(checkout_session.get('id'))
             session_data = {
-                "sessionId": checkout_session.id,
+                "sessionId": checkout_session.get('id'),
                 "mode": mode,
-                "status": checkout_session.status, # Initial status (e.g., 'open')
+                "status": checkout_session.get('status'), # Initial status (e.g., 'open')
                 "userId": user_id,
                 "organizationId": organization_id,
                 "caseId": case_id,
@@ -435,10 +437,10 @@ def create_checkout_session(request):
             session_ref.set(session_data)
 
             # Return the session ID and URL (frontend redirects user to this URL)
-            logging.info(f"Checkout session created with ID: {checkout_session.id}")
+            logging.info(f"Checkout session created with ID: {checkout_session.get('id')}")
             return ({
-                "sessionId": checkout_session.id,
-                "url": checkout_session.url,
+                "sessionId": checkout_session.get('id'),
+                "url": checkout_session.get('url'),
                 "message": "Checkout session created successfully"
             }, 201) # 201 Created
         except stripe.error.StripeError as e:
@@ -471,28 +473,28 @@ def logic_redeem_voucher(request):
                 'error': 'InvalidJSON',
                 'message': 'Request body must be valid JSON'
             }, 400
-            
+
         if not isinstance(body, dict) or 'voucherCode' not in body:
             return {
                 'error': 'InvalidRequest',
                 'message': 'Request body must contain voucherCode field'
             }, 400
-        
+
         voucher_code = body.get('voucherCode')
         organization_id = body.get('organizationId')  # Optional
-        
+
         if not isinstance(voucher_code, str) or not voucher_code.strip():
             return {
                 'error': 'InvalidRequest',
                 'message': 'voucherCode must be a non-empty string'
             }, 400
-            
+
         if organization_id is not None and (not isinstance(organization_id, str) or not organization_id.strip()):
             return {
                 'error': 'InvalidRequest',
                 'message': 'organizationId must be a non-empty string if provided'
             }, 400
-        
+
         # Get the requesting user ID from the request
         requesting_user_id = getattr(request, 'user_id', None)
         if not requesting_user_id:
@@ -500,7 +502,7 @@ def logic_redeem_voucher(request):
                 'error': 'Unauthorized',
                 'message': 'Authentication required'
             }, 401
-            
+
         # Check organization permissions if needed
         if organization_id:
             permission_request = PermissionCheckRequest(
@@ -510,7 +512,7 @@ def logic_redeem_voucher(request):
                 organizationId=organization_id
             )
             has_permission, error_message = check_permission(requesting_user_id, permission_request)
-            
+
             if not has_permission:
                 return {
                     'error': 'Forbidden',
@@ -523,52 +525,52 @@ def logic_redeem_voucher(request):
             # Fetch and validate voucher
             voucher_ref = db.collection('vouchers').document(voucher_code)
             voucher_doc = voucher_ref.get(transaction=transaction)
-            
+
             if not voucher_doc.exists:
                 raise ValueError('Voucher code not found')
-                
+
             voucher_data = voucher_doc.to_dict()
-            
+
             # Validate voucher state
             if not voucher_data.get('isActive'):
                 raise ValueError('Voucher is not active')
-                
+
             expires_at = voucher_data.get('expiresAt')
             if expires_at and expires_at.timestamp() < datetime.now(timezone.utc).timestamp():
                 raise ValueError('Voucher has expired')
-                
+
             usage_limit = voucher_data.get('usageLimit', 0)
             usage_count = voucher_data.get('usageCount', 0)
             if usage_limit > 0 and usage_count >= usage_limit:
                 raise ValueError('Voucher usage limit reached')
-                
+
             # Get target entity (user or organization)
             target_ref = None
             if organization_id:
                 target_ref = db.collection('organizations').document(organization_id)
             else:
                 target_ref = db.collection('users').document(requesting_user_id)
-                
+
             target_doc = target_ref.get(transaction=transaction)
             if not target_doc.exists:
                 raise ValueError('Target profile not found')
-                
+
             target_data = target_doc.to_dict()
-            
+
             # Apply benefit based on voucher type
             voucher_type = voucher_data.get('voucherType')
             value = voucher_data.get('value', {})
             updates = {
                 'updatedAt': firestore.SERVER_TIMESTAMP
             }
-            
+
             if voucher_type == 'credit':
                 amount = value.get('amount', 0)
                 if amount <= 0:
                     raise ValueError('Invalid credit amount')
                 current_balance = target_data.get('voucherBalance', 0)
                 updates['voucherBalance'] = current_balance + amount
-                
+
             elif voucher_type == 'free_case':
                 tier = value.get('tier')
                 if not isinstance(tier, int) or tier < 1 or tier > 3:  # Assuming tiers 1-3 are valid
@@ -582,7 +584,7 @@ def logic_redeem_voucher(request):
                     **free_cases,
                     tier_key: free_cases.get(tier_key, 0) + quantity
                 }
-                
+
             elif voucher_type == 'subscription_discount':
                 discount_type = value.get('type')
                 if discount_type not in ['percentage', 'amount']:
@@ -600,10 +602,10 @@ def logic_redeem_voucher(request):
                 }
             else:
                 raise ValueError('Invalid voucher type')
-                
+
             # Update target entity
             target_ref.update(updates, transaction=transaction)
-            
+
             # Update voucher usage
             voucher_updates = {
                 'usageCount': usage_count + 1,
@@ -613,7 +615,7 @@ def logic_redeem_voucher(request):
                 }
             }
             voucher_ref.update(voucher_updates, transaction=transaction)
-            
+
             return {
                 'voucherType': voucher_type,
                 'value': value,
@@ -623,7 +625,7 @@ def logic_redeem_voucher(request):
         try:
             # Execute transaction
             result = redeem_voucher_transaction()
-            
+
             return {
                 'success': True,
                 'message': 'Voucher redeemed successfully',
@@ -631,19 +633,19 @@ def logic_redeem_voucher(request):
                 'value': result['value'],
                 'description': result['description']
             }, 200
-            
+
         except ValueError as e:
             return {
                 'error': 'InvalidVoucher',
                 'message': str(e)
             }, 400
-            
+
         except firestore.exceptions.TransactionError:
             return {
                 'error': 'TransactionError',
                 'message': 'Failed to redeem voucher due to concurrent modification'
             }, 409
-            
+
     except Exception as e:
         logging.error(f"Error in logic_redeem_voucher: {str(e)}")
         return {
@@ -735,12 +737,12 @@ def handle_stripe_webhook(request):
 
                 # Get plan details from Firestore again to ensure we have the correct quota
                 if not plan_id:
-                    logging.error(f"Webhook Error: No plan ID in session metadata for session {session.id}")
+                    logging.error(f"Webhook Error: No plan ID in session metadata for session {session.get('id')}")
                     return ({"error": "Processing Error", "message": "No plan ID in metadata"}, 200)
 
                 plan_doc = db.collection("plans").document(plan_id).get()
                 if not plan_doc.exists:
-                    logging.error(f"Webhook Error: Plan {plan_id} not found for session {session.id}")
+                    logging.error(f"Webhook Error: Plan {plan_id} not found for session {session.get('id')}")
                     return ({"error": "Processing Error", "message": f"Plan not found: {plan_id}"}, 200)
 
                 plan_data = plan_doc.to_dict()
@@ -776,7 +778,7 @@ def handle_stripe_webhook(request):
                     target_type = "user"
                 else:
                     # Should have either user_id or organization_id from session creation
-                    logging.error(f"Webhook Error: Neither user_id nor organization_id found in session metadata for session {session.id}")
+                    logging.error(f"Webhook Error: Neither user_id nor organization_id found in session metadata for session {session.get('id')}")
                     return ({"error": "Processing Error", "message": "No user or organization ID in metadata"}, 200)
 
                 # Perform the Firestore update
@@ -793,7 +795,7 @@ def handle_stripe_webhook(request):
                     case_ref = db.collection("cases").document(case_id)
                     case_ref.update({
                         "paymentStatus": "paid_checkout", # Indicate payment via Checkout
-                        "stripeCheckoutSessionId": session.id, # Store session ID for reference
+                        "stripeCheckoutSessionId": session.get('id'), # Store session ID for reference
                         "updatedAt": firestore.SERVER_TIMESTAMP
                     })
                     logging.info(f"Webhook: Updated case {case_id} payment status to 'paid_checkout'")
@@ -804,7 +806,7 @@ def handle_stripe_webhook(request):
                      payment_ref = db.collection("payments").document(payment_intent_id)
                      payment_ref.update({
                           "status": "succeeded", # Should be succeeded if session complete
-                          "stripeCheckoutSessionId": session.id,
+                          "stripeCheckoutSessionId": session.get('id'),
                           "updatedAt": firestore.SERVER_TIMESTAMP
                      })
 
@@ -1041,7 +1043,7 @@ def handle_stripe_webhook(request):
                         price_data = first_item.get("price", {})
                         if price_data and isinstance(price_data, dict):
                             stripe_plan_price_id = price_data.get("id")
-                
+
                 firestore_plan_ref = None
                 new_quota_total = current_quota_in_db # Default to existing quota
 
@@ -1142,7 +1144,7 @@ def handle_stripe_webhook(request):
         logging.error(f"Webhook Error: Failed processing event {event_type}: {str(e)}", exc_info=True)
         # Return 500 to indicate a server-side issue; Stripe might retry.
         return ({"error": "Webhook Processing Error", "message": f"Failed to process webhook event: {str(e)}"}, 500)
-    
+
 
 # Renamed function to avoid conflict with framework decorator if deployed individually
 def cancel_subscription(request):
@@ -1192,7 +1194,7 @@ def cancel_subscription(request):
         try:
             subscription = stripe.Subscription.retrieve(subscription_id)
             # Check if already canceled
-            if subscription.cancel_at_period_end:
+            if subscription.get('cancel_at_period_end'):
                  logging.info(f"Subscription {subscription_id} is already scheduled for cancellation.")
                  return ({"success": True, "message": "Subscription is already scheduled for cancellation."}, 200)
         except stripe.error.InvalidRequestError:
