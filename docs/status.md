@@ -55,13 +55,22 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Party validation (CNP, CUI, RegCom)
 - [ ] Party search and filtering
 
-### Chat Integration
-- [x] Vertex AI integration
-- [x] Prompt handling
-- [x] Context enrichment
-- [x] Conversation storage with proper permission checks
-- [ ] Multi-model support
-- [ ] Streaming responses
+### Chat Integration (Deprecated)
+- [x] ~~Vertex AI integration~~ (Replaced by Lawyer AI Agent)
+- [x] ~~Prompt handling~~ (Replaced by Lawyer AI Agent)
+- [x] ~~Context enrichment~~ (Replaced by Lawyer AI Agent)
+- [x] ~~Conversation storage with proper permission checks~~ (Replaced by Lawyer AI Agent)
+- [ ] ~~Multi-model support~~ (Replaced by Lawyer AI Agent)
+- [ ] ~~Streaming responses~~ (Replaced by Lawyer AI Agent)
+
+### Lawyer AI Agent
+- [x] LangGraph Orchestration (agent_handler.py, agent_nodes.py)
+- [x] Gemini Integration (via llm_nodes.py)
+- [x] Grok Integration (via agent_tools.py/agent_orchestrator.py/llm_nodes.py)
+- [x] Function Tools (agent_tools.py - BigQuery, PDF Gen, etc.)
+- [x] BigQuery Legal Database Integration
+- [x] Firestore State Management (case_details)
+- [x] Agent API Endpoint (/cases/{caseId}/agent/messages POST)
 
 ### Payment Processing
 - [x] Stripe integration
@@ -283,4 +292,4 @@ This document tracks the implementation status of the Relex backend components.
 ### Pending
 - [ ] Streaming responses
 - [ ] Message editing capabilities
-- [ ] Advanced conversation filtering 
+- [ ] Advanced conversation filtering

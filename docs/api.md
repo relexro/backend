@@ -68,7 +68,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/organizations/{organizationId}/members`
 - **Description**: Adds a new member to an organization with a specific role. Only administrators can add members. Internally uses the `relex-backend-add-organization-member` function.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -103,7 +103,7 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/organizations/{organizationId}/members`
 - **Description**: Lists all members of an organization. Accessible by organization members. Internally uses the `relex-backend-list-organization-members` function.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -131,7 +131,7 @@ The API is organized into the following groups:
 - **Method**: PUT
 - **Path**: `/v1/organizations/{organizationId}/members/{userId}`
 - **Description**: Updates a member's role in the organization. Only administrators can update roles. Internally uses the `relex-backend-set-organization-member-role` function.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -164,7 +164,7 @@ The API is organized into the following groups:
 - **Method**: DELETE
 - **Path**: `/v1/organizations/{organizationId}/members/{userId}`
 - **Description**: Removes a member from an organization. Only administrators can remove members. Internally uses the `relex-backend-remove-organization-member` function.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -205,64 +205,44 @@ The API is organized into the following groups:
 - `POST /v1/cases/{caseId}/files` (upload a file to a case)
 - `GET /v1/files/{fileId}` (download a file)
 
-### Chat
+### Lawyer AI Agent
 
-#### Send Chat Message
+#### Interact with Lawyer AI Agent
 - **Method**: POST
-- **Path**: `/v1/cases/{caseId}/messages`
-- **Description**: Send a message in the case chat. This endpoint handles receiving user messages, orchestrating context retrieval, RAG queries using Vertex AI Search (directly from TXT files), external LLM calls, and response storage.
+- **Path**: `/v1/cases/{caseId}/agent/messages`
+- **Description**: Interact with the Lawyer AI Agent in the context of a specific case. This endpoint handles user messages, orchestrates the LangGraph agent workflow, manages case state, and returns AI responses. The agent uses Gemini and Grok LLMs, performs legal research, and can generate document drafts.
 - **Body**:
   ```json
   {
-    "content": "string"
+    "type": "user_input",
+    "case_id": "string",
+    "user_id": "string",
+    "input": "string",
+    "user_info": {
+      "name": "string",
+      "email": "string"
+    }
   }
   ```
 - **Response**:
   ```json
   {
-    "messageId": "string",
-    "content": "string",
-    "timestamp": "string",
-    "userId": "string",
-    "messageType": "user|ai",
-    "sources": [
-      {
-        "title": "string",
-        "url": "string",
-        "snippet": "string"
-      }
-    ]
-  }
-  ```
-
-#### Get Chat History
-- **Method**: GET
-- **Path**: `/v1/cases/{caseId}/messages`
-- **Query Parameters**:
-  - `limit`: number (default: 50)
-  - `before`: timestamp (for pagination)
-- **Description**: Get the chat history for a case, retrieving messages from cloud storage
-- **Response**:
-  ```json
-  {
-    "messages": [
-      {
-        "messageId": "string",
-        "content": "string",
-        "timestamp": "string",
-        "userId": "string",
-        "userName": "string",
-        "messageType": "user|ai",
-        "sources": [
-          {
-            "title": "string",
-            "url": "string",
-            "snippet": "string"
-          }
-        ]
-      }
-    ],
-    "hasMore": true
+    "status": "success|error|quota_exceeded|payment_required",
+    "message": "string",
+    "response": {
+      "content": "string",
+      "recommendations": ["string"],
+      "next_steps": ["string"],
+      "draft_documents": [
+        {
+          "id": "string",
+          "title": "string",
+          "url": "string"
+        }
+      ],
+      "research_summary": "string"
+    },
+    "timestamp": "string"
   }
   ```
 
@@ -282,7 +262,7 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/auth/validate-user`
 - **Description**: Validates user's authentication token
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -298,7 +278,7 @@ The API is organized into the following groups:
 #### Check Permissions
 - **Method**: POST
 - **Path**: `/v1/auth/check-permissions`
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -334,7 +314,7 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/auth/user-role`
 - **Description**: Gets the user's role within an organization
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -497,7 +477,7 @@ The API is organized into the following groups:
 - **Method**: DELETE
 - **Path**: `/v1/organizations/{organizationId}`
 - **Description**: Delete an organization and all its related data. Only administrators can delete organizations, and the organization must not have an active subscription.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -526,7 +506,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/cases`
 - **Description**: Create a new case as an individual. The system first checks if the user has an active subscription with available quota. If quota is available, the case is created using the quota. If quota is exhausted or no active subscription exists, a `paymentIntentId` is required.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -567,7 +547,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/organizations/{organizationId}/cases`
 - **Description**: Create a new case for an organization. The system first checks if the organization has an active subscription with available quota. If quota is available, the case is created using the quota. If quota is exhausted or no active subscription exists, a `paymentIntentId` is required.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -719,7 +699,7 @@ The API is organized into the following groups:
           // For individual parties
           "firstName": "string",
           "lastName": "string",
-          
+
           // For organization parties
           "companyName": "string"
         },
@@ -804,7 +784,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/parties`
 - **Description**: Creates a new party with type-specific validation
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -816,16 +796,16 @@ The API is organized into the following groups:
       // For individual parties:
       "firstName": "John", // REQUIRED for individuals
       "lastName": "Doe",   // REQUIRED for individuals
-      
+
       // For organization parties:
       "companyName": "Acme Inc" // REQUIRED for organizations
     },
     "identityCodes": {
       // For individual parties:
       "cnp": "1234567890123", // REQUIRED for individuals (13 digits)
-      
+
       // For organization parties:
-      "cui": "RO12345678", // REQUIRED for organizations 
+      "cui": "RO12345678", // REQUIRED for organizations
       "regCom": "J12/345/2022" // REQUIRED for organizations
     },
     "contactInfo": {
@@ -869,7 +849,7 @@ The API is organized into the following groups:
 - **Method**: GET
 - **Path**: `/v1/parties/{partyId}`
 - **Description**: Retrieves a party by ID (requires ownership)
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -879,7 +859,7 @@ The API is organized into the following groups:
 - **Method**: PUT
 - **Path**: `/v1/parties/{partyId}`
 - **Description**: Updates a party with type-specific validation based on existing partyType (partyType itself cannot be changed)
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -890,7 +870,7 @@ The API is organized into the following groups:
       // For updating individual parties - cannot add companyName to individuals
       "firstName": "John",
       "lastName": "Smith"
-      
+
       // For updating organization parties - cannot add firstName/lastName to organizations
       //"companyName": "Acme Corporation"
     },
@@ -913,7 +893,7 @@ The API is organized into the following groups:
 - **Method**: DELETE
 - **Path**: `/v1/parties/{partyId}`
 - **Description**: Deletes a party (requires ownership, fails if party is attached to any cases)
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -925,7 +905,7 @@ The API is organized into the following groups:
 - **Query Parameters**:
   - `partyType`: Filter by party type (`individual` or `organization`)
 - **Description**: Lists parties owned by the authenticated user
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -950,7 +930,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/cases/{caseId}/parties`
 - **Description**: Attaches an existing party to a case
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -974,7 +954,7 @@ The API is organized into the following groups:
 - **Method**: DELETE
 - **Path**: `/v1/cases/{caseId}/parties/{partyId}`
 - **Description**: Removes a party from a case
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -1075,7 +1055,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/payments/payment-intent`
 - **Description**: Create a Stripe Payment Intent for a case payment (used when subscription quota is exhausted or no subscription exists)
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -1102,7 +1082,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/payments/checkout-session`
 - **Description**: Create a Stripe Checkout Session for a subscription with case quota or a one-time payment
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -1139,7 +1119,7 @@ The API is organized into the following groups:
 - **Method**: DELETE
 - **Path**: `/v1/subscriptions/{subscriptionId}`
 - **Description**: Cancel a Stripe subscription at the end of the current billing period. The subscription will remain active until the end of the current billing cycle.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -1155,7 +1135,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/vouchers/redeem`
 - **Description**: Redeem a voucher code for the user or organization. This is a planned feature that is not yet implemented. Currently returns a 501 Not Implemented response. The function stub exists in the codebase as `relex_backend_redeem_voucher`.
-- **Headers**: 
+- **Headers**:
   ```
   Authorization: Bearer <firebase_id_token>
   ```
@@ -1184,7 +1164,7 @@ The API is organized into the following groups:
 - **Method**: POST
 - **Path**: `/v1/payments/webhook`
 - **Description**: Process Stripe webhook events to update subscriptions and payments. Handles events such as `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `payment_intent.succeeded`, and more.
-- **Headers**: 
+- **Headers**:
   ```
   Stripe-Signature: <stripe_webhook_signature>
   ```
@@ -1378,4 +1358,4 @@ Common error codes:
    - Development environment guide in `README.md`
    - Required dependencies
    - Configuration steps
-   - Troubleshooting guide 
+   - Troubleshooting guide

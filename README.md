@@ -77,6 +77,8 @@ Here's how to resolve this:
    # Delete existing secrets
    gcloud secrets delete stripe-secret-key --quiet 
    gcloud secrets delete stripe-webhook-secret --quiet
+   gcloud secrets delete gemini-api-key --quiet
+   gcloud secrets delete grok-api-key --quiet
    
    # Create secrets using TF_VAR environment variables
    gcloud secrets create stripe-secret-key --replication-policy="automatic"
@@ -84,6 +86,16 @@ Here's how to resolve this:
    
    gcloud secrets create stripe-webhook-secret --replication-policy="automatic"
    echo $TF_VAR_stripe_webhook_secret | gcloud secrets versions add stripe-webhook-secret --data-file=-
+
+   gcloud secrets create gemini-api-key --replication-policy="automatic"
+   echo $GEMINI_API_KEY | gcloud secrets versions add gemini-api-key --data-file=-
+
+   gcloud secrets create grok-api-key --replication-policy="automatic"
+   echo $GROK_API_KEY | gcloud secrets versions add grok-api-key --data-file=-
+
+   echo -n "<your_gemini_api_key>" | gcloud secrets create GEMINI_API_KEY --data-file=- --project=relexro --replication-policy="automatic"
+
+   echo -n "<your_grok_api_key>" | gcloud secrets create GROK_API_KEY --data-file=- --project=relexro --replication-policy="automatic"
    ```
 
 4. In your Terraform configuration, use data sources instead of resource creation for the secret versions:

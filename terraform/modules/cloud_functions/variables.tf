@@ -280,7 +280,7 @@ variable "functions" {
        entry_point = "relex_backend_list_organization_cases" # Matched main.py
        env_vars    = {}
      },
-    
+
     # Planned Functions (not yet implemented in main.py)
     "relex-backend-redeem-voucher" = {
       description = "Redeem a voucher code (planned)"
@@ -292,27 +292,28 @@ variable "functions" {
       entry_point = "relex_backend_assign_case" # Will be implemented in future
       env_vars    = {}
     },
-    "relex-backend-send-chat-message" = {
-      description = "Send chat message to Vertex AI"
-      entry_point = "relex_backend_send_chat_message"
-      env_vars = {
-        VERTEX_AI_SEARCH_SERVING_CONFIG = "module.rag_system.engine_serving_config_path"
-        VERTEX_AI_LOCATION              = "global"
-      }
-      timeout = 300  # 5 minutes
-      memory  = "512Mi"
-    }
-    "relex-backend-get-chat-history" = {
-      description = "Get chat history for a case"
-      entry_point = "relex_backend_get_chat_history"
+    "relex-backend-agent-handler" = {
+      description = "Lawyer AI Agent handler"
+      entry_point = "relex_backend_agent_handler"
       env_vars = {
         VERTEX_AI_LOCATION = "global"
       }
-      timeout = 30  # 30 seconds
-      memory  = "256Mi"
+      secret_env_vars = [
+        {
+          key     = "GEMINI_API_KEY"
+          secret  = "gemini-api-key"
+          version = "latest"
+        },
+        {
+          key     = "GROK_API_KEY"
+          secret  = "grok-api-key"
+          version = "latest"
+        }
+      ]
+      timeout = 300  # 5 minutes
+      memory  = "512Mi"
     }
 
-    
+
   }
 }
- 

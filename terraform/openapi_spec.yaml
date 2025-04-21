@@ -27,15 +27,16 @@ securityDefinitions:
 
 
 paths:
-  # Case-specific chat endpoints
-  /cases/{caseId}/messages:
+  # Lawyer AI Agent endpoint
+  /cases/{caseId}/agent/messages:
     post:
-      summary: Send a chat message in the context of a specific case
-      operationId: sendCaseMessage
+      summary: Interact with the Lawyer AI Agent for a specific case
+      description: Sends user input to the agent and receives its response or status update. Handles the entire agent workflow invocation.
+      operationId: handleAgentInteraction
       security:
         - firebase: []
       x-google-backend:
-        address: ${function_uris["relex-backend-send-chat-message"]}
+        address: ${function_uris["relex-backend-agent-handler"]}
         path_translation: CONSTANT_ADDRESS
         deadline: 300.0
       parameters:
@@ -43,50 +44,113 @@ paths:
           in: path
           required: true
           type: string
-          description: ID of the case for this conversation
+          description: ID of the case for the agent interaction
         - in: body
           name: body
           required: true
+          description: The user's input or request data for the agent.
           schema:
             type: object
-            required:
-              - message
             properties:
-              message:
+              type:
                 type: string
-                description: The message to send to the chat
+                description: Type of request (e.g., 'user_input')
+                enum: [user_input]
+              input:
+                type: string
+                description: The user's text message or input data
+              user_id:
+                type: string
+                description: The user's ID
+              case_id:
+                type: string
+                description: The case ID (should match the path parameter)
+              user_info:
+                type: object
+                description: Additional user information
+                properties:
+                  name:
+                    type: string
+                    description: User's name
+                  email:
+                    type: string
+                    description: User's email
+            required:
+              - type
+              - input
       responses:
         '200':
-          description: AI response to the user's message
+          description: Successful agent response or status update
           schema:
             type: object
             properties:
-              id:
+              status:
                 type: string
-                description: Unique ID of this message
-              content:
+                description: Status of the agent's operation (e.g., 'success', 'error', 'quota_exceeded', 'payment_required')
+              message:
                 type: string
-                description: The AI's response message
-              timestamp:
-                type: string
-                format: date-time
-                description: Time the message was processed
-              sources:
+                description: The agent's textual response to the user or a status message.
+              response:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: The agent's response content
+                  recommendations:
+                    type: array
+                    items:
+                      type: string
+                    description: List of recommendations from the agent
+                  next_steps:
+                    type: array
+                    items:
+                      type: string
+                    description: List of suggested next steps
+                  draft_documents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Document ID
+                        title:
+                          type: string
+                          description: Document title
+                        url:
+                          type: string
+                          description: Document URL
+                    description: List of generated draft documents
+                  research_summary:
+                    type: string
+                    description: Summary of legal research performed
+              completed_steps:
+                type: array
+                items:
+                  type: string
+                description: List of completed workflow nodes.
+              errors:
                 type: array
                 items:
                   type: object
                   properties:
-                    title:
+                    node:
                       type: string
-                      description: Title or filename of the source
-                    url:
+                      description: The node where the error occurred
+                    error:
                       type: string
-                      description: URL to the source if available
-                    snippet:
+                      description: Error message
+                    timestamp:
                       type: string
-                      description: Relevant excerpt from the source
+                      format: date-time
+                      description: Time the error occurred
+                description: List of errors if any
+              timestamp:
+                type: string
+                format: date-time
+                description: Time the response was generated
         '400':
-          description: Bad request
+          description: Bad request (e.g., invalid input format)
           schema:
             $ref: '#/definitions/BadRequest'
         '401':
@@ -94,7 +158,7 @@ paths:
           schema:
             $ref: '#/definitions/Unauthorized'
         '403':
-          description: Forbidden
+          description: Forbidden (e.g., user doesn't have access to the case)
           schema:
             $ref: '#/definitions/Forbidden'
         '404':
@@ -102,86 +166,10 @@ paths:
           schema:
             $ref: '#/definitions/NotFound'
         '500':
-          description: Internal server error
+          description: Internal server error (Agent handler failure)
           schema:
             $ref: '#/definitions/InternalServerError'
-    get:
-      summary: Get chat history for a specific case
-      operationId: getCaseMessages
-      security:
-        - firebase: []
-      x-google-backend:
-        address: ${function_uris["relex-backend-get-chat-history"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: caseId
-          in: path
-          required: true
-          type: string
-          description: ID of the case to retrieve chat history for
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          description: Maximum number of messages to return
-        - name: before
-          in: query
-          required: false
-          type: string
-          format: date-time
-          description: Return messages before this timestamp
-      responses:
-        '200':
-          description: Chat history for the case
-          schema:
-            type: object
-            properties:
-              messages:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    role:
-                      type: string
-                      enum: [user, assistant]
-                    content:
-                      type: string
-                    timestamp:
-                      type: string
-                      format: date-time
-                    sources:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          title:
-                            type: string
-                          url:
-                            type: string
-                          snippet:
-                            type: string
-              hasMore:
-                type: boolean
-                description: Whether more messages exist before the oldest returned message
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '403':
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/Forbidden'
-        '404':
-          description: Case not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
+
 
   # User profile endpoints
   /users/me:
@@ -1335,7 +1323,7 @@ paths:
           schema:
             type: object
             properties:
-              received: 
+              received:
                 type: boolean
         '400':
           description: Bad request

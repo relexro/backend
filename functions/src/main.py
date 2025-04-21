@@ -32,12 +32,7 @@ from organization import (
     update_organization as logic_update_organization,
     delete_organization as logic_delete_organization
 )
-from chat import (
-    receive_prompt as logic_receive_prompt,
-    send_to_vertex_ai as logic_send_to_vertex_ai,
-    store_conversation as logic_store_conversation,
-    enrich_prompt as logic_enrich_prompt
-)
+from agent_handler import cloud_function_handler as logic_agent_handler
 from payments import (
     create_payment_intent as logic_create_payment_intent,
     create_checkout_session as logic_create_checkout_session,
@@ -159,21 +154,7 @@ def relex_backend_update_organization(request: Request):
 def relex_backend_delete_organization(request: Request):
     return _authenticate_and_call(request, logic_delete_organization)
 
-@functions_framework.http
-def relex_backend_receive_prompt(request: Request):
-    return _authenticate_and_call(request, logic_receive_prompt)
 
-@functions_framework.http
-def relex_backend_send_to_vertex_ai(request: Request):
-    return _authenticate_and_call(request, logic_send_to_vertex_ai)
-
-@functions_framework.http
-def relex_backend_store_conversation(request: Request):
-    return _authenticate_and_call(request, logic_store_conversation)
-
-@functions_framework.http
-def relex_backend_enrich_prompt(request: Request):
-    return _authenticate_and_call(request, logic_enrich_prompt)
 
 @functions_framework.http
 def relex_backend_create_payment_intent(request: Request):
@@ -264,39 +245,20 @@ def relex_backend_get_products(request: Request):
         return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
 
 @functions_framework.http
-def relex_backend_send_chat_message(request: Request):
-    """New unified chat message endpoint.
-
-    TODO: Implement the following data flow:
-    1. Authenticate user & verify case permissions
-    2. Store user message in GCS (chat_history.jsonl)
-    3. Fetch caseTypeId from Firestore and retrieve caseTypeConfig
-    4. Fetch recent chat history from GCS
-    5. Fetch relevant document text (if needed) from processed docs
-    6. Query Vertex AI Search (Main RAG) with user message
-    7. Construct comprehensive prompt (instructions, history, docs, RAG results)
-    8. Call external LLM API
-    9. Store LLM response in GCS (chat_history.jsonl)
-    10. Return response to user
-    """
-    # TODO: Replace with actual implementation
-    return flask.jsonify({
-        "error": "Not Implemented",
-        "message": "This function is still under development"
-    }), 501
-
-@functions_framework.http
-def relex_backend_get_chat_history(request: Request):
-    """Retrieves chat history for a specific case.
-
-    TODO: Implement the following:
-    1. Authenticate user & verify case permissions
-    2. Read chat_history.jsonl from GCS for the case
-    3. Apply pagination/filtering based on query parameters
-    4. Return formatted messages
-    """
-    # TODO: Replace with actual implementation
-    return flask.jsonify({
-        "error": "Not Implemented",
-        "message": "This function is still under development"
-    }), 501
+def relex_backend_agent_handler(request: Request):
+    """Handles requests for the Lawyer AI Agent."""
+    # Note: The agent_handler uses asyncio, so direct wrapping might need adjustment
+    # if _authenticate_and_call isn't compatible with async handlers.
+    # For now, we'll call it directly, assuming agent_handler handles errors.
+    # Authentication/permission checks should happen *inside* the agent handler logic.
+    try:
+        # agent_handler.cloud_function_handler expects the raw request object
+        response_data = logic_agent_handler(request)
+        # Assuming the handler returns a dict and manages its own status codes/errors
+        status_code = response_data.get('status_code', 200) # Default to 200 if not specified
+        if 'status_code' in response_data:
+            del response_data['status_code'] # Don't send internal code to client
+        return flask.jsonify(response_data), status_code
+    except Exception as e:
+        logging.error(f"Critical error in agent handler entry point: {str(e)}", exc_info=True)
+        return flask.jsonify({"error": "Internal Server Error", "message": "Agent handler failed unexpectedly."}), 500

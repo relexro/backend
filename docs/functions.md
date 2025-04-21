@@ -61,33 +61,33 @@ Split across multiple files for different aspects:
 - `update_user_profile`: Profile updates
 
 ### Party Management (`party.py`)
-- `create_party`: 
+- `create_party`:
   - Creates parties with conditional field validation based on partyType
   - Supports 'individual' type with firstName, lastName, and CNP validation
   - Supports 'organization' type with companyName, CUI, and RegCom validation
   - Verifies proper format for Romanian identification codes (CNP, CUI, RegCom)
   - Handles optional contact and signature data
 
-- `get_party`: 
+- `get_party`:
   - Retrieves party details with ownership verification
   - Only allows the creator/owner to access their parties
 
-- `update_party`: 
+- `update_party`:
   - Updates party details while maintaining type constraints
   - Ensures updates comply with the existing partyType schema
   - Prevents mixing of individual and organization fields
 
-- `delete_party`: 
+- `delete_party`:
   - Removes parties after ownership verification
   - Blocks deletion if the party is attached to any cases
 
-- `list_parties`: 
+- `list_parties`:
   - Lists parties owned by the authenticated user
   - Supports filtering by partyType
 
 ### Case-Party Relationship (`cases.py`)
 - `attach_party_to_case`:
-  - Attaches an existing party to a case 
+  - Attaches an existing party to a case
   - Verifies case update permission
   - Verifies party ownership
   - Updates the case's attachedPartyIds array using ArrayUnion
@@ -106,19 +106,19 @@ Split across multiple files for different aspects:
   - Returns structured response with prices in cents/smallest currency unit
   - No authentication required - public endpoint
 
-- `create_payment_intent`: 
+- `create_payment_intent`:
   - Creates Stripe payment intent based on case tier (1, 2, 3)
   - Maps tier to appropriate amount (Tier 1=900, Tier 2=2900, Tier 3=9900 cents)
   - Stores payment metadata in Firestore
   - Returns client secret for frontend payment processing
 
-- `create_checkout_session`: 
+- `create_checkout_session`:
   - Creates Stripe checkout session for subscriptions or one-time payments
   - For subscriptions: Maps planId (e.g., 'personal_monthly') to Stripe priceId
   - Can be used for both user and organization subscriptions
   - Returns checkout URL for frontend redirection
 
-- `handle_stripe_webhook`: 
+- `handle_stripe_webhook`:
   - Processes Stripe webhook events securely with added safeguards for data access
   - Handles checkout.session.completed for subscription and payment events
   - Handles invoice.payment_failed to update subscription status
@@ -126,20 +126,21 @@ Split across multiple files for different aspects:
   - Updates relevant Firestore records based on events
   - Includes robust error handling for nested data access
 
-- `cancel_subscription`: 
+- `cancel_subscription`:
   - Allows users to cancel their subscriptions
   - Verifies appropriate permissions (own subscription or org admin)
   - Schedules cancellation at period end (better UX)
   - Actual status update happens via webhook when processed by Stripe
 
-### Chat Management (`chat.py`)
-- `receive_prompt`: Receives and stores a user prompt
-- `enrich_prompt`: Adds case context to a prompt
-- `send_to_vertex_ai`: Sends prompts to Vertex AI
-- `store_conversation`: 
-  - Stores conversation in a case's subcollection
-  - Includes proper permission checks to verify user has update access to the parent case
-  - Ensures security by checking organization membership and role
+### Lawyer AI Agent (`agent_handler.py`)
+- `cloud_function_handler`: Main entry point for the Lawyer AI Agent
+  - Handles incoming requests for the agent
+  - Manages the LangGraph agent workflow
+  - Processes user input and generates responses
+  - Interacts with Gemini and Grok LLMs
+  - Performs legal research using BigQuery
+  - Generates document drafts
+  - Manages case state in Firestore
 
 ## Implementation Details
 
@@ -157,17 +158,17 @@ def get_authenticated_user(request):
 # Define permissions mapping
 PERMISSIONS = {
     "case": {
-        "administrator": {"read", "update", "delete", "archive", "upload_file", 
+        "administrator": {"read", "update", "delete", "archive", "upload_file",
                          "download_file", "attach_party", "detach_party", "assign_case",
                          "create", "list"},
-        "staff": {"read", "update", "upload_file", "download_file", 
+        "staff": {"read", "update", "upload_file", "download_file",
                  "attach_party", "detach_party", "create", "list"},
-        "owner": {"read", "update", "delete", "archive", "upload_file", 
+        "owner": {"read", "update", "delete", "archive", "upload_file",
                  "download_file", "attach_party", "detach_party", "create", "list"}
     },
     "organization": {
-        "administrator": {"read", "update", "delete", "manage_members", 
-                         "create_case", "list_cases", "assign_case", "addMember", 
+        "administrator": {"read", "update", "delete", "manage_members",
+                         "create_case", "list_cases", "assign_case", "addMember",
                          "setMemberRole", "removeMember", "listMembers"},
         "staff": {"read", "create_case", "list_cases", "listMembers"}
     },
@@ -228,59 +229,65 @@ def upload_file(request):
     # Return file details
 ```
 
-### Chat Integration
+### Lawyer AI Agent Integration
 ```python
-def send_chat_message(request):
-    """Unified chat endpoint that handles the full RAG + LLM flow.
-    
+def relex_backend_agent_handler(request):
+    """Main entry point for the Lawyer AI Agent.
+
     - Authenticates user and verifies case access permissions
-    - Stores user message in Cloud Storage
-    - Retrieves case type configuration with agent instructions
-    - Fetches relevant case context (history, documents)
-    - Queries the main RAG system (Vertex AI Search) with TXT direct indexing
-    - Constructs a comprehensive prompt
-    - Calls external LLM with prepared context
-    - Stores response and returns to user
+    - Processes the user's message using the agent_handler module
+    - Manages the LangGraph agent workflow
+    - Handles agent state and execution
+    - Returns the agent's response
     """
-    # Auth check and case validation
-    # Store user message in GCS (chat_history.jsonl)
-    # Get caseTypeId and config from Firestore
-    # Fetch chat history from GCS
-    # Get processed document text if relevant
-    # Query Vertex AI Search for legislation/jurisprudence
-    # Build prompt with all context sources
-    # Call external LLM API
-    # Store AI response in GCS
-    # Return formatted response with sources
+    # Call the agent_handler's cloud_function_handler
+    # Handle response status codes
+    # Format and return the response
 ```
 
 ```python
-def get_chat_history(request):
-    """Retrieves chat history for a case.
-    
-    - Authenticates user and verifies case access permissions
-    - Reads chat history from Cloud Storage
-    - Supports pagination and filtering
+def cloud_function_handler(request):
+    """Core handler function in agent_handler.py.
+
+    - Parses the request JSON
+    - Creates an event loop for async execution
+    - Calls the handle_request function
+    - Returns the agent's response
     """
-    # Auth check and case validation
-    # Read messages from GCS
-    # Apply pagination/filtering
-    # Return formatted message list
+    # Parse request JSON
+    # Create event loop
+    # Run handle_request asynchronously
+    # Return response
 ```
 
 ```python
-def store_conversation(request):
-    """Store a conversation in a case's subcollection (legacy).
-    
-    Note: This function is being replaced by the unified chat flow
-    that stores messages directly in Cloud Storage.
+async def handle_request(request_json):
+    """Process incoming requests based on type.
+
+    - Handles user input requests
+    - Handles payment webhook requests
+    - Calls the appropriate agent handler method
     """
-    # Authenticate user
-    # Validate input data (caseId, promptId, prompt, response)
-    # Get case document to ensure it exists
-    # Perform permission check to verify user can update the case
-    # Write conversation to the subcollection
-    # Return success message
+    # Determine request type
+    # Call appropriate handler method
+    # Return response
+```
+
+```python
+async def handle_user_input(case_id, user_id, input_text, user_info):
+    """Handle user input by initializing or restoring agent state and executing the graph.
+
+    - Gets or creates case details
+    - Initializes agent state
+    - Executes the agent graph
+    - Saves final state
+    - Prepares response
+    """
+    # Get or create case details
+    # Initialize agent state
+    # Execute agent graph
+    # Save final state
+    # Prepare and return response
 ```
 
 ### Party Management
@@ -355,7 +362,7 @@ Common error responses:
 - `redeem_voucher`: Will handle voucher code redemption for users or organizations
   - Currently implemented as a stub function that returns 501 Not Implemented
   - Exposed as `relex_backend_redeem_voucher` in main.py
-  - Will be called via the `/v1/vouchers/redeem` endpoint 
+  - Will be called via the `/v1/vouchers/redeem` endpoint
   - Included in the Terraform configuration and OpenAPI spec
 
 ### Organization Cases List Function
@@ -383,7 +390,7 @@ The Relex backend logic is implemented as a set of Python Cloud Functions trigge
 ## NEW/Modified Functions for Lawyer AI Agent
 
 * **`agent_handler.py` (or significantly modified `chat.py`):**
-    * **Trigger:** HTTP POST to `/cases/{caseId}/agent/message`.
+    * **Trigger:** HTTP POST to `/cases/{caseId}/agent/messages`.
     * **Responsibilities:**
         * Authenticates and authorizes the request.
         * Loads case context (`case_details`, `case_processing_state`, history) from Firestore.
