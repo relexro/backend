@@ -1,7 +1,13 @@
 import functions_framework
 import flask
 import logging
+import os
+from dotenv import load_dotenv
 from flask import Request
+
+# Load environment variables from .env file
+load_dotenv()
+
 from auth import (
     validate_user as logic_validate_user,
     check_permissions as logic_check_permissions,
@@ -260,7 +266,7 @@ def relex_backend_get_products(request: Request):
 @functions_framework.http
 def relex_backend_send_chat_message(request: Request):
     """New unified chat message endpoint.
-    
+
     TODO: Implement the following data flow:
     1. Authenticate user & verify case permissions
     2. Store user message in GCS (chat_history.jsonl)
@@ -275,14 +281,14 @@ def relex_backend_send_chat_message(request: Request):
     """
     # TODO: Replace with actual implementation
     return flask.jsonify({
-        "error": "Not Implemented", 
+        "error": "Not Implemented",
         "message": "This function is still under development"
     }), 501
 
 @functions_framework.http
 def relex_backend_get_chat_history(request: Request):
     """Retrieves chat history for a specific case.
-    
+
     TODO: Implement the following:
     1. Authenticate user & verify case permissions
     2. Read chat_history.jsonl from GCS for the case
@@ -291,6 +297,6 @@ def relex_backend_get_chat_history(request: Request):
     """
     # TODO: Replace with actual implementation
     return flask.jsonify({
-        "error": "Not Implemented", 
+        "error": "Not Implemented",
         "message": "This function is still under development"
     }), 501

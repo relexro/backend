@@ -8,6 +8,7 @@ from datetime import datetime
 import asyncio
 import json
 import logging
+import os
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from custom_grok_client import GrokClient
@@ -26,7 +27,7 @@ class GeminiProcessor:
     model_name: str
     temperature: float
     max_tokens: int
-    
+
     async def initialize(self) -> None:
         """Initialize the Gemini model."""
         try:
@@ -45,7 +46,7 @@ class GrokProcessor:
     model_name: str
     temperature: float
     max_tokens: int
-    
+
     async def initialize(self) -> None:
         """Initialize the Grok model."""
         try:
@@ -64,7 +65,7 @@ def prepare_context(context: Dict[str, Any]) -> Dict[str, Any]:
         "timestamp": datetime.now().isoformat(),
         "language": "ro",  # Romanian language
     }
-    
+
     # Add available context fields
     if "case_type" in context:
         prepared_context["case_type"] = context["case_type"]
@@ -78,7 +79,7 @@ def prepare_context(context: Dict[str, Any]) -> Dict[str, Any]:
         prepared_context["precedents"] = context["precedents"]
     if "claim_value" in context:
         prepared_context["claim_value"] = float(context["claim_value"])
-    
+
     return prepared_context
 
 def format_llm_response(response: Dict[str, Any]) -> str:
@@ -88,23 +89,23 @@ def format_llm_response(response: Dict[str, Any]) -> str:
 Eroare: {response['error']}
 Tip eroare: {response.get('error_type', 'necunoscut')}
 """
-    
+
     formatted = []
-    
+
     if "analysis" in response:
         formatted.append(f"Analiză Juridică:\n{response['analysis']}\n")
-    
+
     if "recommendations" in response:
         formatted.append("Recomandări:\n" + "\n".join(
             f"- {rec}" for rec in response["recommendations"]
         ) + "\n")
-    
+
     if "risk_factors" in response:
         formatted.append("Factori de Risc:")
         for level, risks in response["risk_factors"].items():
             formatted.append(f"\n{level.upper()}:")
             formatted.extend(f"- {risk}" for risk in risks)
-    
+
     return "\n".join(formatted)
 
 async def process_with_gemini(
@@ -116,7 +117,7 @@ async def process_with_gemini(
     """Process request with Gemini."""
     try:
         await processor.initialize()
-        
+
         prepared_context = prepare_context(context)
         full_prompt = f"""
 Context:
@@ -127,16 +128,16 @@ Cerere:
 
 Răspunde în limba română, folosind un ton profesional și juridic.
 """
-        
+
         response = await processor.model.agenerate(
             messages=[{"role": "user", "content": full_prompt}]
         )
-        
+
         if not response or not response[0].content:
             raise LLMError("Nu s-a primit niciun răspuns de la Gemini")
-        
+
         return response[0].content
-        
+
     except Exception as e:
         logger.error(f"Error in Gemini processing: {str(e)}")
         raise LLMError(f"Eroare la procesarea cu Gemini: {str(e)}")
@@ -150,7 +151,7 @@ async def process_with_grok(
     """Process request with Grok."""
     try:
         await processor.initialize()
-        
+
         prepared_context = prepare_context(context)
         full_prompt = f"""
 Context Juridic:
@@ -164,17 +165,17 @@ Oferă o analiză detaliată în limba română, concentrându-te pe:
 2. Recomandări specifice bazate pe legislația română
 3. Factori de risc și considerații speciale
 """
-        
+
         response = await processor.model.generate(
             prompt=full_prompt,
             session_id=session_id
         )
-        
+
         if not response or not response.content:
             raise LLMError("Nu s-a primit niciun răspuns de la Grok")
-        
+
         return response.content
-        
+
     except Exception as e:
         logger.error(f"Error in Grok processing: {str(e)}")
         raise LLMError(f"Eroare la procesarea cu Grok: {str(e)}")
@@ -197,33 +198,33 @@ async def process_legal_query(
             temperature=0.8,
             max_tokens=4096
         )
-        
+
         # Get initial analysis from Gemini
         initial_analysis = await process_with_gemini(
             gemini,
             context,
             "Analizează aspectele juridice principale ale cazului și identifică legislația relevantă."
         )
-        
+
         # Enhanced context with Gemini's analysis
         enhanced_context = {
             **context,
             "preliminary_analysis": initial_analysis
         }
-        
+
         # Get expert recommendations from Grok
         expert_recommendations = await process_with_grok(
             grok,
             enhanced_context,
             f"Bazat pe analiza preliminară și contextul dat, {query}"
         )
-        
+
         return {
             "initial_analysis": initial_analysis,
             "expert_recommendations": expert_recommendations,
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error in legal query processing: {str(e)}")
         return {
@@ -244,9 +245,9 @@ async def maintain_conversation_history(
         "content": content,
         "timestamp": datetime.now().isoformat()
     })
-    
+
     # Keep only last 10 messages to manage context window
     if len(history) > 10:
         history = history[-10:]
-    
-    return history 
+
+    return history
