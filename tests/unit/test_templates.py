@@ -3,8 +3,8 @@ Unit tests for draft templates and validation
 """
 import unittest
 from datetime import datetime
-from src.draft_templates import DraftGenerator
-from src.template_validation import TemplateValidator, ValidationError
+from functions.src.draft_templates import DraftGenerator
+from functions.src.template_validation import TemplateValidator, ValidationError
 
 class TestTemplateValidation(unittest.TestCase):
     """Test cases for template field validation."""
@@ -107,7 +107,7 @@ class TestDraftGenerator(unittest.TestCase):
             "validity_period": "31.12.2024"
         }
         result = self.generator.generate_draft("power_of_attorney", context)
-        
+
         self.assertEqual(result["status"], "success")
         self.assertIn("PROCURĂ SPECIALĂ", result["content"])
         self.assertIn(context["name"], result["content"])
@@ -124,7 +124,7 @@ class TestDraftGenerator(unittest.TestCase):
             "requests": "Solicit înlocuirea produsului și despăgubiri..."
         }
         result = self.generator.generate_draft("complaint", context)
-        
+
         self.assertEqual(result["status"], "success")
         self.assertIn("PLÂNGERE", result["content"])
         self.assertIn(context["recipient_authority"], result["content"])
@@ -139,11 +139,11 @@ class TestDraftGenerator(unittest.TestCase):
     def test_metadata_generation(self):
         """Test metadata generation for drafts."""
         result = self.generator.generate_draft("power_of_attorney", self.valid_person)
-        
+
         self.assertIn("metadata", result)
         self.assertEqual(result["metadata"]["type"], "power_of_attorney")
         self.assertIn("generated_at", result["metadata"])
         self.assertEqual(result["metadata"]["version"], "1.0")
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

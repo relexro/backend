@@ -5,7 +5,7 @@ import pytest
 from datetime import datetime
 from typing import Dict, Any
 
-from ..src.agent_nodes import (
+from functions.src.agent_nodes import (
     AgentState,
     determine_tier_node,
     verify_payment_node,
@@ -13,7 +13,7 @@ from ..src.agent_nodes import (
     research_node,
     error_node
 )
-from ..src.domain_nodes import (
+from functions.src.domain_nodes import (
     civil_law_node,
     commercial_law_node,
     administrative_law_node,
@@ -77,9 +77,9 @@ async def test_determine_tier_node_with_quota():
         user_id="test_user",
         quota_status={"has_quota": True, "remaining_credits": 100}
     )
-    
+
     next_node, updated_state = await determine_tier_node(state)
-    
+
     assert next_node == "verify_payment"
     assert "determine_tier" in updated_state.completed_nodes
     assert updated_state.quota_status["has_quota"] is True
@@ -92,9 +92,9 @@ async def test_determine_tier_node_without_quota():
         user_id="test_user",
         quota_status={"has_quota": False, "required_credits": 50}
     )
-    
+
     next_node, updated_state = await determine_tier_node(state)
-    
+
     assert next_node == "end"
     assert updated_state.response_data["status"] == "quota_exceeded"
 
@@ -107,9 +107,9 @@ async def test_error_node_with_retries():
         current_node="process_input",
         retry_count={"process_input": 1}
     )
-    
+
     next_node, updated_state = await error_node(state)
-    
+
     assert next_node == "process_input"
     assert updated_state.retry_count["process_input"] == 2
 
@@ -118,7 +118,7 @@ async def test_error_node_with_retries():
 async def test_civil_law_node_complex_case(civil_case_state):
     """Test civil law node with a complex case."""
     next_node, updated_state = await civil_law_node(civil_case_state)
-    
+
     assert next_node == "expert_consultation"
     assert updated_state.input_analysis["domain_specific"]["type"] == "civil"
     assert updated_state.input_analysis["domain_specific"]["complexity_score"] >= 2
@@ -127,7 +127,7 @@ async def test_civil_law_node_complex_case(civil_case_state):
 async def test_commercial_law_node_high_value(commercial_case_state):
     """Test commercial law node with high-value contract."""
     next_node, updated_state = await commercial_law_node(commercial_case_state)
-    
+
     assert next_node == "expert_consultation"
     assert updated_state.input_analysis["domain_specific"]["type"] == "commercial"
     assert updated_state.input_analysis["regulatory_requirements"]["industry"] == "banking"
@@ -148,9 +148,9 @@ async def test_administrative_law_node_urgent():
             }
         }
     )
-    
+
     next_node, updated_state = await administrative_law_node(state)
-    
+
     assert next_node == "expert_consultation"
     assert updated_state.input_analysis["domain_specific"]["urgent_procedure"] is True
     assert "cerere_suspendare" in updated_state.input_analysis["domain_specific"]["required_documents"]
@@ -171,9 +171,9 @@ async def test_labor_law_node_discrimination():
             }
         }
     )
-    
+
     next_node, updated_state = await labor_law_node(state)
-    
+
     assert next_node == "expert_consultation"
     assert updated_state.input_analysis["domain_specific"]["complexity_score"] == 3
     assert updated_state.input_analysis["domain_specific"]["special_conditions"]["discrimination"] is True
@@ -191,9 +191,9 @@ async def test_civil_law_node_missing_fields():
             }
         }
     )
-    
+
     next_node, updated_state = await civil_law_node(state)
-    
+
     assert next_node == "error"
     assert len(updated_state.errors) == 1
     assert "Câmpuri obligatorii lipsă" in updated_state.errors[0]["error"]
@@ -205,12 +205,12 @@ async def test_full_workflow_civil_case(civil_case_state):
     # Start with tier determination
     next_node, state = await determine_tier_node(civil_case_state)
     assert next_node == "verify_payment"
-    
+
     # Process through civil law node
     next_node, state = await civil_law_node(state)
     assert next_node == "expert_consultation"
-    
+
     # Verify state consistency
     assert "civil_law" in state.completed_nodes
     assert state.input_analysis["domain_specific"]["type"] == "civil"
-    assert isinstance(state.input_analysis["domain_specific"]["complexity_score"], int) 
+    assert isinstance(state.input_analysis["domain_specific"]["complexity_score"], int)
