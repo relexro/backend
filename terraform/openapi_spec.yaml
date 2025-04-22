@@ -549,6 +549,7 @@ paths:
               - title
               - description
               - caseTier
+              - caseTypeId
             properties:
               title:
                 type: string
@@ -568,6 +569,9 @@ paths:
                 items:
                   type: string
                 description: Optional array of party IDs to attach initially
+              caseTypeId:
+                type: string
+                description: The ID of the case type for this case
       responses:
         '201':
           description: Case created successfully
@@ -619,6 +623,7 @@ paths:
               - title
               - description
               - caseTier
+              - caseTypeId
             properties:
               title:
                 type: string
@@ -641,6 +646,9 @@ paths:
               assignedUserId:
                 type: string
                 description: Optional staff user ID to assign the case to
+              caseTypeId:
+                type: string
+                description: The ID of the case type for this case
       responses:
         '201':
           description: Case created successfully
@@ -960,7 +968,7 @@ paths:
       summary: Upload a file to a case
       operationId: uploadFile
       consumes:
-        - application/json
+        - multipart/form-data
       security:
         - firebase: []
       x-google-backend:
@@ -973,25 +981,11 @@ paths:
           in: path
           required: true
           type: string
-        - in: body
-          name: body
+        - name: file
+          in: formData
+          description: The file to upload.
           required: true
-          schema:
-            type: object
-            properties:
-              fileContent:
-                type: string
-                format: byte
-                description: Base64 encoded file content
-              fileName:
-                type: string
-                description: Original filename
-              contentType:
-                type: string
-                description: MIME type of the file
-            required:
-              - fileContent
-              - fileName
+          type: file
       responses:
         '201':
           description: File uploaded successfully
@@ -1297,302 +1291,7 @@ paths:
           schema:
             $ref: '#/definitions/InternalServerError'
 
-  # --- Start of /api prefixed paths ---
-  # These paths are kept, but corrected to use function_uris map
-  # Ensure the keys match what module.cloud_functions.function_uris provides
-  # It's likely these point to the *same* functions as the non-/api paths above
 
-  /api/stripe/webhook:
-    post:
-      summary: Handle Stripe webhook events (Alternative Path)
-      operationId: handleStripeWebhookAlt
-      tags:
-        - Subscriptions
-      consumes:
-        - application/json
-      produces:
-        - application/json
-      security: []  # No Firebase auth - secured by Stripe signature
-      x-google-backend:
-        address: ${function_uris["relex-backend-handle-stripe-webhook"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      responses:
-        '200':
-          description: Webhook processed successfully
-          schema:
-            type: object
-            properties:
-              received:
-                type: boolean
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-
-  /api/parties/{partyId}:
-    get:
-      summary: Get a party by ID (Alternative Path)
-      operationId: getPartyAlt
-      tags:
-        - Parties
-      security:
-        - firebase: []
-      produces:
-        - application/json
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-get-party'
-        address: ${function_uris["relex-backend-get-party"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: partyId
-          in: path
-          required: true
-          type: string
-          description: Unique identifier for the party
-      responses:
-        '200':
-          description: Party details
-          schema:
-            $ref: '#/definitions/Party'
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '404':
-          description: Not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-    put:
-      summary: Update a party (Alternative Path)
-      operationId: updatePartyAlt
-      tags:
-        - Parties
-      security:
-        - firebase: []
-      consumes:
-        - application/json
-      produces:
-        - application/json
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-update-party'
-        address: ${function_uris["relex-backend-update-party"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: partyId
-          in: path
-          required: true
-          type: string
-          description: Unique identifier for the party
-        - in: body
-          name: party
-          required: true
-          schema:
-            $ref: '#/definitions/PartyUpdateInput'
-      responses:
-        '200':
-          description: Party updated successfully
-          schema:
-            $ref: '#/definitions/Party'
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '404':
-          description: Not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-    delete:
-      summary: Delete a party (Alternative Path)
-      operationId: deletePartyAlt
-      tags:
-        - Parties
-      security:
-        - firebase: []
-      produces:
-        - application/json
-      x-google-backend:
-        # ASSUMPTION: Key is 'relex-backend-delete-party'
-        address: ${function_uris["relex-backend-delete-party"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: partyId
-          in: path
-          required: true
-          type: string
-          description: Unique identifier for the party
-      responses:
-        '204':
-          description: Party deleted successfully
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '404':
-          description: Not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '409':
-          description: Conflict - Party cannot be deleted (e.g., attached to cases)
-          schema:
-            $ref: '#/definitions/Conflict'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-
-  /api/cases/{caseId}/parties:
-    post:
-      summary: Attach a party to a case (Alternative Path)
-      operationId: attachPartyToCaseAlt
-      tags:
-        - Parties
-        - Cases
-      security:
-        - firebase: []
-      consumes:
-        - application/json
-      produces:
-        - application/json
-      x-google-backend:
-        address: ${function_uris["relex-backend-attach-party"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: caseId
-          in: path
-          required: true
-          type: string
-          description: Unique identifier for the case
-        - in: body
-          name: partyAssociation
-          required: true
-          schema:
-            type: object
-            required:
-              - partyId
-            properties:
-              partyId:
-                type: string
-                description: Unique identifier for the party to attach
-      responses:
-        '200':
-          description: Party successfully attached to case
-          schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-              message:
-                type: string
-              caseId:
-                type: string
-              partyId:
-                type: string
-        '400':
-          description: Bad request
-          schema:
-            $ref: '#/definitions/BadRequest'
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '404':
-          description: Not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '409':
-          description: Conflict (e.g., party already attached)
-          schema:
-            $ref: '#/definitions/Conflict'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
-
-  /api/cases/{caseId}/parties/{partyId}:
-    delete:
-      summary: Detach a party from a case (Alternative Path)
-      operationId: detachPartyFromCaseAlt
-      tags:
-        - Parties
-        - Cases
-      security:
-        - firebase: []
-      produces:
-        - application/json
-      x-google-backend:
-        address: ${function_uris["relex-backend-detach-party"]}
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-        - name: caseId
-          in: path
-          required: true
-          type: string
-          description: Unique identifier for the case
-        - name: partyId
-          in: path
-          required: true
-          type: string
-          description: Unique identifier for the party
-      responses:
-        '200':
-          description: Party successfully detached from case
-          schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-              message:
-                type: string
-              caseId:
-                type: string
-              partyId:
-                type: string
-        '401':
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Unauthorized'
-        '403':
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/Forbidden'
-        '404':
-          description: Not found
-          schema:
-            $ref: '#/definitions/NotFound'
-        '500':
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/InternalServerError'
 
   # Original Case Actions (GET/DELETE/ARCHIVE/ASSIGN on /cases/{caseId})
   /cases/{caseId}:

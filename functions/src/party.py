@@ -8,7 +8,7 @@ import flask # Keep flask import
 import logging
 import uuid
 # Removed google.cloud.firestore import
-from auth import check_permission, PermissionCheckRequest, TYPE_PARTY as RESOURCE_TYPE_PARTY, get_authenticated_user # Corrected import
+from auth import check_permission, PermissionCheckRequest, TYPE_PARTY as RESOURCE_TYPE_PARTY, ACTION_READ, ACTION_UPDATE, ACTION_DELETE, get_authenticated_user # Corrected import
 
 logging.basicConfig(level=logging.INFO)
 
@@ -133,10 +133,11 @@ def get_party(request: Request):
             return {"error": "Not Found", "message": "Party not found"}, 404
 
         party_data = party_doc.to_dict()
-        if party_data.get("userId") != user_id:
-            # Check if user has permission via org context if applicable?
-            # For now, strict ownership check.
-            return {"error": "Forbidden", "message": "Access denied"}, 403
+        # Check permission using the central function
+        permission_request = PermissionCheckRequest(resourceType=RESOURCE_TYPE_PARTY, resourceId=party_id, action=ACTION_READ)
+        allowed, message = check_permission(user_id, permission_request)
+        if not allowed:
+            return {"error": message}, 403
 
         result = party_data
         result["partyId"] = party_id
@@ -169,7 +170,11 @@ def update_party(request: Request):
         if not party_doc.exists: return {"error": "Not Found", "message": "Party not found"}, 404
 
         existing_party = party_doc.to_dict()
-        if existing_party.get("userId") != user_id: return {"error": "Forbidden", "message": "Access denied"}, 403
+        # Check permission using the central function
+        permission_request = PermissionCheckRequest(resourceType=RESOURCE_TYPE_PARTY, resourceId=party_id, action=ACTION_UPDATE)
+        allowed, message = check_permission(user_id, permission_request)
+        if not allowed:
+            return {"error": message}, 403
         party_type = existing_party["partyType"] # Cannot change type
 
         update_data = {}
@@ -270,7 +275,11 @@ def delete_party(request: Request):
         if not party_doc.exists: return {"error": "Not Found", "message": "Party not found"}, 404
 
         party_data = party_doc.to_dict()
-        if party_data.get("userId") != user_id: return {"error": "Forbidden", "message": "Access denied"}, 403
+        # Check permission using the central function
+        permission_request = PermissionCheckRequest(resourceType=RESOURCE_TYPE_PARTY, resourceId=party_id, action=ACTION_DELETE)
+        allowed, message = check_permission(user_id, permission_request)
+        if not allowed:
+            return {"error": message}, 403
 
         # Check if party is attached to any *active* cases?
         cases_query = db.collection("cases").where("attachedPartyIds", "array_contains", party_id).where("status", "!=", "deleted").limit(1).stream()

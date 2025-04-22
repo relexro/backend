@@ -32,55 +32,40 @@ db = firestore.client()
 # A typical Auth trigger signature looks like: def create_user_profile_trigger(event, context):
 def create_user_profile_logic(user_record): # Separated logic for clarity or potential trigger use
     """
-    Logic to create a user profile document in Firestore.
-    Intended to be called when a new user signs up (e.g., via Firebase Auth trigger).
-
-    Args:
-        user_record (dict): The user record data from Firebase Auth event.
-                            Expected keys: uid, email, displayName, photoURL.
+    Handles the creation of a user profile upon Firebase Auth user creation.
+    Triggered by: providers/firebase.auth/eventTypes/user.create
     """
-    try:
-        user_id = user_record.get('uid')
-        if not user_id:
-             logging.error("Cannot create user profile: 'uid' missing from user_record.")
-             return # Exit gracefully
-
-        email = user_record.get('email') or "" # Handle missing email
-        display_name = user_record.get('displayName') or "" # Handle missing displayName
-        # Corrected key: Firebase Auth typically uses 'photoURL'
-        photo_url = user_record.get('photoURL') or "" # Handle missing photoURL
-
-
-        logging.info(f"Creating user profile for new user: {user_id}")
-
-        # Get Firestore user document reference
-        user_ref = db.collection("users").document(user_id)
-
-        # Prepare user data for Firestore document
-        user_data = {
-            "userId": user_id, # Store userId explicitly in the document
-            "email": email,
-            "displayName": display_name,
-            "photoURL": photo_url,
-            "role": "user", # Assign a default role
-            "subscriptionStatus": None, # Initialize subscription status
-            "languagePreference": "en", # Default language preference
-            "createdAt": firestore.SERVER_TIMESTAMP, # Record creation time
-            "updatedAt": firestore.SERVER_TIMESTAMP  # Also set updatedAt on creation
-        }
-
-        # Write to Firestore (set will overwrite if doc somehow exists)
-        user_ref.set(user_data)
-
-        logging.info(f"User profile created successfully for user: {user_id}")
-
-    except Exception as e:
-        # Log detailed error but don't crash the trigger (unless retry is desired)
-        user_id_for_log = user_record.get('uid', 'UNKNOWN') # Safely get UID for logging
-        logging.error(f"Error creating user profile for user {user_id_for_log}: {str(e)}", exc_info=True)
-        # Depending on trigger configuration, re-raising might cause retries.
-        # Avoid re-raising if the error is unlikely to be resolved by retrying (e.g., bad data).
-        # raise e # Uncomment only if you want the trigger function to signal failure/retry
+    # This function is currently deactivated as the corresponding Firebase Auth trigger
+    # is not configured in the Terraform deployment. If the trigger is added,
+    # uncomment and verify the logic below.
+    pass
+    # user_id = user_record.get('uid')
+    # email = user_record.get('email') or "" # Handle missing email
+    # display_name = user_record.get('displayName') or "" # Handle missing displayName
+    # photo_url = user_record.get('photoURL') or "" # Handle missing photoURL
+    #
+    # logging.info(f"Creating user profile for new user: {user_id}")
+    #
+    # # Get Firestore user document reference
+    # user_ref = db.collection("users").document(user_id)
+    #
+    # # Prepare user data for Firestore document
+    # user_data = {
+    #     "userId": user_id, # Store userId explicitly in the document
+    #     "email": email,
+    #     "displayName": display_name,
+    #     "photoURL": photo_url,
+    #     "role": "user", # Assign a default role
+    #     "subscriptionStatus": None, # Initialize subscription status
+    #     "languagePreference": "en", # Default language preference
+    #     "createdAt": firestore.SERVER_TIMESTAMP, # Record creation time
+    #     "updatedAt": firestore.SERVER_TIMESTAMP  # Also set updatedAt on creation
+    # }
+    #
+    # # Write to Firestore (set will overwrite if doc somehow exists)
+    # user_ref.set(user_data)
+    #
+    # logging.info(f"User profile created successfully for user: {user_id}")
 
 # This is the HTTP function exposed via main.py
 def get_user_profile(request: Request):
