@@ -8,10 +8,38 @@ import json
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 import google.generativeai as genai
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from .agent_nodes import AgentState
-from .agent_tools import consult_grok
+# Import agent_tools without circular dependency
+from agent_tools import consult_grok
+
+# Define AgentState here to avoid circular import
+class AgentState(BaseModel):
+    """State management for the legal assistant agent."""
+
+    # Case and user information
+    case_id: str
+    user_id: str
+    case_details: Dict[str, Any] = Field(default_factory=dict)
+    user_info: Dict[str, Any] = Field(default_factory=dict)
+
+    # Execution state
+    current_node: str = "start"
+    completed_nodes: List[str] = Field(default_factory=list)
+    retry_count: Dict[str, int] = Field(default_factory=dict)
+
+    # Node results
+    quota_status: Dict[str, Any] = Field(default_factory=dict)
+    input_analysis: Dict[str, Any] = Field(default_factory=dict)
+    research_results: Dict[str, Any] = Field(default_factory=dict)
+    ai_guidance: Dict[str, Any] = Field(default_factory=dict)
+    response_data: Dict[str, Any] = Field(default_factory=dict)
+
+    # Conversation history
+    messages: List[Dict[str, str]] = Field(default_factory=list)
+
+    # Error tracking
+    errors: List[Dict[str, Any]] = Field(default_factory=list)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,9 +84,9 @@ async def legal_analysis_node(state: AgentState) -> Tuple[str, AgentState]:
             SystemMessage(content=LEGAL_ANALYSIS_PROMPT),
             HumanMessage(content=f"""
             Analizeaza urmatoarea situatie juridica:
-            
+
             Context: {state.case_details.get('input', '')}
-            
+
             Te rog sa furnizezi:
             1. Domeniul juridic principal si subdomenii relevante
             2. Legislatia aplicabila (coduri, legi, ordonante)
@@ -66,7 +94,7 @@ async def legal_analysis_node(state: AgentState) -> Tuple[str, AgentState]:
             4. Riscuri si implicatii juridice
             5. Pasi recomandati de urmat
             6. Nivel de complexitate si urgenta
-            
+
             Raspunde in format JSON cu urmatoarele campuri:
             {
                 "domains": {"main": "", "sub": []},
@@ -78,29 +106,29 @@ async def legal_analysis_node(state: AgentState) -> Tuple[str, AgentState]:
             }
             """)
         ]
-        
+
         # Get Gemini's analysis
         response = await gemini.ainvoke(messages)
         analysis = json.loads(response.content.strip())
-        
+
         # Update state
         state.input_analysis.update({
             'legal_analysis': analysis,
             'timestamp': datetime.now().isoformat()
         })
         state.completed_nodes.append('legal_analysis')
-        
+
         # Add analysis to messages for context
         state.messages.append({
             'role': 'assistant',
             'content': json.dumps(analysis, indent=2, ensure_ascii=False)
         })
-        
+
         # Determine next node based on complexity
         if analysis['complexity']['level'] >= 2:
             return 'expert_consultation', state
         return 'document_planning', state
-        
+
     except Exception as e:
         logger.error(f"Error in legal_analysis_node: {str(e)}")
         state.errors.append({
@@ -124,7 +152,7 @@ async def expert_consultation_node(state: AgentState) -> Tuple[str, AgentState]:
             'complexity': legal_analysis.get('complexity', {}),
             'risks': legal_analysis.get('risks', [])
         }
-        
+
         # Get Grok's expert guidance
         guidance = await consult_grok(
             state.case_id,
@@ -138,22 +166,22 @@ async def expert_consultation_node(state: AgentState) -> Tuple[str, AgentState]:
             5. Recommend optimal approach for document preparation
             """
         )
-        
+
         # Update state
         state.ai_guidance = {
             'expert_consultation': guidance,
             'timestamp': datetime.now().isoformat()
         }
         state.completed_nodes.append('expert_consultation')
-        
+
         # Add guidance to messages
         state.messages.append({
             'role': 'assistant',
             'content': f"Expert Guidance:\n{guidance['recommendations']}"
         })
-        
+
         return 'document_planning', state
-        
+
     except Exception as e:
         logger.error(f"Error in expert_consultation_node: {str(e)}")
         state.errors.append({
@@ -173,18 +201,18 @@ async def document_planning_node(state: AgentState) -> Tuple[str, AgentState]:
             SystemMessage(content=DOCUMENT_GENERATION_PROMPT),
             HumanMessage(content=f"""
             Planifica generarea documentelor pentru urmatoarea situatie:
-            
+
             Context: {state.case_details.get('input', '')}
             Analiza: {json.dumps(state.input_analysis.get('legal_analysis', {}), ensure_ascii=False)}
             Recomandari Expert: {json.dumps(state.ai_guidance.get('expert_consultation', {}), ensure_ascii=False)}
-            
+
             Pentru fiecare document necesar, specifica:
             1. Tipul documentului
             2. Structura si sectiuni
             3. Referinte legislative necesare
             4. Date si informatii necesare
             5. Nivel de prioritate
-            
+
             Raspunde in format JSON cu urmatoarea structura:
             {
                 "documents": [
@@ -199,26 +227,26 @@ async def document_planning_node(state: AgentState) -> Tuple[str, AgentState]:
             }
             """)
         ]
-        
+
         # Get Gemini's plan
         response = await gemini.ainvoke(messages)
         doc_plan = json.loads(response.content.strip())
-        
+
         # Update state
         state.response_data.update({
             'document_plan': doc_plan,
             'timestamp': datetime.now().isoformat()
         })
         state.completed_nodes.append('document_planning')
-        
+
         # Add plan to messages
         state.messages.append({
             'role': 'assistant',
             'content': json.dumps(doc_plan, indent=2, ensure_ascii=False)
         })
-        
+
         return 'generate_documents', state
-        
+
     except Exception as e:
         logger.error(f"Error in document_planning_node: {str(e)}")
         state.errors.append({
@@ -235,36 +263,36 @@ async def document_generation_node(state: AgentState) -> Tuple[str, AgentState]:
     try:
         documents = []
         doc_plan = state.response_data.get('document_plan', {}).get('documents', [])
-        
+
         for doc in doc_plan:
             # Prepare document context
             messages = [
                 SystemMessage(content=DOCUMENT_GENERATION_PROMPT),
                 HumanMessage(content=f"""
                 Genereaza continutul pentru urmatorul document juridic:
-                
+
                 Tip Document: {doc['type']}
                 Structura: {json.dumps(doc['structure'], ensure_ascii=False)}
                 Referinte Legislative: {json.dumps(doc['legal_refs'], ensure_ascii=False)}
-                
+
                 Context:
                 {state.case_details.get('input', '')}
-                
+
                 Analiza Juridica:
                 {json.dumps(state.input_analysis.get('legal_analysis', {}), ensure_ascii=False)}
-                
+
                 Recomandari Expert:
                 {json.dumps(state.ai_guidance.get('expert_consultation', {}), ensure_ascii=False)}
-                
+
                 Genereaza documentul in format Markdown, respectand structura specificata.
                 Include toate elementele necesare (antet, numar, data, semnaturi etc).
                 """)
             ]
-            
+
             # Generate document content
             response = await gemini.ainvoke(messages)
             content = response.content.strip()
-            
+
             # Add to documents list
             documents.append({
                 'type': doc['type'],
@@ -275,16 +303,16 @@ async def document_generation_node(state: AgentState) -> Tuple[str, AgentState]:
                     'priority': doc['priority']
                 }
             })
-        
+
         # Update state
         state.response_data.update({
             'generated_documents': documents,
             'timestamp': datetime.now().isoformat()
         })
         state.completed_nodes.append('generate_documents')
-        
+
         return 'final_review', state
-        
+
     except Exception as e:
         logger.error(f"Error in document_generation_node: {str(e)}")
         state.errors.append({
@@ -304,20 +332,20 @@ async def final_review_node(state: AgentState) -> Tuple[str, AgentState]:
             SystemMessage(content=LEGAL_ANALYSIS_PROMPT),
             HumanMessage(content=f"""
             Revizuieste urmatorul pachet de documente si raspuns:
-            
+
             Raspuns General:
             {state.response_data.get('response', '')}
-            
+
             Documente Generate:
             {json.dumps(state.response_data.get('generated_documents', []), ensure_ascii=False)}
-            
+
             Verifica:
             1. Acuratetea juridica
             2. Completitudinea documentelor
             3. Consistenta terminologiei
             4. Claritatea explicatiilor
             5. Referintele legislative
-            
+
             Raspunde cu un JSON continand:
             {
                 "accuracy_score": 0-100,
@@ -329,11 +357,11 @@ async def final_review_node(state: AgentState) -> Tuple[str, AgentState]:
             }
             """)
         ]
-        
+
         # Get Gemini's review
         response = await gemini.ainvoke(messages)
         review = json.loads(response.content.strip())
-        
+
         # If any score is below 90, get Grok's review
         if any(review.get(f"{metric}_score", 0) < 90 for metric in ["accuracy", "completeness", "consistency", "clarity"]):
             grok_review = await consult_grok(
@@ -344,19 +372,19 @@ async def final_review_node(state: AgentState) -> Tuple[str, AgentState]:
                 },
                 specific_question="Please review the generated response and documents for legal accuracy and completeness."
             )
-            
+
             # Update review with Grok's input
             review['expert_review'] = grok_review
-        
+
         # Update state
         state.response_data.update({
             'quality_review': review,
             'final_timestamp': datetime.now().isoformat()
         })
         state.completed_nodes.append('final_review')
-        
+
         return 'end', state
-        
+
     except Exception as e:
         logger.error(f"Error in final_review_node: {str(e)}")
         state.errors.append({
@@ -364,4 +392,4 @@ async def final_review_node(state: AgentState) -> Tuple[str, AgentState]:
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         })
-        return 'error', state 
+        return 'error', state

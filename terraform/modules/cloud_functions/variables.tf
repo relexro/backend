@@ -53,6 +53,9 @@ variable "functions" {
       secret  = string
       version = string
     })))
+    timeout = optional(number)
+    memory  = optional(string)
+    max_instances = optional(number)
   }))
   default = {
     # Organization Functions
