@@ -31,11 +31,19 @@ class GeminiProcessor:
     async def initialize(self) -> None:
         """Initialize the Gemini model."""
         try:
+            # Get the API key from environment variables
+            gemini_api_key = os.environ.get('GEMINI_API_KEY')
+            if not gemini_api_key:
+                logger.warning("GEMINI_API_KEY not found in environment variables")
+                raise ValueError("GEMINI_API_KEY environment variable is required")
+
             self.model = ChatGoogleGenerativeAI(
                 model=self.model_name,
                 temperature=self.temperature,
-                max_output_tokens=self.max_tokens
+                max_output_tokens=self.max_tokens,
+                google_api_key=gemini_api_key
             )
+            logger.info(f"Successfully initialized Gemini model {self.model_name}")
         except Exception as e:
             logger.error(f"Error initializing Gemini: {str(e)}")
             raise LLMError(f"Eroare la inițializarea Gemini: {str(e)}")

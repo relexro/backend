@@ -32,7 +32,8 @@ from organization import (
     update_organization as logic_update_organization,
     delete_organization as logic_delete_organization
 )
-from agent_handler import cloud_function_handler as logic_agent_handler
+# Import the agent handler from agent_handler.py
+from agent_handler import relex_backend_agent_handler
 from payments import (
     create_payment_intent as logic_create_payment_intent,
     create_checkout_session as logic_create_checkout_session,
@@ -244,21 +245,4 @@ def relex_backend_get_products(request: Request):
         logging.error(f"Error in get_products: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
 
-@functions_framework.http
-def relex_backend_agent_handler(request: Request):
-    """Handles requests for the Lawyer AI Agent."""
-    # Note: The agent_handler uses asyncio, so direct wrapping might need adjustment
-    # if _authenticate_and_call isn't compatible with async handlers.
-    # For now, we'll call it directly, assuming agent_handler handles errors.
-    # Authentication/permission checks should happen *inside* the agent handler logic.
-    try:
-        # agent_handler.cloud_function_handler expects the raw request object
-        response_data = logic_agent_handler(request)
-        # Assuming the handler returns a dict and manages its own status codes/errors
-        status_code = response_data.get('status_code', 200) # Default to 200 if not specified
-        if 'status_code' in response_data:
-            del response_data['status_code'] # Don't send internal code to client
-        return flask.jsonify(response_data), status_code
-    except Exception as e:
-        logging.error(f"Critical error in agent handler entry point: {str(e)}", exc_info=True)
-        return flask.jsonify({"error": "Internal Server Error", "message": "Agent handler failed unexpectedly."}), 500
+# Agent handler is imported from agent_handler.py

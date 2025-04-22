@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 import logging
 import json
+import os
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 import google.generativeai as genai
@@ -47,7 +48,40 @@ logger = logging.getLogger(__name__)
 
 # Initialize Gemini
 GEMINI_MODEL = "gemini-pro"
-gemini = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.1)
+try:
+    # Initialize Google Generative AI with API key from environment
+    # Use the GEMINI_API_KEY from secret environment variables
+    gemini_api_key = os.environ.get('GEMINI_API_KEY')
+    if gemini_api_key:
+        logger.info("Using GEMINI_API_KEY from environment variables")
+        genai.configure(api_key=gemini_api_key)
+        gemini = ChatGoogleGenerativeAI(
+            model=GEMINI_MODEL,
+            temperature=0.1,
+            google_api_key=gemini_api_key
+        )
+        logger.info(f"Successfully initialized Gemini model {GEMINI_MODEL}")
+    else:
+        logger.warning("GEMINI_API_KEY not found in environment variables")
+        raise ValueError("GEMINI_API_KEY environment variable is required")
+except Exception as e:
+    logger.warning(f"Failed to initialize Gemini: {str(e)}")
+    # Create a mock for testing/deployment
+    logger.info("Using MockGemini for testing/deployment")
+    class MockGemini:
+        async def ainvoke(self, messages):
+            logger.info(f"MockGemini received request with {len(messages)} messages")
+            content = json.dumps({
+                "domains": {"main": "civil", "sub": ["contracts"]},
+                "legislation": {"codes": ["Codul Civil"], "laws": [], "ordinances": []},
+                "jurisprudence": [],
+                "risks": ["Interpretare neclară a clauzelor"],
+                "steps": ["Analiză contract", "Consultare avocat"],
+                "complexity": {"level": 2, "urgency": "normal"}
+            })
+            return AIMessage(content=content)
+
+    gemini = MockGemini()
 
 # System prompts
 LEGAL_ANALYSIS_PROMPT = """

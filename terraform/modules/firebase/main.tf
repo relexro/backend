@@ -77,26 +77,12 @@ resource "google_firebaserules_release" "firestore" {
   }
 }
 
-# Create the Firestore database with proper configuration
-resource "google_firestore_database" "default" {
-  project     = var.project_id
-  name        = "(default)"
-  location_id = "europe-west1"
-  type        = "FIRESTORE_NATIVE"
+# We don't have permission to manage the default Firestore database through Terraform
+# Instead, we'll just reference it by name for the rules
+# Note: Point-in-time recovery and backups need to be configured manually
 
-  # Enable point-in-time recovery
-  point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_ENABLED"
-
-  # Enable automated backups
-  app_engine_integration_mode = "ENABLED"
-
-  # Prevent accidental deletion
-  lifecycle {
-    prevent_destroy = true
-  }
-
-  depends_on = [google_firebase_project.default]
-}
+# Note: Automated backups need to be configured manually or through a different approach
+# The current Terraform provider version doesn't support the backup schedule resource
 
 # Apply the ruleset to the default Firestore database
 resource "google_firebaserules_release" "default_firestore" {
@@ -113,5 +99,5 @@ resource "google_firebaserules_release" "default_firestore" {
     ]
   }
 
-  depends_on = [google_firebase_project.default, google_firebaserules_ruleset.rules, google_firestore_database.default]
+  depends_on = [google_firebase_project.default, google_firebaserules_ruleset.rules]
 }

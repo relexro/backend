@@ -315,6 +315,7 @@ variable "functions" {
       ]
       timeout = 300  # 5 minutes
       memory  = "512Mi"
+      max_instances = 10
     }
 
 

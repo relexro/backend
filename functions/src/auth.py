@@ -25,6 +25,13 @@ TYPE_ORGANIZATION = "organization"
 TYPE_PARTY = "party"
 TYPE_DOCUMENT = "document"
 
+# Action constants
+ACTION_READ = "read"
+ACTION_UPDATE = "update"
+ACTION_DELETE = "delete"
+ACTION_CREATE = "create"
+ACTION_LIST = "list"
+
 PERMISSIONS: Dict[str, Dict[str, Set[str]]] = {
     TYPE_CASE: {
         ROLE_ADMIN: {
@@ -121,7 +128,7 @@ def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Opti
     except Exception as e:
         logging.error(f"Firestore error fetching membership for user {user_id} in org {org_id}: {e}", exc_info=True)
         raise
-    
+
 def get_authenticated_user(request):
     try:
         auth_header = request.headers.get('Authorization')
