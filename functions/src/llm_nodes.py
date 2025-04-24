@@ -14,6 +14,9 @@ from pydantic import BaseModel, Field
 # Import agent_tools without circular dependency
 from agent_tools import consult_grok
 
+# Import configuration loader
+from agent_config import get_system_prompt, get_grok_prompt_template
+
 # Define AgentState here to avoid circular import
 class AgentState(BaseModel):
     """State management for the legal assistant agent."""
@@ -83,30 +86,46 @@ except Exception as e:
 
     gemini = MockGemini()
 
-# System prompts
-LEGAL_ANALYSIS_PROMPT = """
-You are a Romanian Legal Assistant AI. Your role is to:
-1. Analyze legal queries with precision and attention to detail
-2. Consider Romanian legal framework and jurisdiction
-3. Identify key legal concepts and requirements
-4. Maintain professional and formal communication
-5. Provide clear, actionable advice
-6. Flag high-risk or complex issues for expert review
+# Load system prompts from configuration
+try:
+    LEGAL_ANALYSIS_PROMPT = get_system_prompt()
+    DOCUMENT_GENERATION_PROMPT = get_system_prompt()  # We use the same prompt for now
+    GROK_PROMPT_TEMPLATE = get_grok_prompt_template()
+    logger.info("Successfully loaded prompts from configuration")
+except Exception as e:
+    logger.error(f"Error loading prompts from configuration: {str(e)}")
+    # Fallback prompts in case configuration loading fails
+    LEGAL_ANALYSIS_PROMPT = """
+    You are a Romanian Legal Assistant AI. Your role is to:
+    1. Analyze legal queries with precision and attention to detail
+    2. Consider Romanian legal framework and jurisdiction
+    3. Identify key legal concepts and requirements
+    4. Maintain professional and formal communication
+    5. Provide clear, actionable advice
+    6. Flag high-risk or complex issues for expert review
 
-Respond in Romanian unless specifically asked otherwise.
-"""
+    Respond in Romanian unless specifically asked otherwise.
+    """
 
-DOCUMENT_GENERATION_PROMPT = """
-You are a Romanian Legal Document Generator AI. Your role is to:
-1. Create professional legal documents following Romanian standards
-2. Use formal legal language and proper formatting
-3. Include all required legal elements and clauses
-4. Maintain consistency in terminology
-5. Structure documents logically and clearly
-6. Add proper headers, footers, and reference numbers
+    DOCUMENT_GENERATION_PROMPT = """
+    You are a Romanian Legal Document Generator AI. Your role is to:
+    1. Create professional legal documents following Romanian standards
+    2. Use formal legal language and proper formatting
+    3. Include all required legal elements and clauses
+    4. Maintain consistency in terminology
+    5. Structure documents logically and clearly
+    6. Add proper headers, footers, and reference numbers
 
-Generate all content in Romanian unless specifically asked otherwise.
-"""
+    Generate all content in Romanian unless specifically asked otherwise.
+    """
+
+    GROK_PROMPT_TEMPLATE = """
+    Context: {context}
+
+    Question: {question}
+
+    Please provide expert legal analysis and guidance based on Romanian law.
+    """
 
 async def legal_analysis_node(state: AgentState) -> Tuple[str, AgentState]:
     """

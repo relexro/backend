@@ -145,15 +145,22 @@ async def update_case_details(
 
 async def get_party_id_by_name(
     case_id: str,
-    party_name: str
+    mentioned_name: str
 ) -> Dict[str, Any]:
     """
-    Get party ID from name in case context.
+    Looks up the internal partyId for a party mentioned by name within the current case context.
+
+    Args:
+        case_id: The ID of the current case context
+        mentioned_name: The first name or alias used by the user to refer to the party
+
+    Returns:
+        Dictionary containing the party ID and basic metadata
     """
     try:
         # Query parties subcollection
         parties_ref = db.collection('cases').document(case_id).collection('parties')
-        query = parties_ref.where('name', '==', party_name).limit(1)
+        query = parties_ref.where('name', '==', mentioned_name).limit(1)
 
         parties = query.stream()
         party_list = list(parties)
@@ -161,7 +168,7 @@ async def get_party_id_by_name(
         if not party_list:
             return {
                 'status': 'error',
-                'message': f"Party {party_name} not found"
+                'message': f"Party {mentioned_name} not found"
             }
 
         party_doc = party_list[0]
@@ -176,22 +183,32 @@ async def get_party_id_by_name(
         raise DatabaseError(f"Failed to get party ID: {str(e)}")
 
 async def query_bigquery(
-    query: str,
-    dataset: str
+    query_string: str,
+    table_name: str
 ) -> Dict[str, Any]:
     """
-    Execute a query against BigQuery legal database.
+    Execute a SQL query against the specified Romanian legal BigQuery table.
+
+    Args:
+        query_string: The SQL query string to execute on BigQuery
+        table_name: The target table name ('legislatie' or 'jurisprudenta')
+
+    Returns:
+        Dictionary containing the query results and metadata
     """
     try:
         client = bigquery.Client()
 
-        # Prepare query with dataset
-        full_query = f"""
-        SELECT *
-        FROM `{dataset}`
-        WHERE {query}
-        LIMIT 100
-        """
+        # Validate table name
+        if table_name not in ['legislatie', 'jurisprudenta']:
+            raise ValueError(f"Invalid table_name: {table_name}. Must be 'legislatie' or 'jurisprudenta'.")
+
+        # Prepare full query with proper table reference
+        full_query = query_string
+
+        # Ensure the query has a reasonable limit
+        if 'LIMIT' not in full_query.upper():
+            full_query += " LIMIT 100"
 
         # Run query
         query_job = client.query(full_query)
@@ -205,7 +222,8 @@ async def query_bigquery(
         return {
             'status': 'success',
             'results': rows,
-            'total_rows': len(rows)
+            'total_rows': len(rows),
+            'table_name': table_name
         }
 
     except Exception as e:
@@ -214,21 +232,22 @@ async def query_bigquery(
 
 async def generate_draft_pdf(
     case_id: str,
-    content: str,
+    markdown_content: str,
     draft_name: str,
-    version: int
+    revision: int
 ) -> Dict[str, Any]:
     """
-    Generate a PDF draft and store it in Cloud Storage.
+    Takes Markdown content with placeholders, securely substitutes PII from attached parties,
+    converts to PDF, and stores in Cloud Storage.
 
     Args:
-        case_id: The ID of the case
-        content: Markdown content to convert to PDF
-        draft_name: Name of the draft document
-        version: Version number of the draft
+        case_id: The ID of the current case
+        markdown_content: The full draft content in Markdown format with placeholders
+        draft_name: The base name for the document
+        revision: The revision number for this draft version
 
     Returns:
-        Dictionary containing the status and URL of the generated PDF
+        Dictionary containing the status, URL, and metadata of the generated PDF
     """
     try:
         # Get case details for metadata
@@ -242,10 +261,10 @@ async def generate_draft_pdf(
 
         # Convert markdown to HTML with metadata
         html_content = _prepare_html_content(
-            content,
+            markdown_content,
             case_data,
             draft_name,
-            version
+            revision
         )
 
         # Create temporary file for PDF
@@ -263,7 +282,7 @@ async def generate_draft_pdf(
 
                 # Upload to Cloud Storage
                 bucket_name = 'relex-legal-drafts'  # Replace with your bucket name
-                storage_path = f"cases/{case_id}/drafts/{draft_name}_v{version}.pdf"
+                storage_path = f"cases/{case_id}/drafts/{draft_name}_v{revision}.pdf"
 
                 bucket = storage_client.bucket(bucket_name)
                 blob = bucket.blob(storage_path)
@@ -275,7 +294,7 @@ async def generate_draft_pdf(
                     metadata={
                         'case_id': case_id,
                         'draft_name': draft_name,
-                        'version': str(version),
+                        'version': str(revision),
                         'generated_at': datetime.now().isoformat(),
                         'generated_by': 'relex-agent'
                     }
@@ -290,9 +309,9 @@ async def generate_draft_pdf(
 
                 # Update case document with draft information
                 draft_info = {
-                    'draft_id': f"{case_id}_{draft_name}_v{version}",
+                    'draft_id': f"{case_id}_{draft_name}_v{revision}",
                     'name': draft_name,
-                    'version': version,
+                    'version': revision,
                     'storage_path': storage_path,
                     'url': url,
                     'generated_at': datetime.now().isoformat(),
@@ -307,7 +326,7 @@ async def generate_draft_pdf(
                     'status': 'success',
                     'url': url,
                     'storage_path': storage_path,
-                    'version': version,
+                    'version': revision,
                     'generated_at': datetime.now().isoformat(),
                     'metadata': draft_info
                 }
@@ -321,10 +340,10 @@ async def generate_draft_pdf(
         raise PDFGenerationError(f"Failed to generate PDF: {str(e)}")
 
 def _prepare_html_content(
-    content: str,
+    markdown_content: str,
     case_data: Dict[str, Any],
     draft_name: str,
-    version: int
+    revision: int
 ) -> str:
     """
     Prepare HTML content for PDF generation with proper styling and metadata.
@@ -332,7 +351,7 @@ def _prepare_html_content(
     try:
         # Convert markdown to HTML
         html_body = markdown2.markdown(
-            content,
+            markdown_content,
             extras=[
                 'tables',
                 'fenced-code-blocks',
@@ -352,7 +371,7 @@ def _prepare_html_content(
         <html lang="ro">
         <head>
             <meta charset="UTF-8">
-            <title>{draft_name} - v{version}</title>
+            <title>{draft_name} - v{revision}</title>
             <meta name="generator" content="Relex Legal AI">
             <meta name="case-number" content="{case_number}">
             <meta name="court" content="{court_name}">
@@ -363,7 +382,7 @@ def _prepare_html_content(
                 <h1>{draft_name}</h1>
                 <p>Dosar nr. {case_number}</p>
                 <p>{court_name}</p>
-                <p>Versiunea {version}</p>
+                <p>Versiunea {revision}</p>
             </div>
 
             <div class="content">
@@ -391,11 +410,20 @@ def _prepare_html_content(
 
 async def create_support_ticket(
     case_id: str,
-    error_message: str,
-    context: Dict[str, Any]
+    issue_description: str,
+    agent_state_snapshot: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Create a support ticket in the ticketing system.
+    Creates a support ticket when the agent encounters an unrecoverable error.
+    Also pauses the case.
+
+    Args:
+        case_id: The ID of the case experiencing the issue
+        issue_description: Detailed description of the problem encountered by the agent
+        agent_state_snapshot: Optional snapshot of relevant agent state at time of failure
+
+    Returns:
+        Dictionary containing the ticket ID and creation timestamp
     """
     try:
         # Create ticket document
@@ -403,13 +431,21 @@ async def create_support_ticket(
 
         ticket_data = {
             'case_id': case_id,
-            'error_message': error_message,
-            'context': context,
+            'issue_description': issue_description,
+            'agent_state_snapshot': agent_state_snapshot or {},
             'status': 'open',
             'priority': 'high',
             'created_at': firestore.SERVER_TIMESTAMP,
             'updated_at': firestore.SERVER_TIMESTAMP
         }
+
+        # Update case status to paused_support
+        case_ref = db.collection('cases').document(case_id)
+        case_ref.update({
+            'status': 'paused_support',
+            'support_ticket_id': ticket_ref.id,
+            'paused_at': firestore.SERVER_TIMESTAMP
+        })
 
         ticket_ref.set(ticket_data)
 
@@ -522,15 +558,25 @@ async def verify_payment(case_id: str) -> Dict[str, Any]:
         logger.error(f"Error verifying payment: {str(e)}")
         raise PaymentError(f"Failed to verify payment: {str(e)}")
 
-async def search_legal_database(query: str) -> List[Dict[str, Any]]:
+async def search_legal_database(query: str, table_name: str = 'legislatie') -> List[Dict[str, Any]]:
     """
     Search the legal database for relevant cases and legislation.
+
+    Args:
+        query: The search query to execute
+        table_name: The target table name ('legislatie' or 'jurisprudenta')
+
+    Returns:
+        List of matching documents
     """
     try:
+        # Construct a proper SQL query
+        sql_query = f"SELECT * FROM `relexro.romanian_legal_data.{table_name}` WHERE {query}"
+
         # Execute BigQuery search
         search_results = await query_bigquery(
-            query,
-            'legal_database.romanian_cases'
+            query_string=sql_query,
+            table_name=table_name
         )
 
         if search_results['status'] != 'success':
@@ -545,21 +591,27 @@ async def search_legal_database(query: str) -> List[Dict[str, Any]]:
 async def get_relevant_legislation(domain: str) -> List[Dict[str, Any]]:
     """
     Get relevant legislation for a legal domain.
+
+    Args:
+        domain: The legal domain to search for (e.g., 'civil', 'penal')
+
+    Returns:
+        List of relevant legislation documents
     """
     try:
-        # Query legislation collection
-        legislation_ref = db.collection('legislation')
-        query = legislation_ref.where('domain', '==', domain).limit(50)
+        # Construct a query to find legislation in the specified domain
+        sql_query = f"SELECT * FROM `relexro.romanian_legal_data.legislatie` WHERE LOWER(domain) LIKE '%{domain.lower()}%' LIMIT 50"
 
-        legislation_docs = query.stream()
+        # Execute BigQuery search
+        search_results = await query_bigquery(
+            query_string=sql_query,
+            table_name='legislatie'
+        )
 
-        return [
-            {
-                'id': doc.id,
-                **doc.to_dict()
-            }
-            for doc in legislation_docs
-        ]
+        if search_results['status'] != 'success':
+            raise DatabaseError("Failed to get relevant legislation")
+
+        return search_results['results']
 
     except Exception as e:
         logger.error(f"Error getting legislation: {str(e)}")

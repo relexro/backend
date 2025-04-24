@@ -245,14 +245,14 @@ def relex_backend_get_products(request: Request):
         return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
 
 # Import agent handler
-from agent_handler import logic_agent_handler
+from agent import handle_agent_request
 
 @functions_framework.http
 def relex_backend_agent_handler(request: Request):
     """Cloud Function entry point for the agent handler."""
     import asyncio
 
-    # We need special handling for the async logic_agent_handler
+    # We need special handling for the async handle_agent_request
     try:
         # Optional authentication - we'll use it if available but won't require it
         try:
@@ -266,7 +266,7 @@ def relex_backend_agent_handler(request: Request):
             logging.warning(f"Authentication optional, continuing: {str(auth_error)}")
 
         # Run the async handler in the event loop
-        response = asyncio.run(logic_agent_handler(request))
+        response = asyncio.run(handle_agent_request(request))
 
         # Handle the response
         if isinstance(response, tuple):
