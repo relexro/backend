@@ -32,8 +32,7 @@ from organization import (
     update_organization as logic_update_organization,
     delete_organization as logic_delete_organization
 )
-# Import the agent handler from agent_handler.py
-from agent_handler import relex_backend_agent_handler
+
 from payments import (
     create_payment_intent as logic_create_payment_intent,
     create_checkout_session as logic_create_checkout_session,
@@ -245,4 +244,35 @@ def relex_backend_get_products(request: Request):
         logging.error(f"Error in get_products: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
 
-# Agent handler is imported from agent_handler.py
+# Import agent handler
+from agent_handler import logic_agent_handler
+
+@functions_framework.http
+def relex_backend_agent_handler(request: Request):
+    """Cloud Function entry point for the agent handler."""
+    import asyncio
+
+    # We need special handling for the async logic_agent_handler
+    try:
+        # Optional authentication - we'll use it if available but won't require it
+        try:
+            from auth import get_authenticated_user
+            auth_user_data, status_code, _ = get_authenticated_user(request)
+            if status_code == 200:
+                auth_user_id = auth_user_data["userId"]
+                setattr(request, 'user_id', auth_user_id)
+                setattr(request, 'user_email', auth_user_data.get("email"))
+        except Exception as auth_error:
+            logging.warning(f"Authentication optional, continuing: {str(auth_error)}")
+
+        # Run the async handler in the event loop
+        response = asyncio.run(logic_agent_handler(request))
+
+        # Handle the response
+        if isinstance(response, tuple):
+            return response
+        else:
+            return flask.jsonify(response), 200
+    except Exception as e:
+        logging.error(f"Error in agent handler: {str(e)}", exc_info=True)
+        return flask.jsonify({"error": "Internal Server Error", "message": f"An unexpected error occurred: {str(e)}"}), 500
