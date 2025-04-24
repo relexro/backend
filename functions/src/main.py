@@ -61,6 +61,8 @@ from party import (
     list_parties as logic_list_parties
 )
 
+from agent import handle_agent_request as logic_handle_agent_request
+
 logging.basicConfig(level=logging.INFO)
 
 def _authenticate_and_call(request: Request, logic_func, requires_auth=True):
@@ -243,36 +245,11 @@ def relex_backend_get_products(request: Request):
     except Exception as e:
         logging.error(f"Error in get_products: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
-
-# Import agent handler
-from agent import handle_agent_request
-
 @functions_framework.http
 def relex_backend_agent_handler(request: Request):
-    """Cloud Function entry point for the agent handler."""
-    import asyncio
+    """Cloud Function entry point for the agent handler.
 
-    # We need special handling for the async handle_agent_request
-    try:
-        # Optional authentication - we'll use it if available but won't require it
-        try:
-            from auth import get_authenticated_user
-            auth_user_data, status_code, _ = get_authenticated_user(request)
-            if status_code == 200:
-                auth_user_id = auth_user_data["userId"]
-                setattr(request, 'user_id', auth_user_id)
-                setattr(request, 'user_email', auth_user_data.get("email"))
-        except Exception as auth_error:
-            logging.warning(f"Authentication optional, continuing: {str(auth_error)}")
-
-        # Run the async handler in the event loop
-        response = asyncio.run(handle_agent_request(request))
-
-        # Handle the response
-        if isinstance(response, tuple):
-            return response
-        else:
-            return flask.jsonify(response), 200
-    except Exception as e:
-        logging.error(f"Error in agent handler: {str(e)}", exc_info=True)
-        return flask.jsonify({"error": "Internal Server Error", "message": f"An unexpected error occurred: {str(e)}"}), 500
+    This function handles requests to the Lawyer AI Agent endpoint.
+    It authenticates the user and delegates to the agent handler.
+    """
+    return _authenticate_and_call(request, logic_handle_agent_request)

@@ -4,9 +4,9 @@ Agent - Core implementation of the Relex Legal Assistant
 import logging
 from datetime import datetime
 import asyncio
-from flask import Request
 from google.cloud import firestore
 from agent_orchestrator import create_agent_graph, AgentState
+from auth import check_permission, PermissionCheckRequest, TYPE_CASE
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -131,19 +131,27 @@ class Agent:
 # Create a singleton instance
 agent = Agent()
 
-async def handle_agent_request(request: Request):
+def handle_agent_request(request):
     """
     Top-level function to handle agent requests.
 
-    This function takes a Flask request object, extracts the necessary information,
-    and delegates to the Agent class for processing.
+    This function handles requests to the Lawyer AI Agent endpoint.
+    It processes user messages, manages the agent state, and returns responses.
+    Authentication is required and handled by the _authenticate_and_call wrapper.
+    Authorization is verified to ensure the user has read access to the requested case.
+
+    The endpoint expects a POST request to /cases/{caseId}/agent/messages with a JSON body
+    containing the user's message and any additional context.
 
     Args:
-        request: The Flask request object
+        request: The HTTP request object from Cloud Functions with authenticated user information
 
     Returns:
         A JSON response containing the agent's reply and any additional data
+        or an error response with appropriate status code (403 for forbidden, 404 for not found)
     """
+    import asyncio
+
     try:
         # Parse request data
         request_json = request.get_json(silent=True)
@@ -167,15 +175,53 @@ async def handle_agent_request(request: Request):
 
         case_id = path_parts[case_id_index]
         user_message = request_json.get('message', '')
-        user_id = getattr(request, 'user_id', request_json.get('user_id', 'anonymous'))
+        # Get authenticated user information (will be set by _authenticate_and_call)
+        user_id = request.user_id
 
-        # Prepare user info if available
-        user_info = {}
-        if hasattr(request, 'user_email'):
-            user_info['email'] = request.user_email
+        # Prepare user info
+        user_info = {
+            'email': request.user_email
+        }
 
-        # Process the message using the agent
-        return await agent.process_message(case_id, user_message, user_id, user_info)
+        # --- Authorization Check ---
+        try:
+            # Fetch minimal case data (orgId) needed for the permission check
+            # Use the existing 'agent' singleton instance which should have the db client
+            case_ref = agent.db.collection('cases').document(case_id)
+            case_doc_snapshot = case_ref.get(field_paths=['organizationId'])  # Fetch only orgId
+
+            if not case_doc_snapshot.exists:
+                logger.warning(f"Authorization check failed: Case {case_id} not found for user {user_id}.")
+                # Return tuple (body, status_code) for error handling consistent with _authenticate_and_call
+                return {'status': 'error', 'message': f'Case {case_id} not found'}, 404
+
+            case_org_id = case_doc_snapshot.get('organizationId')
+
+            # Perform the permission check
+            permission_request = PermissionCheckRequest(
+                resourceType=TYPE_CASE,
+                resourceId=case_id,
+                action="read",  # Require 'read' permission to interact with the agent for this case
+                organizationId=case_org_id
+            )
+            # Ensure check_permission is imported from auth
+            has_permission, error_message = check_permission(user_id, permission_request)
+
+            if not has_permission:
+                logger.warning(f"User {user_id} denied agent access to case {case_id}. Reason: {error_message}")
+                # Return tuple (body, status_code) for error handling
+                return {'status': 'error', 'message': f'Forbidden: {error_message}'}, 403
+
+            logger.info(f"User {user_id} authorized for agent access to case {case_id}.")
+
+        except Exception as auth_exc:
+            logger.error(f"Error during agent authorization check for case {case_id}, user {user_id}: {str(auth_exc)}", exc_info=True)
+            # Return tuple (body, status_code) for error handling
+            return {'status': 'error', 'message': 'Internal server error during authorization check.'}, 500
+        # --- End Authorization Check ---
+
+        # Process the message using the agent - run the async method in the event loop
+        return asyncio.run(agent.process_message(case_id, user_message, user_id, user_info))
 
     except Exception as e:
         import traceback

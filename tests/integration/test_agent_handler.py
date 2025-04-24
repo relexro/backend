@@ -1,5 +1,8 @@
 """
-Integration Tests for Agent Handler Module
+DEPRECATED: Integration Tests for Agent Handler Module
+
+This test file is deprecated as agent_handler.py has been removed.
+The functionality has been moved to agent.py and is tested in test_agent.py.
 """
 import pytest
 from datetime import datetime
