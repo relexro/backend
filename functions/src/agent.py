@@ -5,7 +5,8 @@ import logging
 from datetime import datetime
 import asyncio
 from google.cloud import firestore
-from agent_orchestrator import create_agent_graph, AgentState
+from agent_nodes import create_agent_graph
+from llm_nodes import AgentState
 from auth import check_permission, PermissionCheckRequest, TYPE_CASE
 
 # Configure logging
@@ -75,8 +76,15 @@ class Agent:
                     user_info=user_info or {}
                 )
 
-            # Execute agent graph
-            result = await self.agent_graph.execute(agent_state)
+            # Prepare input for the LangGraph StateGraph
+            # Pass the user message as input for the graph
+            graph_input = {"messages": [("user", user_message)]}
+
+            # Execute the LangGraph agent using ainvoke
+            # Use case_id for thread_id persistence if the graph supports it
+            logger.info(f"Invoking LangGraph agent for case: {case_id}")
+            result = await self.agent_graph.ainvoke(graph_input, config={"configurable": {"thread_id": case_id}})
+            logger.info(f"LangGraph agent execution finished for case: {case_id}")
 
             # Save updated state
             processing_state_ref.set(agent_state.to_dict())

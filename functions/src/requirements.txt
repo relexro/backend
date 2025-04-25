@@ -24,8 +24,9 @@ typing-extensions>=4.2.0
 
 # Agent dependencies
 langgraph>=0.0.19
+langchain>=0.1.0
 langchain-core>=0.1.22
-# Using google-generativeai directly instead of langchain-google-genai
+langchain-google-genai>=0.0.9
 google-generativeai>=0.3.2
 aiohttp>=3.9.3
 # asyncio is part of the Python standard library, no need to install it
