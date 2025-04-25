@@ -60,22 +60,9 @@ resource "google_firebaserules_ruleset" "rules" {
   }
 }
 
-# Release the ruleset for Firestore
-resource "google_firebaserules_release" "firestore" {
-  provider     = google-beta
-  project      = var.project_id
-  name         = "cloud.firestore"
-  ruleset_name = google_firebaserules_ruleset.rules.name
-  depends_on   = [google_firebaserules_ruleset.rules]
-
-  lifecycle {
-    create_before_destroy = true
-    # Ignore ruleset_name changes to prevent recreation when ruleset is updated
-    ignore_changes = [
-      ruleset_name,
-    ]
-  }
-}
+# NOTE: We no longer use google_firebaserules_release.firestore resource
+# Instead, we use the null_resource.apply_firestore_rules to apply rules directly
+# This avoids issues with Terraform trying to manage Firestore releases
 
 # We don't have permission to manage the default Firestore database through Terraform
 # Instead, we'll just reference it by name for the rules
@@ -84,20 +71,47 @@ resource "google_firebaserules_release" "firestore" {
 # Note: Automated backups need to be configured manually or through a different approach
 # The current Terraform provider version doesn't support the backup schedule resource
 
-# Apply the ruleset to the default Firestore database
-resource "google_firebaserules_release" "default_firestore" {
-  provider     = google-beta
-  project      = var.project_id
-  name         = "cloud.firestore/(default)"
-  ruleset_name = google_firebaserules_ruleset.rules.name
+# Define a local variable for the default database name
+# We don't try to manage the default database, only reference it by name
+locals {
+  default_database_name = "(default)"
+}
 
-  lifecycle {
-    create_before_destroy = true
-    # Ignore ruleset_name changes to prevent recreation when ruleset is updated
-    ignore_changes = [
-      ruleset_name,
-    ]
+# Apply Firestore rules to the default database using gcloud CLI
+# This avoids issues with Terraform trying to manage the default database directly
+resource "null_resource" "apply_firestore_rules" {
+  # Trigger the provisioner whenever the ruleset changes
+  triggers = {
+    ruleset_id = google_firebaserules_ruleset.rules.id
   }
 
-  depends_on = [google_firebase_project.default, google_firebaserules_ruleset.rules]
+  # Use local-exec provisioner to apply the rules directly
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Applying Firestore rules to the default database..."
+      # Create a temporary firebase.json file
+      TEMP_DIR=$(mktemp -d)
+      RULES_FILE="$(pwd)/modules/firebase/rules/firestore.rules"
+      TEMP_FIREBASE_JSON="$TEMP_DIR/firebase.json"
+
+      cat > "$TEMP_FIREBASE_JSON" << EOF
+      {
+        "firestore": {
+          "rules": "$RULES_FILE"
+        }
+      }
+      EOF
+
+      # Apply the rules using Firebase CLI
+      firebase deploy --only firestore:rules --project ${var.project_id} --config "$TEMP_FIREBASE_JSON"
+
+      # Clean up temporary files
+      rm -rf "$TEMP_DIR"
+    EOT
+  }
+
+  depends_on = [
+    google_firebase_project.default,
+    google_firebaserules_ruleset.rules
+  ]
 }

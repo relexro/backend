@@ -35,3 +35,5 @@ markdown2>=2.4.12  # For Markdown processing
 # Comment out problematic dependencies for now
 # weasyprint>=60.2,<61.0  # For PDF generation - causes deployment issues
 # grok-client>=0.1.0,<0.2.0  # Placeholder version, replace with actual when available
+
+# Force rebuild attempt 20250425

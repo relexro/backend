@@ -12,17 +12,15 @@ output "firestore_security_rules" {
   description = "ID of the deployed Firestore security rules"
 }
 
-output "firestore_rules_release" {
-  value = google_firebaserules_release.firestore.name
-  description = "Name of the deployed Firestore security rules release"
-}
+# We no longer use google_firebaserules_release.firestore resource
+# Instead, we use the null_resource.apply_firestore_rules to apply rules directly
 
 output "default_firestore_database" {
-  value = "(default)"
-  description = "Name of the default Firestore database"
+  value = local.default_database_name
+  description = "Name of the default Firestore database (managed manually, not by Terraform)"
 }
 
-output "default_firestore_rules_release" {
-  value = google_firebaserules_release.default_firestore.name
-  description = "Name of the deployed default Firestore security rules release"
+output "default_firestore_rules_applied" {
+  value       = null_resource.apply_firestore_rules.id
+  description = "ID of the null_resource that applied Firestore rules to the default database"
 }
