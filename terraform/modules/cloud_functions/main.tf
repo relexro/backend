@@ -9,7 +9,7 @@ locals {
   ]))
 
   # Create a stable hash for the functions configuration
-  functions_config_hash = sha256(jsonencode(local.merged_functions))
+  functions_config_hash = sha256(jsonencode(local.functions))
 
   # Combine the source hash and config hash for a complete hash
   combined_hash = sha256("${local.source_dir_hash}${local.functions_config_hash}")
@@ -48,12 +48,12 @@ resource "google_storage_bucket_object" "functions_source" {
 
 # Deploy each HTTP Cloud Function
 resource "google_cloudfunctions2_function" "functions" {
-  for_each = local.functions_with_env
+  for_each = local.functions
 
-  name        = local.function_names[each.key]
-  project     = var.project_id
+  name        = each.value.name
   location    = var.region
   description = each.value.description
+  project     = var.project
 
   build_config {
     runtime     = "python310"
@@ -67,15 +67,13 @@ resource "google_cloudfunctions2_function" "functions" {
   }
 
   service_config {
-    service_account_email = var.functions_service_account_email
-    max_instance_count    = lookup(each.value, "max_instances", 10)
-    available_memory      = lookup(each.value, "memory", "256Mi")
-    timeout_seconds       = lookup(each.value, "timeout", 60)
-
+    max_instance_count    = lookup(each.value, "max_instances", 3)
+    available_memory      = lookup(each.value, "memory", "256M")
+    timeout_seconds      = lookup(each.value, "timeout", 60)
     environment_variables = each.value.env_vars
 
     dynamic "secret_environment_variables" {
-      for_each = coalesce(each.value.secret_env_vars, [])
+      for_each = coalesce(lookup(each.value, "secret_env_vars", []), [])
       content {
         key        = secret_environment_variables.value.key
         project_id = var.project_id
@@ -84,33 +82,16 @@ resource "google_cloudfunctions2_function" "functions" {
       }
     }
 
-    ingress_settings               = "ALLOW_INTERNAL_AND_GCLB"
-    all_traffic_on_latest_revision = true
-  }
-
-  depends_on = [google_storage_bucket_object.functions_source]
-
-  lifecycle {
-    # Ignore changes to metadata that might change but don't affect functionality
-    ignore_changes = [
-      labels,
-      build_config[0].worker_pool,
-      build_config[0].docker_repository,
-      service_config[0].service_account_email,
-      service_config[0].environment_variables["LOG_EXECUTION_ID"]
-    ]
-
-    # Prevent replacement when only the source code changes
-    # This ensures that the function is updated in place rather than recreated
-    replace_triggered_by = []
+    ingress_settings       = "ALLOW_INTERNAL_AND_GCLB"
+    service_account_email = var.service_account_email
   }
 }
 
 # Add IAM policy to allow API Gateway to invoke the Cloud Functions
 resource "google_cloud_run_service_iam_member" "invoker" {
-  for_each = local.functions_with_env
+  for_each = local.functions
 
-  service  = google_cloudfunctions2_function.functions[each.key].service_config[0].service
+  service  = google_cloudfunctions2_function.functions[each.key].name
   project  = var.project_id
   location = var.region
   role     = "roles/run.invoker"

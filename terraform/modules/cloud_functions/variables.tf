@@ -35,11 +35,9 @@ variable "api_gateway_sa_email" {
   type        = string
 }
 
-
 variable "environment" {
-  description = "The target environment (dev, stage, prod)"
+  description = "Environment name (e.g., dev, prod)"
   type        = string
-  default     = "dev"
 }
 
 variable "functions" {
@@ -320,4 +318,14 @@ variable "functions" {
 
 
   }
+}
+
+variable "project" {
+  description = "GCP project ID"
+  type        = string
+}
+
+variable "service_account_email" {
+  description = "Service account email for the Cloud Functions"
+  type        = string
 }

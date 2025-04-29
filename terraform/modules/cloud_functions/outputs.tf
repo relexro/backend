@@ -11,6 +11,9 @@ output "function_uris" {
 
 output "function_names" {
   description = "Map of original function names to their environment-specific deployed names"
-  value       = local.function_names
+  value       = {
+    for name, function in local.functions :
+    name => function.name
+  }
   sensitive   = false
 } 

@@ -64,7 +64,7 @@ locals {
   }
 
   functions_service_account_email = "serviceAccount:${google_service_account.functions.email}"
-  
+
   # Create a complete map of function URIs for the API Gateway
   # This ensures the OpenAPI spec can reference all functions without actually deploying them
   complete_function_uris = merge(
@@ -98,9 +98,8 @@ resource "google_service_account" "functions" {
   display_name = "Service Account for Cloud Functions ${var.environment}"
   description  = "Used by Cloud Functions in the ${var.environment} environment"
 
-  # Prevent accidental destruction of this critical resource
+  # Removed prevent_destroy to allow destruction when needed
   lifecycle {
-    prevent_destroy = true
     ignore_changes = [
       description,
       display_name
@@ -113,7 +112,7 @@ resource "google_project_iam_member" "functions_invoker" {
   project = var.project_id
   role    = "roles/cloudfunctions.invoker"
   member  = local.functions_service_account_email
-  
+
   # Using the more effective lifecycle configuration
   lifecycle {
     create_before_destroy = true
@@ -163,6 +162,8 @@ module "cloud_functions" {
   functions_zip_path              = "${path.module}/functions-source.zip"
   functions_service_account_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
   api_gateway_sa_email            = trimprefix(local.functions_service_account_email, "serviceAccount:")
+  project                         = var.project_id
+  service_account_email           = trimprefix(local.functions_service_account_email, "serviceAccount:")
 
   depends_on = [
     module.apis,

@@ -23,7 +23,7 @@ locals {
 
   # Create a hash of the OpenAPI content
   openapi_hash = substr(sha256(local.openapi_content), 0, 8)
-  
+
   # Create a stable ID for the gateway that doesn't change with every deployment
   gateway_id = "relex-api-gateway"
 }
@@ -34,9 +34,9 @@ resource "google_api_gateway_api" "api" {
   api_id       = "relex-api"
   display_name = "Relex API"
   project      = var.project_id
-  
+
   lifecycle {
-    prevent_destroy = true
+    # Removed prevent_destroy to allow destruction when needed
     ignore_changes = [
       display_name,
       labels

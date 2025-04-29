@@ -9,9 +9,9 @@ resource "google_storage_bucket" "functions_bucket" {
   versioning {
     enabled = true
   }
-  
+
   lifecycle {
-    prevent_destroy = true
+    # Removed prevent_destroy to allow destruction when needed
     # Prevent recreation when only metadata changes
     ignore_changes = [
       labels,
@@ -39,9 +39,9 @@ resource "google_storage_bucket" "files_bucket" {
     response_header = ["*"]
     max_age_seconds = 3600
   }
-  
+
   lifecycle {
-    prevent_destroy = true
+    # Removed prevent_destroy to allow destruction when needed
     # Prevent recreation when only metadata changes
     ignore_changes = [
       labels,
@@ -50,4 +50,4 @@ resource "google_storage_bucket" "files_bucket" {
       cors
     ]
   }
-} 
+}

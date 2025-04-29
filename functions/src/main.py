@@ -65,6 +65,10 @@ from agent import handle_agent_request as logic_handle_agent_request
 
 logging.basicConfig(level=logging.INFO)
 
+# Configure functions-framework to bind to all interfaces and use PORT environment variable
+port = int(os.getenv('PORT', '8080'))
+functions_framework.setup(host='0.0.0.0', port=port)
+
 def _authenticate_and_call(request: Request, logic_func, requires_auth=True):
     try:
         user_data = None
