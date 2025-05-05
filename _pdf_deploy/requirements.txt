@@ -1,0 +1,4 @@
+functions-framework>=3.0.0
+Flask>=2.0.0
+xhtml2pdf>=0.2.11
+markdown2>=2.4.0

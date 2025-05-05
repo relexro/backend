@@ -200,8 +200,12 @@ def create_agent_graph() -> Graph:
     workflow.add_node("final_review", final_review_node)
     workflow.add_node("error", error_node)
 
-    # Define edges
-    workflow.add_edge("start", "determine_tier")
+    # Define edges - Remove the invalid 'start' node reference
+    # workflow.add_edge("start", "determine_tier")
+    
+    # Set determine_tier as the entry point
+    workflow.set_entry_point("determine_tier")
+    
     workflow.add_edge("determine_tier", "verify_payment")
     workflow.add_edge("verify_payment", "process_input")
     workflow.add_edge("process_input", "research")

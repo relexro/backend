@@ -9,7 +9,6 @@ python-dotenv>=0.19.2
 gunicorn>=20.1.0
 google-cloud-aiplatform>=1.36.3
 PyJWT>=2.8.0
-firebase-functions>=0.2.0
 
 # Flask-compatible dependencies
 werkzeug>=2.1.2
@@ -29,11 +28,7 @@ langchain-core>=0.1.22
 langchain-google-genai>=0.0.9
 google-generativeai>=0.3.2
 aiohttp>=3.9.3
-# asyncio is part of the Python standard library, no need to install it
 markdown2>=2.4.12  # For Markdown processing
 
-# Comment out problematic dependencies for now
-# weasyprint>=60.2,<61.0  # For PDF generation - causes deployment issues
-# grok-client>=0.1.0,<0.2.0  # Placeholder version, replace with actual when available
-
-# Force rebuild attempt 20250425
+# PDF generation - using a pure Python library that works in Cloud Functions
+xhtml2pdf>=0.2.11  # Pure Python HTML to PDF converter, no system dependencies

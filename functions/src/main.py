@@ -4,6 +4,7 @@ import logging
 import os
 from dotenv import load_dotenv
 from flask import Request
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -64,10 +65,6 @@ from party import (
 from agent import handle_agent_request as logic_handle_agent_request
 
 logging.basicConfig(level=logging.INFO)
-
-# Configure functions-framework to bind to all interfaces and use PORT environment variable
-port = int(os.getenv('PORT', '8080'))
-functions_framework.setup(host='0.0.0.0', port=port)
 
 def _authenticate_and_call(request: Request, logic_func, requires_auth=True):
     try:
@@ -160,8 +157,6 @@ def relex_backend_update_organization(request: Request):
 def relex_backend_delete_organization(request: Request):
     return _authenticate_and_call(request, logic_delete_organization)
 
-
-
 @functions_framework.http
 def relex_backend_create_payment_intent(request: Request):
     return _authenticate_and_call(request, logic_create_payment_intent)
@@ -249,6 +244,7 @@ def relex_backend_get_products(request: Request):
     except Exception as e:
         logging.error(f"Error in get_products: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "An unexpected error occurred."}, 500)
+
 @functions_framework.http
 def relex_backend_agent_handler(request: Request):
     """Cloud Function entry point for the agent handler.
@@ -256,4 +252,17 @@ def relex_backend_agent_handler(request: Request):
     This function handles requests to the Lawyer AI Agent endpoint.
     It authenticates the user and delegates to the agent handler.
     """
+    # Log request information for debugging
+    logging.info(f"Agent handler received: {request.method} {request.path}")
+    
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info("Responding to health check or root path request")
+        return flask.jsonify({
+            "status": "healthy", 
+            "message": "Service is running",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+    
+    # If this is a normal request, process it through the agent handler
     return _authenticate_and_call(request, logic_handle_agent_request)

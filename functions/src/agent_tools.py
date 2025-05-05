@@ -7,12 +7,14 @@ import logging
 import aiohttp
 import json
 import markdown2
-# Temporarily comment out weasyprint to avoid deployment issues
-# from weasyprint import HTML, CSS
+# Pure Python PDF libraries without system dependencies
+from xhtml2pdf import pisa
+import io
 from google.cloud import bigquery, firestore, storage
 from google.cloud.exceptions import NotFound
 import tempfile
 import os
+import base64
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,9 +23,6 @@ logger = logging.getLogger(__name__)
 # Initialize clients
 db = firestore.Client()
 storage_client = storage.Client()
-
-# PDF styling - temporarily commented out
-# PDF_STYLES = None  # Will be implemented later
 
 class QuotaError(Exception):
     """Custom exception for quota-related errors."""
@@ -237,27 +236,33 @@ async def generate_draft_pdf(
     revision: int
 ) -> Dict[str, Any]:
     """
-    Takes Markdown content with placeholders, securely substitutes PII from attached parties,
-    converts to PDF, and stores in Cloud Storage.
+    Generate a PDF document from markdown content and store it in Cloud Storage.
+    Uses xhtml2pdf which is a pure Python library with no system dependencies.
 
     Args:
-        case_id: The ID of the current case
-        markdown_content: The full draft content in Markdown format with placeholders
-        draft_name: The base name for the document
-        revision: The revision number for this draft version
+        case_id: The ID of the case
+        markdown_content: The markdown content to convert to PDF
+        draft_name: The name of the draft document
+        revision: The revision number
 
     Returns:
-        Dictionary containing the status, URL, and metadata of the generated PDF
+        Dictionary containing the URL to the generated PDF and metadata
     """
+    logger.info(f"Starting PDF generation for case {case_id}, draft {draft_name}, revision {revision}")
+    
     try:
-        # Get case details for metadata
+        # Get case reference
         case_ref = db.collection('cases').document(case_id)
         case_doc = case_ref.get()
 
         if not case_doc.exists:
+            logger.error(f"Case {case_id} not found")
             raise PDFGenerationError(f"Case {case_id} not found")
 
         case_data = case_doc.to_dict()
+        
+        # Log important steps
+        logger.info(f"Converting markdown to HTML for case {case_id}")
 
         # Convert markdown to HTML with metadata
         html_content = _prepare_html_content(
@@ -267,22 +272,42 @@ async def generate_draft_pdf(
             revision
         )
 
+        # Log PDF generation
+        logger.info(f"Starting xhtml2pdf conversion for case {case_id}")
+
         # Create temporary file for PDF
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
             try:
-                # Generate PDF - temporarily disabled
-                # HTML(string=html_content).write_pdf(
-                #     temp_pdf.name,
-                #     stylesheets=[PDF_STYLES]
-                # )
+                # Generate PDF using xhtml2pdf (pure Python, no system dependencies)
+                logger.info(f"Creating PDF file at: {temp_pdf.name}")
+                pdf_file = open(temp_pdf.name, "wb")
+                
+                # Log the HTML content length
+                logger.info(f"HTML content length: {len(html_content)} characters")
+                
+                # Create PDF with detailed error logging
+                pisa_status = pisa.CreatePDF(
+                    html_content,           # HTML content to convert
+                    dest=pdf_file,          # Output file handle
+                    encoding='UTF-8'        # Ensure proper encoding
+                )
+                pdf_file.close()
 
-                # For now, just write the HTML content to the file
-                with open(temp_pdf.name, 'w') as f:
-                    f.write(html_content)
+                # Check if PDF conversion was successful
+                if pisa_status.err:
+                    error_msg = f"PDF conversion failed: {pisa_status.err}"
+                    logger.error(error_msg)
+                    raise PDFGenerationError(error_msg)
 
+                # Check file size
+                file_size = os.path.getsize(temp_pdf.name)
+                logger.info(f"PDF generated successfully. File size: {file_size} bytes")
+                
                 # Upload to Cloud Storage
                 bucket_name = 'relex-legal-drafts'  # Replace with your bucket name
                 storage_path = f"cases/{case_id}/drafts/{draft_name}_v{revision}.pdf"
+                
+                logger.info(f"Uploading PDF to Cloud Storage: {storage_path}")
 
                 bucket = storage_client.bucket(bucket_name)
                 blob = bucket.blob(storage_path)
@@ -299,6 +324,8 @@ async def generate_draft_pdf(
                         'generated_by': 'relex-agent'
                     }
                 )
+                
+                logger.info(f"PDF uploaded successfully to {storage_path}")
 
                 # Generate signed URL (valid for 7 days)
                 url = blob.generate_signed_url(
@@ -306,6 +333,8 @@ async def generate_draft_pdf(
                     expiration=datetime.now() + timedelta(days=7),
                     method='GET'
                 )
+                
+                logger.info(f"Generated signed URL with 7-day expiration")
 
                 # Update case document with draft information
                 draft_info = {
@@ -318,10 +347,12 @@ async def generate_draft_pdf(
                     'status': 'generated'
                 }
 
+                logger.info(f"Updating case document with draft information")
                 case_ref.update({
                     'drafts': firestore.ArrayUnion([draft_info])
                 })
 
+                logger.info(f"PDF generation completed successfully for case {case_id}")
                 return {
                     'status': 'success',
                     'url': url,
@@ -331,13 +362,19 @@ async def generate_draft_pdf(
                     'metadata': draft_info
                 }
 
+            except Exception as e:
+                error_msg = f"Error during PDF generation process: {str(e)}"
+                logger.error(error_msg, exc_info=True)
+                raise PDFGenerationError(error_msg)
             finally:
                 # Clean up temporary file
+                logger.info(f"Cleaning up temporary file: {temp_pdf.name}")
                 os.unlink(temp_pdf.name)
 
     except Exception as e:
-        logger.error(f"Error generating PDF: {str(e)}")
-        raise PDFGenerationError(f"Failed to generate PDF: {str(e)}")
+        error_msg = f"Error generating PDF: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise PDFGenerationError(error_msg)
 
 def _prepare_html_content(
     markdown_content: str,
@@ -365,7 +402,7 @@ def _prepare_html_content(
         court_name = case_data.get('court_name', 'N/A')
         case_type = case_data.get('case_type', 'N/A')
 
-        # Create HTML template with metadata
+        # Create HTML template with metadata and CSS styles
         html_template = f"""
         <!DOCTYPE html>
         <html lang="ro">
@@ -376,6 +413,36 @@ def _prepare_html_content(
             <meta name="case-number" content="{case_number}">
             <meta name="court" content="{court_name}">
             <meta name="document-type" content="{case_type}">
+            <style>
+                @page {{
+                    size: A4;
+                    margin: 2cm;
+                }}
+                body {{
+                    font-family: Arial, Helvetica, sans-serif;
+                    line-height: 1.5;
+                    font-size: 12pt;
+                }}
+                .header {{
+                    margin-bottom: 2cm;
+                }}
+                .header h1 {{
+                    font-size: 18pt;
+                    margin-bottom: 0.5cm;
+                }}
+                .content {{
+                    margin-bottom: 2cm;
+                }}
+                .footer {{
+                    font-size: 10pt;
+                    margin-top: 1cm;
+                    border-top: 1px solid #ccc;
+                    padding-top: 0.5cm;
+                }}
+                .signature {{
+                    margin-top: 2cm;
+                }}
+            </style>
         </head>
         <body>
             <div class="header">
