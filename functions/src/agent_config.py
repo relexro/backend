@@ -10,12 +10,14 @@ from typing import Dict, Any, List, Optional, Union
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define paths
-CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'agent-config')
-AGENT_LOOP_PATH = os.path.join(CONFIG_DIR, 'agent_loop.txt')
-TOOLS_PATH = os.path.join(CONFIG_DIR, 'tools.json')
-PROMPT_PATH = os.path.join(CONFIG_DIR, 'prompt.txt')
-MODULES_PATH = os.path.join(CONFIG_DIR, 'modules.txt')
+# Define paths - Use a robust path construction relative to the current script
+_CURRENT_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_AGENT_CONFIG_DIR = os.path.join(_CURRENT_SCRIPT_DIR, 'agent-config')
+logger.info(f"Agent config calculated CONFIG_DIR: {os.path.abspath(_AGENT_CONFIG_DIR)}")
+AGENT_LOOP_PATH = os.path.join(_AGENT_CONFIG_DIR, 'agent_loop.txt')
+TOOLS_PATH = os.path.join(_AGENT_CONFIG_DIR, 'tools.json')
+PROMPT_PATH = os.path.join(_AGENT_CONFIG_DIR, 'prompt.txt')
+MODULES_PATH = os.path.join(_AGENT_CONFIG_DIR, 'modules.txt')
 
 class ConfigLoadError(Exception):
     """Custom exception for configuration loading errors."""
@@ -28,11 +30,19 @@ def load_agent_loop() -> str:
     Returns:
         The content of agent_loop.txt as a string
     """
+    file_path = AGENT_LOOP_PATH
+    logger.info(f"Attempting to load agent loop from: {file_path}")
     try:
-        with open(AGENT_LOOP_PATH, 'r', encoding='utf-8') as f:
-            return f.read()
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            logger.info(f"Successfully loaded agent loop from: {file_path}")
+            return content
+    except FileNotFoundError:
+        abs_path = os.path.abspath(file_path)
+        logger.error(f"FileNotFoundError: Could not find agent loop config file at expected path: {abs_path}")
+        raise ConfigLoadError(f"Agent loop configuration file not found at: {abs_path}")
     except Exception as e:
-        logger.error(f"Error loading agent loop configuration: {str(e)}")
+        logger.error(f"Error loading agent loop configuration from {file_path}: {str(e)}")
         raise ConfigLoadError(f"Failed to load agent loop configuration: {str(e)}")
 
 def load_tools() -> List[Dict[str, Any]]:
@@ -42,11 +52,19 @@ def load_tools() -> List[Dict[str, Any]]:
     Returns:
         A list of tool definitions
     """
+    file_path = TOOLS_PATH
+    logger.info(f"Attempting to load tools from: {file_path}")
     try:
-        with open(TOOLS_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            tools_data = json.load(f)
+            logger.info(f"Successfully loaded tools from: {file_path}")
+            return tools_data
+    except FileNotFoundError:
+        abs_path = os.path.abspath(file_path)
+        logger.error(f"FileNotFoundError: Could not find tools config file at expected path: {abs_path}")
+        raise ConfigLoadError(f"Tools configuration file not found at: {abs_path}")
     except Exception as e:
-        logger.error(f"Error loading tool definitions: {str(e)}")
+        logger.error(f"Error loading tool definitions from {file_path}: {str(e)}")
         raise ConfigLoadError(f"Failed to load tool definitions: {str(e)}")
 
 def load_prompts() -> Dict[str, str]:
@@ -56,10 +74,13 @@ def load_prompts() -> Dict[str, str]:
     Returns:
         A dictionary of prompt templates with keys based on section names
     """
+    file_path = PROMPT_PATH
+    logger.info(f"Attempting to load prompts from: {file_path}")
     try:
-        with open(PROMPT_PATH, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        
+            logger.info(f"Successfully read prompts file from: {file_path}")
+
         # Parse the prompt file into sections
         prompts = {}
         current_section = None
@@ -86,9 +107,14 @@ def load_prompts() -> Dict[str, str]:
         if current_section and current_content:
             prompts[current_section] = '\n'.join(current_content).strip()
         
+        logger.info(f"Successfully parsed prompts from: {file_path}")
         return prompts
+    except FileNotFoundError:
+        abs_path = os.path.abspath(file_path)
+        logger.error(f"FileNotFoundError: Could not find prompts config file at expected path: {abs_path}")
+        raise ConfigLoadError(f"Prompts configuration file not found at: {abs_path}")
     except Exception as e:
-        logger.error(f"Error loading prompt templates: {str(e)}")
+        logger.error(f"Error loading prompt templates from {file_path}: {str(e)}")
         raise ConfigLoadError(f"Failed to load prompt templates: {str(e)}")
 
 def load_modules() -> Dict[str, str]:
@@ -98,9 +124,12 @@ def load_modules() -> Dict[str, str]:
     Returns:
         A dictionary of module descriptions with keys based on XML tags
     """
+    file_path = MODULES_PATH
+    logger.info(f"Attempting to load modules from: {file_path}")
     try:
-        with open(MODULES_PATH, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
+            logger.info(f"Successfully read modules file from: {file_path}")
         
         # Parse the modules file into sections based on XML-like tags
         modules = {}
@@ -131,9 +160,14 @@ def load_modules() -> Dict[str, str]:
         if current_tag and current_content:
             modules[current_tag] = '\n'.join(current_content).strip()
         
+        logger.info(f"Successfully parsed modules from: {file_path}")
         return modules
+    except FileNotFoundError:
+        abs_path = os.path.abspath(file_path)
+        logger.error(f"FileNotFoundError: Could not find modules config file at expected path: {abs_path}")
+        raise ConfigLoadError(f"Modules configuration file not found at: {abs_path}")
     except Exception as e:
-        logger.error(f"Error loading module descriptions: {str(e)}")
+        logger.error(f"Error loading module descriptions from {file_path}: {str(e)}")
         raise ConfigLoadError(f"Failed to load module descriptions: {str(e)}")
 
 def get_system_prompt() -> str:

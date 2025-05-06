@@ -200,12 +200,10 @@ def create_agent_graph() -> Graph:
     workflow.add_node("final_review", final_review_node)
     workflow.add_node("error", error_node)
 
-    # Define edges - Remove the invalid 'start' node reference
-    # workflow.add_edge("start", "determine_tier")
-    
     # Set determine_tier as the entry point
     workflow.set_entry_point("determine_tier")
     
+    # Standard flow edges
     workflow.add_edge("determine_tier", "verify_payment")
     workflow.add_edge("verify_payment", "process_input")
     workflow.add_edge("process_input", "research")
@@ -215,16 +213,22 @@ def create_agent_graph() -> Graph:
     workflow.add_edge("generate_documents", "final_review")
     workflow.add_edge("final_review", "end")
 
-    # Error handling edges
-    workflow.add_edge("error", "determine_tier")
-    workflow.add_edge("error", "verify_payment")
-    workflow.add_edge("error", "process_input")
-    workflow.add_edge("error", "research")
-    workflow.add_edge("error", "expert_consultation")
-    workflow.add_edge("error", "document_planning")
-    workflow.add_edge("error", "generate_documents")
-    workflow.add_edge("error", "final_review")
-    workflow.add_edge("error", "end")
+    # Error handling with conditional edge - this replaces the previous workflow.add_edge("error", ...) calls
+    workflow.add_conditional_edges(
+        "error",
+        lambda state: state["current_node"] if state["retry_count"].get(state["current_node"], 0) < 2 else "end",
+        {
+            "determine_tier": lambda state: state["current_node"] == "determine_tier",
+            "verify_payment": lambda state: state["current_node"] == "verify_payment",
+            "process_input": lambda state: state["current_node"] == "process_input",
+            "research": lambda state: state["current_node"] == "research",
+            "expert_consultation": lambda state: state["current_node"] == "expert_consultation",
+            "document_planning": lambda state: state["current_node"] == "document_planning",
+            "generate_documents": lambda state: state["current_node"] == "generate_documents",
+            "final_review": lambda state: state["current_node"] == "final_review",
+            "end": lambda state: state["retry_count"].get(state["current_node"], 0) >= 2
+        }
+    )
 
     # Conditional edges based on analysis
     workflow.add_conditional_edges(
