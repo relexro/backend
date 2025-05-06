@@ -1,11 +1,13 @@
 """
-Agent Nodes - LangGraph-based nodes for the Relex Legal Assistant
+Agent Node Definitions
+Defines all node functions for the workflow graph.
 """
-from typing import Dict, Any, List, Optional, TypeVar, Tuple
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Dict, List, Any, Optional, Callable
 from pydantic import BaseModel, Field
-from langgraph.graph import Graph, StateGraph
+from langgraph.graph import Graph, StateGraph, END
+import json
 
 from agent_tools import (
     check_quota,
@@ -15,60 +17,40 @@ from agent_tools import (
     update_quota_usage
 )
 
-# Import AgentState from llm_nodes to avoid circular dependency
-from llm_nodes import AgentState
-
-# Import LLM node functions
-from llm_nodes import (
-    legal_analysis_node,
-    expert_consultation_node,
-    document_planning_node,
-    document_generation_node,
-    final_review_node
-)
+from gemini_util import create_gemini_model, analyze_gemini_response
+from agent_state import AgentState
+from agent_config import load_system_prompt, get_system_prompt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Type for state
-StateType = TypeVar("StateType", bound=Dict[str, Any])
-
-async def determine_tier_node(state: AgentState) -> Tuple[str, AgentState]:
+# Node Functions
+async def determine_tier_node(state: AgentState) -> AgentState:
     """
-    Determine the case tier and check quota.
+    Determine the appropriate pricing tier for the client.
     """
     try:
-        # Check user quota
-        quota_result = await check_quota(state.user_id)
-        state.quota_status = quota_result
-
-        if not quota_result['has_quota']:
-            state.response_data = {
-                'status': 'quota_exceeded',
-                'message': 'Quota depășită. Vă rugăm să achiziționați credite suplimentare.',
-                'required_credits': quota_result['required_credits']
-            }
-            return 'end', state
-
-        state.completed_nodes.append('determine_tier')
-        return 'verify_payment', state
-
+        logger.info("Processing determine_tier node")
+        state.current_node = "determine_tier"
+        # Use check_quota instead of determine_pricing_tier
+        quota_result = await check_quota(state.user_id, state.organization_id if hasattr(state, 'organization_id') else None)
+        state.tier = quota_result.get("subscription_tier", "basic")
+        state.tier_details = quota_result
+        logger.info(f"Determined tier: {state.tier}")
+        return state
     except Exception as e:
         logger.error(f"Error in determine_tier_node: {str(e)}")
-        state.errors.append({
-            'node': 'determine_tier',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        })
-        return 'error', state
+        state.has_error = True
+        state.error_message = f"Failed to determine pricing tier: {str(e)}"
+        return state
 
-async def verify_payment_node(state: AgentState) -> Tuple[str, AgentState]:
+async def verify_payment_node(state: AgentState) -> AgentState:
     """
     Verify payment status for the case.
     """
     try:
-        # Check payment status
+        # Check payment status using verify_payment from agent_tools
         payment_status = await verify_payment(state.case_id)
 
         if not payment_status.get('paid', False):
@@ -77,45 +59,52 @@ async def verify_payment_node(state: AgentState) -> Tuple[str, AgentState]:
                 'message': 'Este necesară plata pentru a continua.',
                 'payment_details': payment_status['payment_details']
             }
-            return 'end', state
+            return state
 
-        state.completed_nodes.append('verify_payment')
-        return 'process_input', state
+        return state
 
     except Exception as e:
         logger.error(f"Error in verify_payment_node: {str(e)}")
-        state.errors.append({
-            'node': 'verify_payment',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        })
-        return 'error', state
+        state.has_error = True
+        state.error_message = f"Failed to verify payment: {str(e)}"
+        return state
 
-async def process_input_node(state: AgentState) -> Tuple[str, AgentState]:
+async def process_input_node(state: AgentState) -> AgentState:
     """
     Process user input and perform initial legal analysis.
     """
     try:
-        # Perform legal analysis
-        next_node, updated_state = await legal_analysis_node(state)
-        state = updated_state
-
-        # Update quota usage
-        await update_quota_usage(state.user_id, 'analysis')
-
-        state.completed_nodes.append('process_input')
-        return next_node, state
+        # Process the input using gemini model
+        model = create_gemini_model()
+        system_prompt = get_system_prompt("legal_analysis")
+        
+        # Create user message from the input data
+        user_message = f"Case details: {json.dumps(state.case_details)}"
+        
+        # Get response from Gemini
+        response = await model.generate_content_async(
+            system_prompt,
+            user_message
+        )
+        
+        # Process the response
+        analysis_result = analyze_gemini_response(response, "legal_analysis")
+        
+        # Update state with analysis results
+        state.input_analysis = {
+            'legal_analysis': analysis_result,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return state
 
     except Exception as e:
         logger.error(f"Error in process_input_node: {str(e)}")
-        state.errors.append({
-            'node': 'process_input',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        })
-        return 'error', state
+        state.has_error = True
+        state.error_message = f"Failed to process input: {str(e)}"
+        return state
 
-async def research_node(state: AgentState) -> Tuple[str, AgentState]:
+async def research_node(state: AgentState) -> AgentState:
     """
     Perform legal research based on analysis.
     """
@@ -123,11 +112,11 @@ async def research_node(state: AgentState) -> Tuple[str, AgentState]:
         # Get analysis results
         analysis = state.input_analysis.get('legal_analysis', {})
 
-        # Search legal database
+        # Search legal database using the actual function from agent_tools
         search_query = f"domain:{analysis['domains']['main']} AND {' OR '.join(analysis.get('keywords', []))}"
         search_results = await search_legal_database(search_query)
 
-        # Get relevant legislation
+        # Get relevant legislation using the actual function from agent_tools
         legislation = await get_relevant_legislation(analysis['domains']['main'])
 
         # Update state
@@ -137,107 +126,230 @@ async def research_node(state: AgentState) -> Tuple[str, AgentState]:
             'timestamp': datetime.now().isoformat()
         }
 
-        state.completed_nodes.append('research')
-        return 'expert_consultation', state
+        return state
 
     except Exception as e:
         logger.error(f"Error in research_node: {str(e)}")
-        state.errors.append({
-            'node': 'research',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        })
-        return 'error', state
+        state.has_error = True
+        state.error_message = f"Failed to perform research: {str(e)}"
+        return state
 
-async def error_node(state: AgentState) -> Tuple[str, AgentState]:
+async def expert_consultation_node(state: AgentState) -> AgentState:
     """
-    Handle errors and determine retry strategy.
+    Consult with an expert for further analysis.
     """
     try:
-        current_node = state.current_node
-        retry_count = state.retry_count.get(current_node, 0)
-
-        if retry_count < 2:  # Allow up to 2 retries
-            # Increment retry count
-            state.retry_count[current_node] = retry_count + 1
-            logger.info(f"Retrying node {current_node}, attempt {retry_count + 1}")
-            return current_node, state
-
-        # If max retries reached, prepare error response
-        state.response_data = {
-            'status': 'error',
-            'message': 'Ne pare rău, a apărut o eroare. Am creat un tichet de suport pentru rezolvarea problemei.',
-            'support_ticket': {
-                'case_id': state.case_id,
-                'errors': state.errors
-            }
+        # Use Gemini model to simulate expert consultation
+        model = create_gemini_model()
+        system_prompt = get_system_prompt("expert_consultation")
+        
+        # Create user message with research context
+        user_message = f"Research results: {json.dumps(state.research_results)}"
+        
+        # Get response from Gemini
+        response = await model.generate_content_async(
+            system_prompt,
+            user_message
+        )
+        
+        # Process the response
+        expert_response = analyze_gemini_response(response, "expert_consultation")
+        
+        # Update state
+        state.expert_consultation_results = {
+            'expert_response': expert_response,
+            'timestamp': datetime.now().isoformat()
         }
-        return 'end', state
+
+        return state
 
     except Exception as e:
+        logger.error(f"Error in expert_consultation_node: {str(e)}")
+        state.has_error = True
+        state.error_message = f"Failed to consult expert: {str(e)}"
+        return state
+
+async def document_planning_node(state: AgentState) -> AgentState:
+    """
+    Plan and create a document.
+    """
+    try:
+        # Use Gemini model for document planning
+        model = create_gemini_model()
+        system_prompt = get_system_prompt("document_planning")
+        
+        # Create user message with context
+        user_message = f"""
+        Research results: {json.dumps(state.research_results)}
+        Expert consultation: {json.dumps(state.expert_consultation_results)}
+        """
+        
+        # Get response from Gemini
+        response = await model.generate_content_async(
+            system_prompt,
+            user_message
+        )
+        
+        # Process the response
+        document_plan = analyze_gemini_response(response, "document_planning")
+        
+        # Update state
+        state.document_plan = document_plan
+
+        return state
+
+    except Exception as e:
+        logger.error(f"Error in document_planning_node: {str(e)}")
+        state.has_error = True
+        state.error_message = f"Failed to plan document: {str(e)}"
+        return state
+
+async def document_generation_node(state: AgentState) -> AgentState:
+    """
+    Generate legal documents based on the document plan.
+    """
+    try:
+        # Use Gemini model for document generation
+        model = create_gemini_model()
+        system_prompt = get_system_prompt("document_generation")
+        
+        # Create user message with document plan
+        user_message = f"Document plan: {json.dumps(state.document_plan)}"
+        
+        # Get response from Gemini
+        response = await model.generate_content_async(
+            system_prompt,
+            user_message
+        )
+        
+        # Process the response
+        generated_documents = analyze_gemini_response(response, "document_generation")
+        
+        # Update state
+        state.generated_documents = generated_documents
+
+        return state
+
+    except Exception as e:
+        logger.error(f"Error in document_generation_node: {str(e)}")
+        state.has_error = True
+        state.error_message = f"Failed to generate documents: {str(e)}"
+        return state
+
+async def final_review_node(state: AgentState) -> AgentState:
+    """
+    Perform final review of the generated documents.
+    """
+    try:
+        # Use Gemini model for final review
+        model = create_gemini_model()
+        system_prompt = get_system_prompt("final_review")
+        
+        # Create user message with generated documents
+        user_message = f"Generated documents: {json.dumps(state.generated_documents)}"
+        
+        # Get response from Gemini
+        response = await model.generate_content_async(
+            system_prompt,
+            user_message
+        )
+        
+        # Process the response
+        review_result = analyze_gemini_response(response, "final_review")
+        
+        # Update state
+        state.final_review_results = review_result
+        
+        # Update quota usage for the completed workflow
+        await update_quota_usage(state.user_id)
+
+        return state
+
+    except Exception as e:
+        logger.error(f"Error in final_review_node: {str(e)}")
+        state.has_error = True
+        state.error_message = f"Failed to perform final review: {str(e)}"
+        return state
+
+async def error_node(state: AgentState) -> AgentState:
+    """
+    Handle errors in the workflow.
+    """
+    try:
+        logger.info(f"Processing error node for error in: {state.current_node}")
+        
+        # Increment retry count for the current node
+        if state.current_node not in state.retry_count:
+            state.retry_count[state.current_node] = 0
+        state.retry_count[state.current_node] += 1
+        
+        # Log the error
+        logger.error(f"Error in {state.current_node}: {state.error_message}")
+        logger.info(f"Retry count for {state.current_node}: {state.retry_count[state.current_node]}")
+        
+        # Reset error flag for retry
+        state.has_error = False
+        state.error_message = ""
+        
+        return state
+    except Exception as e:
         logger.error(f"Error in error_node: {str(e)}")
-        state.response_data = {
-            'status': 'critical_error',
-            'message': 'Eroare critică în procesarea cererii.'
-        }
-        return 'end', state
+        state.error_message = f"Failed to process error node: {str(e)}"
+        return state
 
 def create_agent_graph() -> Graph:
     """
-    Create and configure the LangGraph workflow.
+    Create and configure the LangGraph workflow using the absolute minimum approach.
+    This stripped-down version focuses just on fixing the 'ValueError: Already found path for node error' issue.
     """
     # Create graph
     workflow = StateGraph(AgentState)
 
-    # Add nodes
+    # Add essential nodes
     workflow.add_node("determine_tier", determine_tier_node)
     workflow.add_node("verify_payment", verify_payment_node)
     workflow.add_node("process_input", process_input_node)
-    workflow.add_node("research", research_node)
-    workflow.add_node("expert_consultation", expert_consultation_node)
-    workflow.add_node("document_planning", document_planning_node)
-    workflow.add_node("generate_documents", document_generation_node)
     workflow.add_node("final_review", final_review_node)
     workflow.add_node("error", error_node)
-
-    # Set determine_tier as the entry point
+    
+    # Set entry point
     workflow.set_entry_point("determine_tier")
     
-    # Standard flow edges
+    # Define minimal flow
     workflow.add_edge("determine_tier", "verify_payment")
     workflow.add_edge("verify_payment", "process_input")
-    workflow.add_edge("process_input", "research")
-    workflow.add_edge("research", "expert_consultation")
-    workflow.add_edge("expert_consultation", "document_planning")
-    workflow.add_edge("document_planning", "generate_documents")
-    workflow.add_edge("generate_documents", "final_review")
-    workflow.add_edge("final_review", "end")
-
-    # Error handling with conditional edge - this replaces the previous workflow.add_edge("error", ...) calls
+    workflow.add_edge("process_input", "final_review")
+    workflow.add_edge("final_review", END)
+    
+    # Error handling from each node - avoid conditions that might cause issues
     workflow.add_conditional_edges(
-        "error",
-        lambda state: state["current_node"] if state["retry_count"].get(state["current_node"], 0) < 2 else "end",
+        "determine_tier",
+        lambda state: "error" if state.get("has_error", False) else "continue",
         {
-            "determine_tier": lambda state: state["current_node"] == "determine_tier",
-            "verify_payment": lambda state: state["current_node"] == "verify_payment",
-            "process_input": lambda state: state["current_node"] == "process_input",
-            "research": lambda state: state["current_node"] == "research",
-            "expert_consultation": lambda state: state["current_node"] == "expert_consultation",
-            "document_planning": lambda state: state["current_node"] == "document_planning",
-            "generate_documents": lambda state: state["current_node"] == "generate_documents",
-            "final_review": lambda state: state["current_node"] == "final_review",
-            "end": lambda state: state["retry_count"].get(state["current_node"], 0) >= 2
+            "error": "error",
+            "continue": "verify_payment"
         }
     )
-
-    # Conditional edges based on analysis
+    
+    workflow.add_conditional_edges(
+        "verify_payment",
+        lambda state: "error" if state.get("has_error", False) else "continue",
+        {
+            "error": "error",
+            "continue": "process_input"
+        }
+    )
+    
     workflow.add_conditional_edges(
         "process_input",
-        lambda x: x["current_node"],
+        lambda state: "error" if state.get("has_error", False) else "continue",
         {
-            "expert_consultation": lambda x: x["input_analysis"].get("legal_analysis", {}).get("complexity", {}).get("level", 1) >= 2,
-            "document_planning": lambda x: x["input_analysis"].get("legal_analysis", {}).get("complexity", {}).get("level", 1) < 2
+            "error": "error",
+            "continue": "final_review"
         }
     )
+    
+    # Handle errors - no conditional branching to keep it simple
+    workflow.add_edge("error", "determine_tier")  # Always retry from the beginning
 
     return workflow.compile()

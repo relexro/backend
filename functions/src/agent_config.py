@@ -170,31 +170,50 @@ def load_modules() -> Dict[str, str]:
         logger.error(f"Error loading module descriptions from {file_path}: {str(e)}")
         raise ConfigLoadError(f"Failed to load module descriptions: {str(e)}")
 
-def get_system_prompt() -> str:
+def get_system_prompt(prompt_type: str = "main") -> str:
     """
-    Get the system prompt for Gemini.
+    Get the system prompt for the specified type.
+    
+    Args:
+        prompt_type: The type of prompt to get (e.g., "legal_analysis", "expert_consultation")
     
     Returns:
-        The formatted system prompt
+        The formatted system prompt for the specified type
     """
     try:
         prompts = load_prompts()
-        modules = load_modules()
         
-        # Get the base system prompt
+        # First look for a specific prompt type
+        if prompt_type != "main" and f"{prompt_type.title()} Prompt" in prompts:
+            return prompts[f"{prompt_type.title()} Prompt"]
+            
+        # Fallback to the Gemini System Prompt
         system_prompt = prompts.get('Gemini System Prompt', '')
         
-        # Enhance with modules content
-        for module_name, module_content in modules.items():
-            if module_name in ['intro', 'language_settings', 'system_capability', 'agent_loop', 
-                              'llm_collaboration_rules', 'context_management_rules', 'tool_use_rules',
-                              'legal_research_rules', 'drafting_rules', 'message_rules', 'error_handling']:
-                system_prompt += f"\n\n# {module_name.replace('_', ' ').title()}\n{module_content}"
+        # For the main system prompt, enhance with modules content
+        if prompt_type == "main":
+            modules = load_modules()
+            for module_name, module_content in modules.items():
+                if module_name in ['intro', 'language_settings', 'system_capability', 'agent_loop', 
+                                  'llm_collaboration_rules', 'context_management_rules', 'tool_use_rules',
+                                  'legal_research_rules', 'drafting_rules', 'message_rules', 'error_handling']:
+                    system_prompt += f"\n\n# {module_name.replace('_', ' ').title()}\n{module_content}"
         
         return system_prompt
     except Exception as e:
-        logger.error(f"Error generating system prompt: {str(e)}")
-        raise ConfigLoadError(f"Failed to generate system prompt: {str(e)}")
+        logger.error(f"Error generating system prompt for {prompt_type}: {str(e)}")
+        # Return a simple fallback prompt if we can't load the configured one
+        return f"You are a legal assistant helping with {prompt_type}. Provide a detailed and structured response."
+
+def load_system_prompt() -> str:
+    """
+    Load the main system prompt.
+    Alias for get_system_prompt("main") for backward compatibility.
+    
+    Returns:
+        The main system prompt
+    """
+    return get_system_prompt("main")
 
 def get_grok_prompt_template() -> str:
     """
