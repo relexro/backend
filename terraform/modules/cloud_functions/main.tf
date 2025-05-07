@@ -19,7 +19,7 @@ locals {
 data "archive_file" "functions_source" {
   type        = "zip"
   source_dir  = var.functions_source_path
-  output_path = var.functions_zip_path
+  output_path = "${var.functions_zip_path}-${local.combined_hash}"
 
   # Exclude common Python cache files and hidden files
   excludes = [
@@ -84,6 +84,14 @@ resource "google_cloudfunctions2_function" "functions" {
 
     ingress_settings       = "ALLOW_INTERNAL_AND_GCLB"
     service_account_email = var.service_account_email
+  }
+  
+  # This will prevent unnecessary updates by ignoring certain attributes that might change
+  # but don't affect the actual function deployment
+  lifecycle {
+    ignore_changes = [
+      build_config[0].source[0].storage_source[0].generation
+    ]
   }
 }
 
