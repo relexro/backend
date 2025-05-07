@@ -43,6 +43,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Case archival
 - [x] Permission checks for case operations
 - [x] Staff assignment validation
+- [x] Case tier system (1-3)
 - [ ] Advanced search
 - [ ] Batch operations
 
@@ -55,22 +56,21 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Party validation (CNP, CUI, RegCom)
 - [ ] Party search and filtering
 
-### Chat Integration (Deprecated)
-- [x] ~~Vertex AI integration~~ (Replaced by Lawyer AI Agent)
-- [x] ~~Prompt handling~~ (Replaced by Lawyer AI Agent)
-- [x] ~~Context enrichment~~ (Replaced by Lawyer AI Agent)
-- [x] ~~Conversation storage with proper permission checks~~ (Replaced by Lawyer AI Agent)
-- [ ] ~~Multi-model support~~ (Replaced by Lawyer AI Agent)
-- [ ] ~~Streaming responses~~ (Replaced by Lawyer AI Agent)
-
-### Lawyer AI Agent
-- [x] LangGraph Orchestration (agent_handler.py, agent_nodes.py)
-- [x] Gemini Integration (via llm_nodes.py)
-- [x] Grok Integration (via agent_tools.py/agent_orchestrator.py/llm_nodes.py)
-- [x] Function Tools (agent_tools.py - BigQuery, PDF Gen, etc.)
-- [x] BigQuery Legal Database Integration
-- [x] Firestore State Management (case_details)
-- [x] Agent API Endpoint (/cases/{caseId}/agent/messages POST)
+### Lawyer AI Agent (Refactored Implementation)
+- [x] LangGraph architecture replacing old agent handler
+- [x] Agent graph orchestration with state machine design
+- [x] Dual LLM approach (Gemini + Grok)
+- [x] Agent nodes implementation for different tasks
+- [x] Tool integration for external functionality
+- [x] Comprehensive error handling
+- [x] Case state management in Firestore
+- [x] Romanian language support
+- [x] BigQuery legal research integration
+- [x] PDF generation for legal documents
+- [x] Agent API endpoint (/cases/{caseId}/agent/messages)
+- [ ] Streaming responses
+- [ ] Advanced context management for large cases
+- [ ] Regional model deployment
 
 ### Payment Processing
 - [x] Stripe integration
@@ -80,6 +80,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Payment webhooks for subscription and payment events
 - [x] Per-case payment verification
 - [ ] Invoice generation
+- [ ] Voucher system implementation
 
 ### File Management
 - [x] File upload to Cloud Storage
@@ -94,15 +95,16 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Authentication tests
 - [x] Permission tests
 - [x] Business logic tests
-- [ ] Chat integration tests
+- [x] Agent workflow tests
 - [ ] Payment processing tests
 - [ ] File management tests
 
 ### Integration Tests
 - [x] API endpoint tests
 - [x] Firebase integration tests
+- [x] LangGraph integration tests
 - [ ] Stripe integration tests
-- [ ] Vertex AI integration tests
+- [ ] LLM integration tests
 - [ ] Storage integration tests
 
 ### Load Testing
@@ -110,6 +112,7 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] Cloud Functions scaling
 - [ ] Storage operations
 - [ ] Database queries
+- [ ] LLM performance
 
 ## Documentation Status
 
@@ -118,44 +121,47 @@ This document tracks the implementation status of the Relex backend components.
 - [x] API endpoint documentation
 - [x] Authentication flows
 - [x] Error handling
-- [ ] Advanced use cases
+- [x] Example requests/responses
 - [ ] API versioning
 
 ### Developer Documentation
 - [x] Setup instructions
 - [x] Deployment guide
-- [x] Testing guide
+- [x] LangGraph agent architecture
+- [x] Tool documentation
+- [x] Prompt design guidelines
+- [x] Case tier system explanation
+- [x] Payment and subscription system
 - [ ] Contribution guidelines
-- [ ] Architecture diagrams
+- [ ] Advanced troubleshooting
 
 ## Known Issues
 
 1. **Performance**
+   - LLM response times can be variable
    - Large file uploads need optimization
-   - Chat response times can be improved
    - Some database queries need indexing
 
 2. **Security**
    - Need to implement rate limiting
-   - Additional input validation required
+   - Additional input validation required for edge cases
    - Security headers to be configured
 
 3. **Configuration**
-   - ~~Inconsistent Firestore collection names (organizationMembers vs. organization_memberships)~~ - Fixed
-   - Environment variables for Stripe keys must be properly set during deployment
-   - Missing configuration for Vertex AI endpoint
+   - Environment variables for LLM API keys must be properly set during deployment
+   - Firestore collection structure and naming is now consistent
 
 4. **Reliability**
-   - Error handling needs improvement
-   - Retry logic for external services
-   - Better logging and monitoring
+   - Agent error handling needs more robust recovery mechanisms
+   - Retry logic for external services needed
+   - Better logging and monitoring needed
 
 ## Next Steps
 
 ### High Priority
-1. Ensure proper environment variable setup (Stripe keys) during deployment
+1. Implement voucher system for promotions
 2. Add file versioning
-3. Improve error handling
+3. Improve error handling and recovery for agent
 4. Set up comprehensive monitoring
 5. Implement rate limiting
 6. Add security headers
@@ -163,9 +169,9 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Medium Priority
 1. Implement advanced search
-2. Add batch operations
-3. Improve chat performance
-4. Add multi-model support
+2. Add batch operations for files and case management
+3. Improve agent response time
+4. Add streaming responses for agent
 5. Enhance business analytics
 
 ### Low Priority
@@ -178,7 +184,7 @@ This document tracks the implementation status of the Relex backend components.
 ## Development Environment
 
 ### Required Tools
-- Python 3.9+
+- Python 3.10+
 - Node.js 18+ (required for Firebase CLI and Emulator Suite)
 - Terraform 1.0+
 - Firebase CLI
@@ -228,6 +234,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Firebase services active
 - [x] Storage buckets created
 - [x] IAM roles configured
+- [x] LLM API keys configured
 
 ### Staging
 - [x] Separate environment setup
@@ -242,54 +249,11 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Request tracking
 - [x] Authentication monitoring
 - [x] Storage monitoring
+- [x] LLM API usage tracking
 
 ### Pending
 - [ ] Advanced analytics
 - [ ] Performance monitoring
 - [ ] Cost tracking
 - [ ] Usage alerts
-- [ ] Automated backups
-
-## Security Measures
-
-### Implemented
-- [x] Firebase Authentication
-- [x] Enhanced role-based access model
-- [x] Secure file storage
-- [x] Input validation with Pydantic
-
-### Pending
-- [ ] Rate limiting
-- [ ] DDoS protection
-- [ ] Security scanning
-- [ ] Penetration testing
-- [ ] Custom claims optimization
-
-## Organization Membership Management
-
-### Implemented
-- [x] Fixed collection name from `organizationMembers` to `organization_memberships`
-- [x] Add organization member with role validation
-- [x] Set organization member role with admin checks
-- [x] List organization members with pagination
-- [x] Remove organization member with safeguards
-- [x] Get user organization role
-- [x] List user organizations
-
-### Pending
-- [ ] Invite system for new members
-- [ ] Email notifications for role changes
-- [ ] Advanced role customization
-
-## Chat & Conversation Management
-
-### Implemented
-- [x] Store conversation with proper permission checks
-- [x] Retrieve conversation history
-- [x] Security checks on conversation access
-- [x] Permission verification before writing to case subcollections
-
-### Pending
-- [ ] Streaming responses
-- [ ] Message editing capabilities
-- [ ] Advanced conversation filtering
+- [ ] LLM performance metrics

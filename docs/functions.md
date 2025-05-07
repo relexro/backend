@@ -433,3 +433,277 @@ The Relex backend logic is implemented as a set of Python Cloud Functions trigge
 * API exposed via API Gateway configured using `openapi_spec.yaml`.
 
 This structure provides a modular and scalable backend capable of supporting both standard CRUD operations and the complex interactions of the Lawyer AI Agent.
+
+# Cloud Functions
+
+This document details the Cloud Functions that make up the Relex backend API. These functions are deployed to Google Cloud Functions (2nd gen) and exposed through API Gateway.
+
+## Overview
+
+The Relex backend is organized as a collection of serverless functions, each with specific responsibilities. Functions are grouped by module in the `functions/src/` directory, and each module handles a specific domain of functionality.
+
+## Core Modules
+
+### main.py
+
+Entry point for all Cloud Functions. This file imports and exports all function handles, ensuring they are available for deployment. It uses a standard pattern for function definition to ensure consistency across the API.
+
+```python
+# Standard function definition pattern
+@functions_framework.http
+def function_name(request):
+    """Function documentation."""
+    return _authenticate_and_call(
+        request,
+        handler_function,
+        requires_auth=True  # or False for public endpoints
+    )
+```
+
+### auth.py
+
+Handles authentication and authorization for API requests.
+
+**Key Functions:**
+- `_authenticate_and_call`: Decorator function that validates Firebase Auth tokens and extracts user information.
+- `get_user_id_from_token`: Extracts the user ID from a Firebase Auth token.
+- `has_permission`: Checks if a user has a specific permission on a resource type.
+- `can_access_resource`: Checks if a user can access a specific resource instance.
+- `get_user_roles`: Retrieves all roles assigned to a user, including organization roles.
+
+### user.py
+
+Manages user profiles and user-specific operations.
+
+**Key Functions:**
+- `get_user_profile`: Retrieves a user's profile information.
+- `update_user_profile`: Updates a user's profile information.
+- `get_user_subscription`: Gets a user's subscription status.
+- `update_user_subscription`: Updates a user's subscription information.
+
+### organization.py
+
+Handles organization management operations.
+
+**Key Functions:**
+- `create_organization`: Creates a new organization.
+- `get_organization`: Retrieves organization details.
+- `update_organization`: Updates organization information.
+- `delete_organization`: Deletes an organization.
+- `list_user_organizations`: Lists organizations a user belongs to.
+
+### organization_membership.py
+
+Manages the relationship between users and organizations.
+
+**Key Functions:**
+- `create_organization_membership`: Adds a user to an organization.
+- `get_organization_membership`: Gets details of a user's membership in an organization.
+- `update_organization_membership`: Updates a user's role or status in an organization.
+- `delete_organization_membership`: Removes a user from an organization.
+- `list_organization_members`: Lists all members of an organization.
+
+### cases.py
+
+Handles case management operations.
+
+**Key Functions:**
+- `create_case`: Creates a new case.
+- `get_case`: Retrieves case details.
+- `update_case`: Updates case information.
+- `delete_case`: Deletes a case.
+- `list_cases`: Lists cases based on various criteria.
+- `archive_case`: Marks a case as archived.
+- `get_case_documents`: Retrieves documents associated with a case.
+
+### party.py
+
+Manages party information (individuals or entities involved in cases).
+
+**Key Functions:**
+- `create_party`: Creates a new party.
+- `get_party`: Retrieves party details.
+- `update_party`: Updates party information.
+- `delete_party`: Deletes a party.
+- `list_parties`: Lists parties based on various criteria.
+- `add_party_to_case`: Associates a party with a case.
+- `remove_party_from_case`: Removes a party from a case.
+
+### payments.py
+
+Handles payment processing and subscription management.
+
+**Key Functions:**
+- `create_checkout_session`: Creates a Stripe Checkout session for subscription purchases.
+- `create_payment_intent`: Creates a Stripe Payment Intent for one-time purchases.
+- `handle_stripe_webhook`: Processes Stripe webhook events.
+- `check_quota`: Verifies if a user/organization has sufficient quota.
+- `update_quota`: Updates quota based on payments and usage.
+- `get_payment_history`: Retrieves payment history for a user or organization.
+
+## Agent Implementation
+
+The agent implementation has been refactored for a cleaner separation of concerns between HTTP handling and core logic.
+
+### agent.py
+
+Handles the core agent logic and serves as the entry point for agent interactions.
+
+**Key Functions:**
+- `handle_agent_request`: Entry point function that processes user messages and delegates to the Agent class.
+- `Agent`: Class that encapsulates the core agent functionality, including:
+  - Instantiating the LangGraph workflow
+  - Managing agent state in Firestore
+  - Executing agent operations
+  - Handling errors and timeouts
+  - Returning structured responses
+
+### agent_orchestrator.py
+
+Defines the LangGraph workflow for the agent.
+
+**Key Functions:**
+- `create_agent_graph`: Creates the LangGraph workflow definition.
+- `agent_executor_factory`: Factory function to create agent executor instances.
+- Various utility functions for graph structure and node connections.
+
+### agent_nodes.py
+
+Implements specialized nodes for the LangGraph workflow.
+
+**Key Functions:**
+- `determine_case_tier`: Node for determining the complexity tier of a case.
+- `check_quota_node`: Node for checking if the user has sufficient quota.
+- `get_case_details_node`: Node for retrieving case details from Firestore.
+- `update_case_details_node`: Node for updating case details in Firestore.
+- `execute_tool_node`: Generic node for executing agent tools.
+- `router_node`: Node for routing the agent workflow based on conditions.
+
+### llm_nodes.py
+
+Implements nodes specifically for LLM interactions.
+
+**Key Functions:**
+- `gemini_node`: Node for interacting with the Gemini model.
+- `grok_node`: Node for interacting with the Grok model.
+- `parse_llm_response`: Utility function for parsing structured responses from LLMs.
+- Various prompt construction and formatting functions.
+
+### agent_tools.py
+
+Implements tools that the agent can use to interact with external systems.
+
+**Key Functions:**
+- `get_case_details`: Retrieves detailed information about a case.
+- `update_case_details`: Updates information in a case document.
+- `query_bigquery`: Searches Romanian legal databases for relevant information.
+- `generate_draft_pdf`: Generates a PDF document from Markdown content.
+- `get_party_id_by_name`: Resolves a party name to a party ID.
+- `check_quota`: Checks if a user/organization has sufficient quota for a case.
+
+### agent_state.py
+
+Defines the state structures for the agent workflow.
+
+**Key Classes:**
+- `AgentState`: Class representing the agent's workflow state.
+- Various utility functions for state manipulation and validation.
+
+### agent_config.py
+
+Manages configuration for the agent, including prompts and tool definitions.
+
+**Key Functions:**
+- `load_agent_config`: Loads the agent configuration from files.
+- `get_system_prompt`: Constructs the system prompt for the agent.
+- `get_tool_descriptions`: Gets the available tools and their descriptions.
+
+### llm_integration.py
+
+Handles direct integration with LLM services.
+
+**Key Functions:**
+- `call_gemini`: Makes a call to the Gemini API.
+- `call_grok`: Makes a call to the Grok API.
+- Various utility functions for handling API responses and errors.
+
+### gemini_util.py
+
+Utility functions specifically for interacting with the Gemini API.
+
+**Key Functions:**
+- `create_gemini_client`: Creates a client for the Gemini API.
+- `format_gemini_messages`: Formats messages for the Gemini chat API.
+- `extract_gemini_response`: Extracts structured data from Gemini responses.
+
+## Additional Modules
+
+### draft_templates.py
+
+Manages templates for legal document generation.
+
+**Key Functions:**
+- `get_template`: Retrieves a template by ID.
+- `list_templates`: Lists available templates.
+- `render_template`: Renders a template with provided data.
+
+### template_validation.py
+
+Validates template content and structure.
+
+**Key Functions:**
+- `validate_template`: Validates a template against its schema.
+- `validate_template_variables`: Validates template variables against expected formats.
+
+### response_templates.py
+
+Manages templates for API responses.
+
+**Key Functions:**
+- `create_success_response`: Creates a standardized success response.
+- `create_error_response`: Creates a standardized error response.
+- Various utility functions for specific response types.
+
+### domain_nodes.py
+
+Implements domain-specific nodes for the LangGraph workflow.
+
+**Key Functions:**
+- `legal_analysis_node`: Node for legal analysis operations.
+- `document_generation_node`: Node for document generation operations.
+- Various utility functions for domain-specific operations.
+
+## Module Dependencies
+
+The modules have the following general dependency structure:
+
+```
+main.py
+  ├── auth.py
+  ├── user.py
+  │     └── auth.py
+  ├── organization.py
+  │     └── auth.py
+  ├── organization_membership.py
+  │     ├── auth.py
+  │     └── organization.py
+  ├── cases.py
+  │     ├── auth.py
+  │     └── payments.py
+  ├── party.py
+  │     └── auth.py
+  ├── payments.py
+  │     ├── auth.py
+  │     └── user.py
+  └── agent.py
+        ├── auth.py
+        ├── agent_orchestrator.py
+        │     ├── agent_nodes.py
+        │     │     ├── agent_tools.py
+        │     │     └── agent_state.py
+        │     └── llm_nodes.py
+        │           ├── llm_integration.py
+        │           │     └── gemini_util.py
+        │           └── agent_config.py
+        └── cases.py
+```

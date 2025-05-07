@@ -414,11 +414,12 @@ The API is organized into the following groups:
 - **Response**:
   ```json
   {
-    "organizationId": "string",
-    "name": "string",
-    "type": "string",
-    "createdAt": "string",
-    "subscriptionStatus": "inactive"
+    "id": "org_1a2b3c4d5e6f",
+    "name": "Smith & Associates",
+    "description": null,
+    "createdAt": "2023-01-01T12:00:00Z",
+    "updatedAt": "2023-01-01T12:00:00Z",
+    "createdBy": "user_7f8g9h0i1j2k"
   }
   ```
 
@@ -1221,7 +1222,7 @@ Common error codes:
   ```json
   {
     "error": "unauthorized",
-    "message": "Authentication required"
+    "message": "Invalid or expired authentication token"
   }
   ```
 
@@ -1268,8 +1269,8 @@ Common error codes:
 - `500 Internal Server Error`: Server-side error
   ```json
   {
-    "error": "internal_error",
-    "message": "An unexpected error occurred"
+    "error": "internal_server_error",
+    "message": "An unexpected error occurred while creating the organization"
   }
   ```
 

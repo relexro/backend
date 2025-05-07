@@ -1,0 +1,208 @@
+# Authentication and Authorization
+
+## Overview
+
+Relex implements a comprehensive authentication and authorization system based on Firebase Authentication and a custom Role-Based Access Control (RBAC) model. This system ensures that users can only access resources they are authorized to use, while providing flexible permission management.
+
+## Authentication Flow
+
+### Firebase Authentication
+
+The system uses Firebase Authentication for user identity management:
+
+1. **Client-Side Authentication**: 
+   - The frontend application integrates Firebase Auth SDK
+   - Users can authenticate using various providers:
+     - Email/Password
+     - Google OAuth
+     - (Future) Apple, Microsoft, etc.
+
+2. **Token Generation**: 
+   - Upon successful authentication, Firebase issues a JWT token
+   - The token contains user identity information (UID, email)
+   - The token may include custom claims for authorization
+
+3. **API Authentication**:
+   - All protected API endpoints require a valid Firebase Auth token
+   - The token is passed in the HTTP Authorization header
+   - The API Gateway validates the token using Firebase's JWK endpoint
+   - If valid, the user's identity is extracted and passed to the backend functions
+
+### Token Format
+
+```
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjFmODhiODE0MjljYzQ1MWEzMzVjMmY1Y2RiM2RmYjM0ZWIzYmJjN2YiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vcmVsZXhybyIsImF1ZCI6InJlbGV4cm8iLCJhdXRoX3RpbWUiOjE2MTIzNDU2NzgsInVzZXJfaWQiOiJnUEdYblpDUWFkU2doVldwY3pYeWdnWlpNMjgzIiwic3ViIjoiZ1BHWG5aQ1FhZFNnaFZXcGN6WHlnZ1paTTI4MyIsImlhdCI6MTYxMjM0NTY3OCwiZXhwIjoxNjEyMzQ5Mjc4LCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJ1c2VyQGV4YW1wbGUuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.SIGNATURE
+```
+
+## Authorization Model
+
+### Role-Based Access Control (RBAC)
+
+The system implements a custom RBAC model defined in `functions/src/auth.py`:
+
+1. **Roles**:
+   - **Individual User**: Default role for all authenticated users
+   - **Organization Administrator**: Manages organization settings and members
+   - **Organization Staff**: Regular organization member
+   - **System Administrator**: Special role for system management (internal use)
+
+2. **Resources**:
+   - **Cases**: Legal cases managed in the system
+   - **Organizations**: Company/law firm profiles
+   - **Organization Memberships**: User associations with organizations
+   - **Parties**: Individuals or entities involved in cases
+   - **Documents**: Legal documents related to cases
+
+3. **Permissions**:
+   - **View**: Read access to a resource
+   - **Create**: Ability to create new resources
+   - **Update**: Ability to modify existing resources
+   - **Delete**: Ability to remove resources
+   - **Manage**: Administrative control (combines all permissions)
+
+### Permission Mappings
+
+The system defines permission mappings in the `PERMISSIONS` dictionary in `auth.py`:
+
+```python
+PERMISSIONS = {
+    # Individual user permissions
+    "user": {
+        "case": ["view", "create", "update", "delete"],
+        "party": ["view", "create", "update", "delete"],
+        "document": ["view", "create", "update", "delete"],
+        "organization": ["view", "create"],
+        "organization_membership": ["view"],
+    },
+    # Organization administrator permissions
+    "organization_administrator": {
+        "case": ["view", "create", "update", "delete"],
+        "party": ["view", "create", "update", "delete"],
+        "document": ["view", "create", "update", "delete"],
+        "organization": ["view", "update"],
+        "organization_membership": ["view", "create", "update", "delete"],
+    },
+    # Organization staff permissions
+    "organization_staff": {
+        "case": ["view", "create", "update"],
+        "party": ["view", "create", "update"],
+        "document": ["view", "create", "update"],
+        "organization": ["view"],
+        "organization_membership": ["view"],
+    },
+    # System administrator permissions
+    "system_administrator": {
+        "case": ["view", "create", "update", "delete", "manage"],
+        "party": ["view", "create", "update", "delete", "manage"],
+        "document": ["view", "create", "update", "delete", "manage"],
+        "organization": ["view", "create", "update", "delete", "manage"],
+        "organization_membership": ["view", "create", "update", "delete", "manage"],
+    },
+}
+```
+
+### Resource-Specific Authorization
+
+The authorization system performs resource-specific checks to determine if a user has permission to access a particular resource:
+
+1. **Case Access**:
+   - Users can access their own individual cases
+   - Organization members can access cases owned by their organization
+   - System administrators can access all cases
+
+2. **Organization Access**:
+   - Users can view organizations they are members of
+   - Users can create new organizations
+   - Organization administrators can manage their own organization
+   - System administrators can manage all organizations
+
+3. **Organization Membership Access**:
+   - Users can view their own memberships
+   - Organization administrators can manage memberships in their organization
+   - System administrators can manage all memberships
+
+4. **Document Access**:
+   - Access is determined by the parent case ownership
+   - Users can access documents in cases they can access
+
+## Implementation
+
+### Authentication Functions
+
+The authentication and authorization logic is centralized in `functions/src/auth.py` with these key functions:
+
+1. **`_authenticate_and_call`**: A decorator that validates Firebase Auth tokens and extracts user information before calling the wrapped function.
+
+2. **`get_user_id_from_token`**: Extracts the user ID from a Firebase Auth token.
+
+3. **`has_permission`**: Checks if a user has a specific permission on a resource type.
+
+4. **`can_access_resource`**: Checks if a user can access a specific resource instance.
+
+5. **`get_user_roles`**: Retrieves all roles assigned to a user, including organization roles.
+
+### Custom Claims (Future Implementation)
+
+The system is designed to utilize Firebase Custom Claims for enhanced authorization:
+
+1. **Role Assignment**:
+   - System administrator roles will be assigned via custom claims
+   - Claims will be set using the Firebase Admin SDK
+   - Claims are limited to 1KB in size
+
+2. **Claim Format**:
+   ```json
+   {
+     "roles": {
+       "system": ["system_administrator"],
+       "organizations": {
+         "org_id_1": ["organization_administrator"],
+         "org_id_2": ["organization_staff"]
+       }
+     }
+   }
+   ```
+
+3. **Claim Verification**:
+   - Custom claims will be verified during API calls
+   - The verification logic will be implemented in `auth.py`
+
+## Firestore Security Rules
+
+While the primary authorization is handled in the backend functions, Firestore Security Rules provide an additional layer of protection:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to read their own user document
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to read/write their own cases
+    match /cases/{caseId} {
+      allow read: if request.auth != null && 
+        (resource.data.owner.user_id == request.auth.uid || 
+         resource.data.owner.organization_id in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizations);
+    }
+    
+    // Restrict all other access to backend functions
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+## Future Enhancements
+
+1. **Implementation of Custom Claims**: To optimize authorization performance and reduce Firestore reads.
+
+2. **Invitation System**: For seamless organization membership management.
+
+3. **Fine-Grained Permissions**: Additional permission types for more granular access control.
+
+4. **Audit Logging**: Comprehensive logging of authentication and authorization events.
+
+5. **Multi-Factor Authentication**: Enhanced security for sensitive operations. 
