@@ -765,7 +765,7 @@ Successfully retrieved the list of user cases.
     }
   ],
   "pagination": {
-    "total": 5,
+  "total": 5,
     "limit": 50,
     "offset": 0,
     "hasMore": false
