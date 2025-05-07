@@ -37,6 +37,7 @@ terraform.tfstate
 terraform.tfstate.backup
 *.tfvars
 !terraform.tfvars.example
+tfplan
 
 # IDE
 .idea/

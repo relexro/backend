@@ -2,8 +2,13 @@
 locals {
   # Create a hash of all files in the source directory
   source_dir_files = fileset(var.functions_source_path, "**")
+  
+  # Sort the files to ensure consistent ordering
+  sorted_files = sort(local.source_dir_files)
+  
+  # Create a stable hash that doesn't change unless content actually changes
   source_dir_hash = sha256(join("", [
-    for file in local.source_dir_files :
+    for file in local.sorted_files :
     filesha256("${var.functions_source_path}/${file}")
     if !endswith(file, ".pyc") && !endswith(file, "__pycache__/") && !startswith(file, ".")
   ]))
@@ -13,13 +18,16 @@ locals {
 
   # Combine the source hash and config hash for a complete hash
   combined_hash = sha256("${local.source_dir_hash}${local.functions_config_hash}")
+  
+  # Create a shorter hash for the object name
+  short_hash = substr(local.source_dir_hash, 0, 8)
 }
 
 # Create ZIP file of the functions source code
 data "archive_file" "functions_source" {
   type        = "zip"
   source_dir  = var.functions_source_path
-  output_path = "${var.functions_zip_path}-${local.combined_hash}"
+  output_path = "${var.functions_zip_path}-${local.short_hash}"
 
   # Exclude common Python cache files and hidden files
   excludes = [
@@ -34,7 +42,7 @@ data "archive_file" "functions_source" {
 
 # Upload the ZIP file to Cloud Storage
 resource "google_storage_bucket_object" "functions_source" {
-  name   = "functions-source-${local.combined_hash}.zip"
+  name   = "functions-source-${local.short_hash}.zip"
   bucket = var.functions_bucket_name
   source = data.archive_file.functions_source.output_path
 
@@ -43,6 +51,15 @@ resource "google_storage_bucket_object" "functions_source" {
   metadata = {
     source_hash = local.source_dir_hash
     config_hash = local.functions_config_hash
+  }
+  
+  # Try to prevent unnecessary replacements
+  lifecycle {
+    ignore_changes = [
+      detect_md5hash,
+      crc32c,
+      metadata
+    ]
   }
 }
 
@@ -90,7 +107,9 @@ resource "google_cloudfunctions2_function" "functions" {
   # but don't affect the actual function deployment
   lifecycle {
     ignore_changes = [
-      build_config[0].source[0].storage_source[0].generation
+      build_config[0].source[0].storage_source[0].generation,
+      build_config[0].source[0].storage_source[0].object,
+      labels
     ]
   }
 }

@@ -5,6 +5,7 @@ locals {
     GOOGLE_CLOUD_PROJECT = var.project_id
     GOOGLE_CLOUD_REGION  = var.region
     GCS_BUCKET          = var.functions_bucket_name
+    LOG_EXECUTION_ID     = "true"
   }
 
   # Process functions to include environment suffix and merged env vars
