@@ -1,14 +1,4 @@
 swagger: '2.0'
-# NOTE: This OpenAPI specification has validation issues that need to be addressed:
-# 1. Response schemas should use $ref format consistently
-# 2. Parameter definitions need to be updated for OpenAPI 2.0 compatibility
-# 3. Schema definitions need review for proper format (especially enums and arrays)
-# 4. A comprehensive review with a proper OpenAPI 2.0 validation tool is recommended
-#
-# For deployment, consider:
-# - Running the spec through a dedicated OpenAPI validator and fixing all issues
-# - Using a tool like Swagger Editor to validate and fix the specification
-# - Addressing template variables appropriately (${api_domain} and ${function_uris})
 info:
   title: Relex API
   description: RESTful API for Relex Backend
@@ -215,7 +205,7 @@ paths:
       operationId: relex_backend_list_user_cases
       security:
       - firebase: []
-      x-google-backend: {address: '${function_uris["relex-backend-list-user-cases"]}', path_translation: CONSTANT_ADDRESS,
+      x-google-backend: {address: '${function_uris["relex-backend-list-cases"]}', path_translation: CONSTANT_ADDRESS,
         deadline: 30.0}
       parameters:
       - name: limit
@@ -829,6 +819,7 @@ paths:
         required: true
         schema:
           type: object
+          required: [partyType]
           properties:
             partyType:
               type: string
@@ -861,7 +852,6 @@ paths:
                     state: {type: string, description: State or province}
                     postalCode: {type: string, description: Postal or ZIP code}
                     country: {type: string, description: Country}
-          required: [partyType]
       responses:
         '201':
           description: Party created successfully
@@ -1728,7 +1718,7 @@ paths:
       operationId: relex_backend_set_organization_member_role_by_id
       security:
       - firebase: []
-      x-google-backend: {address: '${function_uris["relex-backend-set-organization-member-role-by-id"]}', path_translation: CONSTANT_ADDRESS,
+      x-google-backend: {address: '${function_uris["relex-backend-set-organization-member-role"]}', path_translation: CONSTANT_ADDRESS,
         deadline: 30.0}
       parameters:
       - name: organizationId
@@ -1786,7 +1776,7 @@ paths:
       operationId: relex_backend_remove_organization_member_by_id
       security:
       - firebase: []
-      x-google-backend: {address: '${function_uris["relex-backend-remove-organization-member-by-id"]}', path_translation: CONSTANT_ADDRESS,
+      x-google-backend: {address: '${function_uris["relex-backend-remove-organization-member"]}', path_translation: CONSTANT_ADDRESS,
         deadline: 30.0}
       parameters:
       - name: organizationId

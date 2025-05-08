@@ -57,7 +57,6 @@ resource "google_storage_bucket_object" "functions_source" {
   lifecycle {
     ignore_changes = [
       detect_md5hash,
-      crc32c,
       metadata
     ]
   }
