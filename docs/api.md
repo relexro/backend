@@ -3842,11 +3842,28 @@ Uploads a file to a specific case.
 
 ### Request Body
 
-The request body should be a `multipart/form-data` containing:
+The request body must contain the **raw binary data** of the file being uploaded.
 
-| Field | Type   | Required | Description              |
-| :---- | :----- | :------- | :----------------------- |
-| `file`| binary | Yes      | The file to be uploaded. |
+### Headers
+
+| Header        | Required | Description                                                |
+| :------------ | :------- | :--------------------------------------------------------- |
+| `Content-Type`| Yes      | MIME type of the file (e.g., `application/pdf`, `image/jpeg`, `application/octet-stream`) |
+| `X-Filename`  | No       | Original filename of the file (default: "uploaded_file")   |
+| `X-FileType`  | No       | Classification of the file (e.g., "document", "image")     |
+| `X-Description`| No      | Description of the file                                    |
+
+**Example using curl:**
+
+```bash
+curl -X POST "https://api.relex.ro/v1/cases/YOUR_CASE_ID/files" \
+  -H "Authorization: Bearer YOUR_ID_TOKEN" \
+  -H "Content-Type: application/pdf" \
+  -H "X-Filename: contract.pdf" \
+  -H "X-FileType: document" \
+  -H "X-Description: Contract draft" \
+  --data-binary "@/path/to/your/contract.pdf"
+```
 
 ---
 
@@ -4004,7 +4021,7 @@ Server encountered an unexpected error.
 }
 ```
 
-**Developer Note:** The OpenAPI spec and the code implementation use different field names in the response object. The spec uses fields like `url` while the code uses `downloadUrl`. Also, the spec defines a `FileResponse` schema that doesn't exactly match what the code returns.
+**Developer Note:** The API now accepts raw binary data in the request body instead of multipart/form-data. This change was made to support API Gateway passthrough for file uploads. Metadata that was previously sent as form fields is now sent as HTTP headers. The response structure remains the same.
 
 ## GET /cases/{caseId}/files/{fileId}
 

@@ -128,10 +128,14 @@ The recommended deployment method is using the provided scripts in the `terrafor
    ```
 
    This script handles:
-   - OpenAPI spec validation
    - Terraform initialization
    - Terraform planning and application
    - Post-deployment validation
+
+   Note: The script does NOT validate the OpenAPI specification. You should manually validate it before deployment:
+   ```bash
+   npx @redocly/cli lint openapi_spec.yaml
+   ```
 
 3. **For clean deployment** (destroying existing resources first):
    ```bash
@@ -193,7 +197,7 @@ If you encounter "DESTROYED" state secret versions:
 
 ```bash
 # Delete existing secrets
-gcloud secrets delete stripe-secret-key --quiet 
+gcloud secrets delete stripe-secret-key --quiet
 gcloud secrets delete stripe-webhook-secret --quiet
 gcloud secrets delete gemini-api-key --quiet
 gcloud secrets delete grok-api-key --quiet
@@ -293,4 +297,4 @@ To update an existing deployment:
    ./deploy.sh
    ```
 
-The deployment script handles incremental updates, only redeploying functions that have changed. 
+The deployment script handles incremental updates, only redeploying functions that have changed.

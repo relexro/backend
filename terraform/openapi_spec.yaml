@@ -13,9 +13,7 @@ produces:
 consumes:
   - application/json
 securityDefinitions:
-  firebase: {type: apiKey, name: Authorization, in: header, description: 'Firebase Authentication JWT. Use format ''Bearer
-      {token}''', x-google-issuer: 'https://securetoken.google.com/${project_id}', x-google-jwks_uri: 'https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com',
-    x-google-audiences: '${project_id}'}
+  firebase: {type: apiKey, name: Authorization, in: header, description: 'Firebase Authentication JWT. Use format ''Bearer {token}''', x-google-issuer: 'https://securetoken.google.com/${project_id}', x-google-jwks_uri: 'https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com', x-google-audiences: '${project_id}'}
 paths:
   /cases/{caseId}/agent/messages:
     post:
@@ -606,7 +604,7 @@ paths:
           required: [userId, role]
           properties:
             userId: {type: string, description: ID of the user to add as a member}
-            role: 
+            role:
               type: string
               enum: [staff, administrator]
               description: Role to assign to the member
@@ -696,33 +694,19 @@ paths:
       - firebase: []
       x-google-backend: {address: '${function_uris["relex-backend-upload-file"]}', path_translation: CONSTANT_ADDRESS, deadline: 60.0}
       consumes:
-        - multipart/form-data
+        - application/octet-stream
+        - image/jpeg
+        - image/png
+        - application/pdf
+        - text/plain
+        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        - application/msword
       parameters:
       - name: caseId
         in: path
         required: true
         type: string
         description: ID of the case to attach the file to
-      - name: file
-        in: formData
-        required: true
-        type: file
-        description: The file to upload
-      - name: filename
-        in: formData
-        required: false
-        type: string
-        description: Optional custom filename to use (if different from the uploaded file's name)
-      - name: fileType
-        in: formData
-        required: false
-        type: string
-        description: Optional file type classification (document, image, etc.)
-      - name: description
-        in: formData
-        required: false
-        type: string
-        description: Optional description of the file
       responses:
         '200':
           description: File uploaded successfully
@@ -760,7 +744,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /cases/{caseId}/files/{fileId}:
     get:
       summary: Download a file from a case
@@ -859,7 +843,7 @@ paths:
             type: object
             properties:
               partyId: {type: string, description: ID of the created party}
-              status: 
+              status:
                 type: string
                 enum: [success]
                 description: Status of the operation
@@ -872,7 +856,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-    
+
     get:
       summary: List parties
       description: Lists parties created by the authenticated user.
@@ -943,7 +927,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-    
+
     put:
       summary: Update a party
       description: Updates an existing party's information.
@@ -1002,7 +986,7 @@ paths:
             type: object
             properties:
               partyId: {type: string, description: ID of the updated party}
-              status: 
+              status:
                 type: string
                 enum: [success]
                 description: Status of the operation
@@ -1018,7 +1002,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-    
+
     delete:
       summary: Delete a party
       description: Deletes a party. This operation may be restricted if the party is associated with cases.
@@ -1050,7 +1034,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /cases/{caseId}/parties:
     post:
       summary: Attach a party to a case
@@ -1146,7 +1130,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /payments/checkout:
     post:
       summary: Create a checkout session
@@ -1188,7 +1172,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /webhooks/stripe:
     post:
       summary: Handle Stripe webhook events
@@ -1228,7 +1212,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /subscriptions/{subscriptionId}/cancel:
     post:
       summary: Cancel a subscription
@@ -1269,7 +1253,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /vouchers/redeem:
     post:
       summary: Redeem a voucher code
@@ -1330,7 +1314,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /products:
     get:
       summary: List available products and pricing
@@ -1450,7 +1434,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /auth/check-permissions:
     post:
       summary: Check user permissions
@@ -1473,14 +1457,14 @@ paths:
           type: object
           required: [resourceType, resourceId, permission]
           properties:
-            resourceType: 
+            resourceType:
               type: string
               enum: [case, organization, party, document]
               description: Type of resource
             resourceId:
               type: string
               description: ID of the resource
-            permission: 
+            permission:
               type: string
               enum: [read, write, delete, admin]
               description: Permission to check
@@ -1517,7 +1501,7 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  
+
   /auth/user-role:
     get:
       summary: Get user role for organization
@@ -1818,7 +1802,7 @@ definitions:
       caseId: {type: string, description: Unique identifier for the case}
       title: {type: string, description: Title of the case}
       description: {type: string, description: Description of the case}
-      status: 
+      status:
         type: string
         enum: [open, archived, deleted]
         description: Current status of the case
@@ -1870,12 +1854,12 @@ definitions:
             type: array
             items: {type: string}
             description: Latest recommendations from the agent
-  
+
   Party:
     type: object
     properties:
       partyId: {type: string, description: Unique identifier for the party}
-      partyType: 
+      partyType:
         type: string
         enum: [individual, company, government, other]
         description: Type of party
@@ -1910,7 +1894,7 @@ definitions:
       createdAt: {type: string, format: date-time, description: When the party was created}
       updatedAt: {type: string, format: date-time, description: When the party was last updated}
       createdBy: {type: string, description: ID of the user who created the party}
-  
+
   Organization:
     type: object
     properties:
@@ -1968,7 +1952,7 @@ definitions:
           casesUsed:
             type: integer
             description: Number of cases created under current plan
-  
+
   UserProfile:
     type: object
     properties:
@@ -1995,7 +1979,7 @@ definitions:
         type: string
         format: date-time
         description: Time of the user's last login
-  
+
   OrganizationSummary:
     type: object
     properties:
@@ -2004,7 +1988,7 @@ definitions:
       description: {type: string, description: Description of the organization}
       role: {type: string, description: User's role in the organization (administrator or staff)}
       joinedAt: {type: string, format: date-time, description: ISO 8601 timestamp when the user joined}
-  
+
   BadRequest:
     type: object
     properties:
@@ -2028,19 +2012,19 @@ definitions:
             location:
               type: string
               description: Where the error occurred, such as body, query, or path
-  
+
   Unauthorized:
     type: object
     properties:
       error: {type: string, description: Error code (Unauthorized)}
       message: {type: string, description: Detailed error message}
-  
+
   Forbidden:
     type: object
     properties:
       error: {type: string, description: Error code (Forbidden)}
       message: {type: string, description: Detailed error message}
-  
+
   NotFound:
     type: object
     properties:
@@ -2048,14 +2032,14 @@ definitions:
       message: {type: string, description: Detailed error message}
       resource: {type: string, description: Type of resource that wasn't found}
       resourceId: {type: string, description: ID of the resource that wasn't found}
-  
+
   InternalServerError:
     type: object
     properties:
       error: {type: string, description: Error code (Internal Server Error)}
       message: {type: string, description: Detailed error message}
       requestId: {type: string, description: Request ID for troubleshooting}
-  
+
   PaymentRequired:
     type: object
     properties:

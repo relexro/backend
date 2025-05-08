@@ -93,7 +93,7 @@ Here's how to resolve this:
    ```bash
    # Print the path to your credentials file
    echo $GOOGLE_APPLICATION_CREDENTIALS
-   
+
    # Extract the service account email from your credentials file
    grep "client_email" $GOOGLE_APPLICATION_CREDENTIALS
    ```
@@ -104,21 +104,21 @@ Here's how to resolve this:
      --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
      --role="roles/secretmanager.admin"
    ```
-   
+
    Replace `SERVICE_ACCOUNT_EMAIL` with the email you found in step 1.
 
 3. If you encounter issues with Secret Manager versions being in a "DESTROYED" state, manually delete and recreate the secrets:
    ```bash
    # Delete existing secrets
-   gcloud secrets delete stripe-secret-key --quiet 
+   gcloud secrets delete stripe-secret-key --quiet
    gcloud secrets delete stripe-webhook-secret --quiet
    gcloud secrets delete gemini-api-key --quiet
    gcloud secrets delete grok-api-key --quiet
-   
+
    # Create secrets using environment variables
    gcloud secrets create stripe-secret-key --replication-policy="automatic"
    echo $TF_VAR_stripe_secret_key | gcloud secrets versions add stripe-secret-key --data-file=-
-   
+
    gcloud secrets create stripe-webhook-secret --replication-policy="automatic"
    echo $TF_VAR_stripe_webhook_secret | gcloud secrets versions add stripe-webhook-secret --data-file=-
 
@@ -139,10 +139,14 @@ The recommended way to deploy is using the provided deployment script:
 ```
 
 This script handles:
-1. OpenAPI validation
-2. Terraform initialization
-3. Terraform plan and apply
-4. Post-deployment verification
+1. Terraform initialization
+2. Terraform plan and apply
+3. Post-deployment verification
+
+Note: The script does NOT validate the OpenAPI specification. You should manually validate it before deployment:
+```bash
+npx @redocly/cli lint terraform/openapi_spec.yaml
+```
 
 For a clean deployment destroying all resources first:
 

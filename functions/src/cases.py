@@ -318,23 +318,27 @@ def upload_file(request: Request):
     logging.info("Logic function upload_file called")
     try:
         path_parts = request.path.strip('/').split('/')
-        # Expecting path like /cases/{case_id}/upload
-        case_id = path_parts[-2] if len(path_parts) >= 2 and path_parts[-1] == 'upload' else None
+        # Expecting path like /cases/{case_id}/files
+        case_id = path_parts[-2] if len(path_parts) >= 2 and path_parts[-1] == 'files' else None
         if not case_id:
-             # Fallback: check if case_id is in form data (less common for file uploads)
-             case_id = request.form.get('caseId')
-             if not case_id:
-                  return ({"error": "Bad Request", "message": "Case ID missing in URL path (e.g., /cases/{case_id}/upload) or form data"}, 400)
+            return ({"error": "Bad Request", "message": "Case ID missing in URL path (e.g., /cases/{case_id}/files)"}, 400)
 
         if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
+            return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
         user_id = request.user_id
 
-        if 'file' not in request.files:
-            return ({"error": "Bad Request", "message": "No file part in the request"}, 400)
-        file = request.files['file']
-        if file.filename == '':
-            return ({"error": "Bad Request", "message": "No selected file"}, 400)
+        # Read raw file data from the request body
+        file_data = request.get_data()
+        if not file_data:
+            return ({"error": "Bad Request", "message": "Request body is empty, no file data received"}, 400)
+
+        # Get metadata from headers
+        content_type = request.content_type or 'application/octet-stream'
+
+        # Get original filename from X-Filename header or use a default
+        original_filename = request.headers.get('X-Filename', 'uploaded_file')
+        # Basic sanitization to prevent path traversal
+        original_filename = os.path.basename(original_filename)
 
         case_ref = db.collection("cases").document(case_id)
         case_doc = case_ref.get()
@@ -353,18 +357,22 @@ def upload_file(request: Request):
             return ({"error": "Forbidden", "message": error_message}), 403
 
         unique_id = uuid.uuid4().hex
-        original_filename = file.filename
         file_extension = os.path.splitext(original_filename)[1].lower()
         filename = f"{unique_id}{file_extension}"
         storage_path = f"cases/{case_id}/documents/{filename}"
 
         blob = bucket.blob(storage_path)
-        content_type = file.content_type or 'application/octet-stream'
 
-        # Consider chunked uploads for large files if necessary
-        blob.upload_from_file(file, content_type=content_type)
-        file.seek(0, os.SEEK_END) # Go to end of file
-        file_size = file.tell() # Get size
+        # Upload the raw binary data
+        blob.upload_from_string(file_data, content_type=content_type)
+
+        # Calculate file size from the raw data
+        file_size = len(file_data)
+
+        # Optional file type classification from header
+        file_type_classification = request.headers.get('X-FileType')
+        # Optional description from header
+        description = request.headers.get('X-Description')
 
         document_ref = db.collection("documents").document()
         document_data = {
@@ -378,6 +386,13 @@ def upload_file(request: Request):
             "uploadDate": firestore.SERVER_TIMESTAMP,
             "uploadedBy": user_id
         }
+
+        # Add optional metadata if provided
+        if file_type_classification:
+            document_data["fileTypeClassification"] = file_type_classification
+        if description:
+            document_data["description"] = description
+
         document_ref.set(document_data)
         document_id = document_ref.id
 
