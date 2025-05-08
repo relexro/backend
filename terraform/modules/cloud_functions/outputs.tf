@@ -34,4 +34,11 @@ output "combined_hash" {
   description = "Combined hash used for the deployment"
   value       = local.combined_hash
   sensitive   = false
-} 
+}
+
+output "functions_object_name" {
+  description = "Name of the Cloud Storage object containing the functions source code"
+  value       = local.functions_object_name
+  sensitive   = false
+}
+

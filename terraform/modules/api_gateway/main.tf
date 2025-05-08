@@ -91,8 +91,7 @@ resource "google_api_gateway_gateway" "gateway" {
     # Prevent recreation of the gateway when only metadata changes
     ignore_changes = [
       labels,
-      display_name,
-      api_config
+      display_name
     ]
   }
 }
