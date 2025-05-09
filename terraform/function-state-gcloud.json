@@ -1,0 +1,70 @@
+{
+  "buildConfig": {
+    "build": "projects/49787884280/locations/europe-west1/builds/6a71e77b-4031-46ed-b471-680aacd3ff74",
+    "dockerRegistry": "ARTIFACT_REGISTRY",
+    "dockerRepository": "projects/relexro/locations/europe-west1/repositories/gcf-artifacts",
+    "entryPoint": "relex_backend_agent_handler",
+    "environmentVariables": {
+      "SOURCE_HASH": "bcfd6f1c65e765a0d7ec2926d98f971f397412335c2382f9a57b91495a193bf9"
+    },
+    "runtime": "python310",
+    "serviceAccount": "projects/relexro/serviceAccounts/49787884280-compute@developer.gserviceaccount.com",
+    "source": {
+      "storageSource": {
+        "bucket": "gcf-v2-sources-49787884280-europe-west1",
+        "generation": "1746807060124461",
+        "object": "relex-backend-agent-handler-dev/function-source.zip"
+      }
+    },
+    "sourceProvenance": {
+      "resolvedStorageSource": {
+        "bucket": "gcf-v2-sources-49787884280-europe-west1",
+        "generation": "1746807060124461",
+        "object": "relex-backend-agent-handler-dev/function-source.zip"
+      }
+    }
+  },
+  "createTime": "2025-05-06T17:55:05.552600931Z",
+  "description": "Lawyer AI Agent handler",
+  "environment": "GEN_2",
+  "name": "projects/relexro/locations/europe-west1/functions/relex-backend-agent-handler-dev",
+  "satisfiesPzi": true,
+  "serviceConfig": {
+    "allTrafficOnLatestRevision": true,
+    "availableCpu": "0.3333",
+    "availableMemory": "512Mi",
+    "environmentVariables": {
+      "ENVIRONMENT": "dev",
+      "GCS_BUCKET": "relexro-functions",
+      "GOOGLE_CLOUD_PROJECT": "relexro",
+      "GOOGLE_CLOUD_REGION": "europe-west1",
+      "LOG_EXECUTION_ID": "true",
+      "VERTEX_AI_LOCATION": "global"
+    },
+    "ingressSettings": "ALLOW_INTERNAL_AND_GCLB",
+    "maxInstanceCount": 10,
+    "maxInstanceRequestConcurrency": 1,
+    "revision": "relex-backend-agent-handler-dev-00012-ces",
+    "secretEnvironmentVariables": [
+      {
+        "key": "GEMINI_API_KEY",
+        "projectId": "relexro",
+        "secret": "gemini-api-key",
+        "version": "latest"
+      },
+      {
+        "key": "GROK_API_KEY",
+        "projectId": "relexro",
+        "secret": "grok-api-key",
+        "version": "latest"
+      }
+    ],
+    "service": "projects/relexro/locations/europe-west1/services/relex-backend-agent-handler-dev",
+    "serviceAccountEmail": "relex-functions-dev@relexro.iam.gserviceaccount.com",
+    "timeoutSeconds": 300,
+    "uri": "https://relex-backend-agent-handler-dev-apmzkjwhqq-ew.a.run.app"
+  },
+  "state": "ACTIVE",
+  "updateTime": "2025-05-09T16:14:17.562802357Z",
+  "url": "https://europe-west1-relexro.cloudfunctions.net/relex-backend-agent-handler-dev"
+}

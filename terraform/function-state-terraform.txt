@@ -1,0 +1,79 @@
+# module.cloud_functions.google_cloudfunctions2_function.functions["relex-backend-agent-handler"]:
+resource "google_cloudfunctions2_function" "functions" {
+    description      = "Lawyer AI Agent handler"
+    effective_labels = {}
+    environment      = "GEN_2"
+    id               = "projects/relexro/locations/europe-west1/functions/relex-backend-agent-handler-dev"
+    kms_key_name     = [90mnull[0m[0m
+    labels           = {}
+    location         = "europe-west1"
+    name             = "relex-backend-agent-handler-dev"
+    project          = "relexro"
+    state            = "ACTIVE"
+    terraform_labels = {}
+    update_time      = "2025-05-09T16:14:17.562802357Z"
+    url              = "https://europe-west1-relexro.cloudfunctions.net/relex-backend-agent-handler-dev"
+
+    build_config {
+        build                 = "projects/49787884280/locations/europe-west1/builds/6a71e77b-4031-46ed-b471-680aacd3ff74"
+        docker_repository     = "projects/relexro/locations/europe-west1/repositories/gcf-artifacts"
+        entry_point           = "relex_backend_agent_handler"
+        environment_variables = {
+            "SOURCE_HASH" = "bcfd6f1c65e765a0d7ec2926d98f971f397412335c2382f9a57b91495a193bf9"
+        }
+        runtime               = "python310"
+        worker_pool           = [90mnull[0m[0m
+
+        source {
+            storage_source {
+                bucket     = "relexro-functions"
+                generation = 1746807060124461
+                object     = "functions-source-f28229fe.zip"
+            }
+        }
+    }
+
+    service_config {
+        all_traffic_on_latest_revision   = true
+        available_cpu                    = "0.3333"
+        available_memory                 = "512Mi"
+        environment_variables            = {
+            "ENVIRONMENT"          = "dev"
+            "GCS_BUCKET"           = "relexro-functions"
+            "GOOGLE_CLOUD_PROJECT" = "relexro"
+            "GOOGLE_CLOUD_REGION"  = "europe-west1"
+            "LOG_EXECUTION_ID"     = "true"
+            "VERTEX_AI_LOCATION"   = "global"
+        }
+        gcf_uri                          = [90mnull[0m[0m
+        ingress_settings                 = "ALLOW_INTERNAL_AND_GCLB"
+        max_instance_count               = 10
+        max_instance_request_concurrency = 1
+        min_instance_count               = 0
+        service                          = "projects/relexro/locations/europe-west1/services/relex-backend-agent-handler-dev"
+        service_account_email            = "relex-functions-dev@relexro.iam.gserviceaccount.com"
+        timeout_seconds                  = 300
+        uri                              = "https://relex-backend-agent-handler-dev-apmzkjwhqq-ew.a.run.app"
+        vpc_connector                    = [90mnull[0m[0m
+        vpc_connector_egress_settings    = [90mnull[0m[0m
+
+        secret_environment_variables {
+            key        = "GEMINI_API_KEY"
+            project_id = "relexro"
+            secret     = "gemini-api-key"
+            version    = "latest"
+        }
+        secret_environment_variables {
+            key        = "GROK_API_KEY"
+            project_id = "relexro"
+            secret     = "grok-api-key"
+            version    = "latest"
+        }
+    }
+
+    timeouts {
+        create = "30m"
+        delete = "30m"
+        update = "30m"
+    }
+}
