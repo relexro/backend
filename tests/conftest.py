@@ -218,11 +218,14 @@ def api_base_url():
     """Return the base URL for the API.
 
     This URL is derived from docs/terraform_outputs.log and is used for integration tests.
+    Uses the API Gateway URL with the /v1 base path as specified in the OpenAPI specification.
 
     Returns:
         str: The base URL for the API.
     """
-    return "https://api-dev.relex.ro"
+    # The API is deployed as a set of Cloud Run services behind an API Gateway
+    # The API Gateway URL is in the format: https://{api_gateway_url}/v1
+    return "https://relex-api-gateway-mvef5dk.ew.gateway.dev/v1"
 
 @pytest.fixture(scope="session")
 def auth_token():
@@ -255,6 +258,7 @@ def api_client(api_base_url, auth_token):
     1. Sets the Authorization header with the auth token
     2. Provides convenience methods for making requests to the API
     3. Handles URL construction with the base URL
+    4. Disables SSL verification for development environments
 
     Args:
         api_base_url: The base URL for the API.
@@ -264,9 +268,15 @@ def api_client(api_base_url, auth_token):
         APIClient: A client for making HTTP requests to the API.
     """
     import requests
+    import urllib3
+
+    # Disable SSL verification warnings
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     session = requests.Session()
     session.headers.update({"Authorization": f"Bearer {auth_token}"})
+    # Disable SSL verification for development environments
+    session.verify = False
 
     class APIClient:
         def __init__(self, session, base_url):
