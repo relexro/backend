@@ -4,6 +4,7 @@ Test suite for agent nodes and specialized domain nodes
 import pytest
 from datetime import datetime
 from typing import Dict, Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from functions.src.agent_nodes import (
     AgentState,
@@ -68,9 +69,84 @@ def commercial_case_state(base_state):
     }
     return base_state
 
+# Mock fixtures for external dependencies
+@pytest.fixture
+def mock_check_quota():
+    """Mock the check_quota function from agent_tools."""
+    with patch('functions.src.agent_tools.check_quota') as mock:
+        mock.return_value = {
+            'status': 'success',
+            'available_requests': 100,
+            'requires_payment': False,
+            'subscription_tier': 'basic',
+            'quota_limit': 100,
+            'quota_used': 0
+        }
+        yield mock
+
+@pytest.fixture
+def mock_verify_payment():
+    """Mock the verify_payment function from agent_tools."""
+    with patch('functions.src.agent_tools.verify_payment') as mock:
+        mock.return_value = {
+            'paid': True,
+            'payment_details': {
+                'status': 'completed',
+                'amount': 100,
+                'currency': 'RON'
+            }
+        }
+        yield mock
+
+@pytest.fixture
+def mock_search_legal_database():
+    """Mock the search_legal_database function from agent_tools."""
+    with patch('functions.src.agent_tools.search_legal_database') as mock:
+        mock.return_value = {
+            'status': 'success',
+            'results': [
+                {'title': 'Test Document 1', 'content': 'Test content 1'},
+                {'title': 'Test Document 2', 'content': 'Test content 2'}
+            ]
+        }
+        yield mock
+
+@pytest.fixture
+def mock_get_relevant_legislation():
+    """Mock the get_relevant_legislation function from agent_tools."""
+    with patch('functions.src.agent_tools.get_relevant_legislation') as mock:
+        mock.return_value = {
+            'status': 'success',
+            'legislation': [
+                {'title': 'Law 1', 'content': 'Law content 1'},
+                {'title': 'Law 2', 'content': 'Law content 2'}
+            ]
+        }
+        yield mock
+
+@pytest.fixture
+def mock_gemini_model():
+    """Mock the create_gemini_model function from gemini_util."""
+    with patch('functions.src.gemini_util.create_gemini_model') as mock:
+        model_mock = MagicMock()
+        model_mock.generate_content_async = AsyncMock()
+        mock.return_value = model_mock
+        yield mock
+
+@pytest.fixture
+def mock_analyze_gemini_response():
+    """Mock the analyze_gemini_response function from gemini_util."""
+    with patch('functions.src.gemini_util.analyze_gemini_response') as mock:
+        mock.return_value = {
+            'domains': {'main': 'civil', 'secondary': ['contract', 'property']},
+            'keywords': ['contract', 'breach', 'damages'],
+            'complexity': 'medium'
+        }
+        yield mock
+
 # Test core nodes
 @pytest.mark.asyncio
-async def test_determine_tier_node_with_quota():
+async def test_determine_tier_node_with_quota(mock_check_quota):
     """Test tier determination with available quota."""
     state = AgentState(
         case_id="test_case",
@@ -83,10 +159,22 @@ async def test_determine_tier_node_with_quota():
     assert next_node == "verify_payment"
     assert "determine_tier" in updated_state.completed_nodes
     assert updated_state.quota_status["has_quota"] is True
+    # Verify the mock was called with the right arguments
+    mock_check_quota.assert_called_once_with(state.user_id, None)
 
 @pytest.mark.asyncio
-async def test_determine_tier_node_without_quota():
+async def test_determine_tier_node_without_quota(mock_check_quota):
     """Test tier determination without quota."""
+    # Configure the mock to return a quota exceeded response
+    mock_check_quota.return_value = {
+        'status': 'success',
+        'available_requests': 0,
+        'requires_payment': True,
+        'subscription_tier': 'basic',
+        'quota_limit': 100,
+        'quota_used': 100
+    }
+
     state = AgentState(
         case_id="test_case",
         user_id="test_user",
@@ -97,6 +185,8 @@ async def test_determine_tier_node_without_quota():
 
     assert next_node == "end"
     assert updated_state.response_data["status"] == "quota_exceeded"
+    # Verify the mock was called with the right arguments
+    mock_check_quota.assert_called_once_with(state.user_id, None)
 
 @pytest.mark.asyncio
 async def test_error_node_with_retries():
@@ -113,9 +203,44 @@ async def test_error_node_with_retries():
     assert next_node == "process_input"
     assert updated_state.retry_count["process_input"] == 2
 
+@pytest.mark.asyncio
+async def test_process_input_node(mock_gemini_model, mock_analyze_gemini_response):
+    """Test processing user input with Gemini model."""
+    # Setup
+    state = AgentState(
+        case_id="test_case",
+        user_id="test_user",
+        case_details={
+            "title": "Contract dispute",
+            "description": "Client is facing a breach of contract situation"
+        }
+    )
+
+    # Configure mocks
+    model_mock = mock_gemini_model.return_value
+    model_mock.generate_content_async.return_value = MagicMock()
+    mock_analyze_gemini_response.return_value = {
+        "domains": {"main": "civil", "secondary": ["contract"]},
+        "keywords": ["breach", "contract", "damages"],
+        "complexity": "medium"
+    }
+
+    # Execute
+    updated_state = await process_input_node(state)
+
+    # Verify
+    assert "legal_analysis" in updated_state.input_analysis
+    assert updated_state.input_analysis["legal_analysis"]["domains"]["main"] == "civil"
+    assert "timestamp" in updated_state.input_analysis
+
+    # Verify mocks were called correctly
+    mock_gemini_model.assert_called_once()
+    model_mock.generate_content_async.assert_called_once()
+    mock_analyze_gemini_response.assert_called_once()
+
 # Test domain-specific nodes
 @pytest.mark.asyncio
-async def test_civil_law_node_complex_case(civil_case_state):
+async def test_civil_law_node_complex_case(civil_case_state, mock_gemini_model, mock_analyze_gemini_response):
     """Test civil law node with a complex case."""
     next_node, updated_state = await civil_law_node(civil_case_state)
 
@@ -124,7 +249,7 @@ async def test_civil_law_node_complex_case(civil_case_state):
     assert updated_state.input_analysis["domain_specific"]["complexity_score"] >= 2
 
 @pytest.mark.asyncio
-async def test_commercial_law_node_high_value(commercial_case_state):
+async def test_commercial_law_node_high_value(commercial_case_state, mock_gemini_model, mock_analyze_gemini_response):
     """Test commercial law node with high-value contract."""
     next_node, updated_state = await commercial_law_node(commercial_case_state)
 
@@ -133,7 +258,7 @@ async def test_commercial_law_node_high_value(commercial_case_state):
     assert updated_state.input_analysis["regulatory_requirements"]["industry"] == "banking"
 
 @pytest.mark.asyncio
-async def test_administrative_law_node_urgent():
+async def test_administrative_law_node_urgent(mock_gemini_model, mock_analyze_gemini_response):
     """Test administrative law node with urgent case."""
     state = AgentState(
         case_id="test_case",
@@ -156,7 +281,7 @@ async def test_administrative_law_node_urgent():
     assert "cerere_suspendare" in updated_state.input_analysis["domain_specific"]["required_documents"]
 
 @pytest.mark.asyncio
-async def test_labor_law_node_discrimination():
+async def test_labor_law_node_discrimination(mock_gemini_model, mock_analyze_gemini_response):
     """Test labor law node with discrimination case."""
     state = AgentState(
         case_id="test_case",
@@ -180,7 +305,7 @@ async def test_labor_law_node_discrimination():
 
 # Test error handling
 @pytest.mark.asyncio
-async def test_civil_law_node_missing_fields():
+async def test_civil_law_node_missing_fields(mock_gemini_model, mock_analyze_gemini_response):
     """Test civil law node with missing required fields."""
     state = AgentState(
         case_id="test_case",
@@ -198,13 +323,43 @@ async def test_civil_law_node_missing_fields():
     assert len(updated_state.errors) == 1
     assert "Câmpuri obligatorii lipsă" in updated_state.errors[0]["error"]
 
+@pytest.mark.asyncio
+async def test_research_node(mock_search_legal_database, mock_get_relevant_legislation):
+    """Test research node with mocked external services."""
+    # Setup
+    state = AgentState(
+        case_id="test_case",
+        user_id="test_user",
+        input_analysis={
+            "legal_analysis": {
+                "domains": {"main": "civil", "secondary": ["contract"]},
+                "keywords": ["breach", "contract", "damages"]
+            }
+        }
+    )
+
+    # Execute
+    updated_state = await research_node(state)
+
+    # Verify
+    assert "search_results" in updated_state.research_results
+    assert "legislation" in updated_state.research_results
+    assert "timestamp" in updated_state.research_results
+
+    # Verify mocks were called correctly
+    mock_search_legal_database.assert_called_once()
+    mock_get_relevant_legislation.assert_called_once_with("civil")
+
 # Test integration
 @pytest.mark.asyncio
-async def test_full_workflow_civil_case(civil_case_state):
+async def test_full_workflow_civil_case(civil_case_state, mock_check_quota, mock_gemini_model,
+                                       mock_analyze_gemini_response, mock_search_legal_database,
+                                       mock_get_relevant_legislation):
     """Test full workflow for a civil case."""
     # Start with tier determination
     next_node, state = await determine_tier_node(civil_case_state)
     assert next_node == "verify_payment"
+    mock_check_quota.assert_called_once_with(civil_case_state.user_id, None)
 
     # Process through civil law node
     next_node, state = await civil_law_node(state)

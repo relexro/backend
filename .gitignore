@@ -47,4 +47,7 @@ tfplan
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Test files
+tests/temp_api_token.txt
