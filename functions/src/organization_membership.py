@@ -137,7 +137,7 @@ def set_organization_member_role(request: Request):
     except Exception as e:
         logging.error(f"Error setting member role: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-    
+
 def list_organization_members(request: Request):
     logging.info("Logic function list_organization_members called")
     try:
@@ -288,7 +288,7 @@ def get_user_organization_role(request: Request):
     except Exception as e:
         logging.error(f"Error getting user org role: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-    
+
 def list_user_organizations(request: Request):
     logging.info("Logic function list_user_organizations called")
     try:
@@ -303,7 +303,7 @@ def list_user_organizations(request: Request):
         if requesting_user_id != target_user_id:
              return flask.jsonify({"error": "Forbidden", "message": "Cannot list organizations for another user."}), 403
 
-        members_query = db.collection('organizationMembers').where('userId', '==', target_user_id)
+        members_query = db.collection('organization_memberships').where('userId', '==', target_user_id)
         members_docs = members_query.stream()
 
         organizations_list = []
@@ -317,7 +317,7 @@ def list_user_organizations(request: Request):
             if org_doc.exists:
                 org_data = org_doc.to_dict()
                 org_info = {
-                    'id': organization_id,
+                    'organizationId': organization_id,
                     'name': org_data.get('name', ''),
                     'description': org_data.get('description', ''),
                     'role': member_data.get('role'), # Role in this specific org

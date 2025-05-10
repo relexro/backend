@@ -28,7 +28,7 @@ locals {
   functions_config_hash = sha256(jsonencode({
     for fn_name in sort(keys(local.functions)) : fn_name => {
       entry_point   = local.functions[fn_name].entry_point
-      memory        = lookup(local.functions[fn_name], "memory", "512M")
+      memory        = lookup(local.functions[fn_name], "memory", "512Mi")
       timeout       = lookup(local.functions[fn_name], "timeout", 60)
       max_instances = lookup(local.functions[fn_name], "max_instances", 3)
 
@@ -124,7 +124,7 @@ resource "google_cloudfunctions2_function" "functions" {
 
   service_config {
     max_instance_count    = lookup(each.value, "max_instances", 3)
-    available_memory      = lookup(each.value, "memory", "512M")
+    available_memory      = lookup(each.value, "memory", "512Mi")
     timeout_seconds       = lookup(each.value, "timeout", 60)
     environment_variables = each.value.env_vars
 

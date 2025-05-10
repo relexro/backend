@@ -1,0 +1,9 @@
+{
+  "apiConfig": "projects/49787884280/locations/global/apis/relex-api/configs/relex-api-config-345de340",
+  "createTime": "2025-05-07T09:43:08.230908356Z",
+  "defaultHostname": "relex-api-gateway-mvef5dk.ew.gateway.dev",
+  "displayName": "Relex API Gateway",
+  "name": "projects/relexro/locations/europe-west1/gateways/relex-api-gateway",
+  "state": "ACTIVE",
+  "updateTime": "2025-05-10T09:19:41.136006344Z"
+}

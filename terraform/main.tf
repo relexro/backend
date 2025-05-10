@@ -65,29 +65,9 @@ locals {
 
   functions_service_account_email = "serviceAccount:${google_service_account.functions.email}"
 
-  # Create a complete map of function URIs for the API Gateway
-  # This ensures the OpenAPI spec can reference all functions without actually deploying them
-  complete_function_uris = merge(
-    module.cloud_functions.function_uris,
-    {
-      for func_name in [
-        "relex-backend-get-user-profile", "relex-backend-update-user-profile",
-        "relex-backend-list-user-organizations", "relex-backend-list-cases",
-        "relex-backend-create-organization", "relex-backend-get-organization",
-        "relex-backend-update-organization", "relex-backend-delete-organization",
-        "relex-backend-create-case", "relex-backend-list-organization-cases",
-        "relex-backend-list-organization-members", "relex-backend-add-organization-member",
-        "relex-backend-set-organization-member-role", "relex-backend-remove-organization-member",
-        "relex-backend-upload-file", "relex-backend-download-file",
-        "relex-backend-get-party", "relex-backend-update-party",
-        "relex-backend-delete-party", "relex-backend-attach-party",
-        "relex-backend-detach-party", "relex-backend-get-case",
-        "relex-backend-delete-case", "relex-backend-archive-case",
-        "relex-backend-assign-case", "relex-backend-handle-stripe-webhook",
-        "relex-backend-get-products", "relex-backend-get-chat-history"
-      ] : func_name => lookup(module.cloud_functions.function_uris, "relex-backend-send-chat-message", "https://placeholder-function-url")
-    }
-  )
+  # Use only the actual deployed function URIs for the API Gateway
+  # This ensures the API Gateway only routes to real, deployed functions
+  complete_function_uris = module.cloud_functions.function_uris
 }
 
 # --- Service Account Definition ---

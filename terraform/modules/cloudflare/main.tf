@@ -23,6 +23,6 @@ resource "cloudflare_record" "api_gateway_cname" {
   name    = var.subdomain
   content = var.gateway_hostname
   type    = "CNAME"
-  proxied = false
-  ttl     = 3600  # 1 hour TTL for unproxied record
-} 
+  proxied = true
+  ttl     = 1  # Auto TTL for proxied record
+}

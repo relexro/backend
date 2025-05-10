@@ -11,11 +11,11 @@ resource "google_cloudfunctions2_function" "functions" {
     project          = "relexro"
     state            = "ACTIVE"
     terraform_labels = {}
-    update_time      = "2025-05-09T16:14:17.562802357Z"
+    update_time      = "2025-05-10T09:12:14.573867521Z"
     url              = "https://europe-west1-relexro.cloudfunctions.net/relex-backend-agent-handler-dev"
 
     build_config {
-        build                 = "projects/49787884280/locations/europe-west1/builds/6a71e77b-4031-46ed-b471-680aacd3ff74"
+        build                 = "projects/49787884280/locations/europe-west1/builds/105761b1-8212-4d7c-bfad-75a96ea52964"
         docker_repository     = "projects/relexro/locations/europe-west1/repositories/gcf-artifacts"
         entry_point           = "relex_backend_agent_handler"
         environment_variables = {
@@ -27,8 +27,8 @@ resource "google_cloudfunctions2_function" "functions" {
         source {
             storage_source {
                 bucket     = "relexro-functions"
-                generation = 1746807060124461
-                object     = "functions-source-f28229fe.zip"
+                generation = 1746868223540155
+                object     = "functions-source-49c68705.zip"
             }
         }
     }

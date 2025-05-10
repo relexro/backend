@@ -17,11 +17,12 @@ locals {
     "TRACE_ENABLED"
   ]
 
-  # Process functions to include environment suffix and merged env vars
+  # Process functions to include environment suffix, merged env vars, and explicit memory setting
   functions = {
     for k, v in var.functions : k => merge(v, {
       name     = "${k}${var.environment == "prod" ? "" : "-${var.environment}"}"
       env_vars = merge(local.common_env_vars, v.env_vars)
+      memory   = lookup(v, "memory", "512Mi")
     })
   }
 
