@@ -16,8 +16,8 @@ locals {
   # This ensures the API config only changes when the spec or functions change
   openapi_content = templatefile(var.openapi_spec_path, {
     project_id    = var.project_id
-    api_domain    = var.api_domain
-    region        = var.region
+    # api_domain    = var.api_domain
+    # region        = var.region
     function_uris = var.function_uris
   })
 
@@ -25,14 +25,14 @@ locals {
   openapi_hash = substr(sha256(local.openapi_content), 0, 8)
 
   # Create a stable ID for the gateway that doesn't change with every deployment
-  gateway_id = "relex-api-gateway"
+  gateway_id = "relex-api-gateway-${var.environment}"
 }
 
 # Create the API resource
 resource "google_api_gateway_api" "api" {
   provider     = google-beta
-  api_id       = "relex-api"
-  display_name = "Relex API"
+  api_id       = "relex-api-${var.environment}"
+  display_name = "Relex API ${var.environment}"
   project      = var.project_id
 
   lifecycle {
@@ -48,8 +48,8 @@ resource "google_api_gateway_api" "api" {
 resource "google_api_gateway_api_config" "api_config" {
   provider      = google-beta
   api           = google_api_gateway_api.api.api_id
-  api_config_id = "relex-api-config-${local.openapi_hash}"
-  display_name  = "Relex API Config"
+  api_config_id = "relex-api-${var.environment}-config-${local.openapi_hash}"
+  display_name  = "Relex API ${var.environment} Config"
   project       = var.project_id
 
   openapi_documents {
@@ -82,7 +82,7 @@ resource "google_api_gateway_gateway" "gateway" {
   provider     = google-beta
   api_config   = google_api_gateway_api_config.api_config.id
   gateway_id   = local.gateway_id
-  display_name = "Relex API Gateway"
+  display_name = "Relex API ${var.environment} Gateway"
   project      = var.project_id
 
   depends_on = [google_api_gateway_api_config.api_config]

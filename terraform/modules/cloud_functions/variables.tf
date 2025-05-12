@@ -61,51 +61,41 @@ variable "functions" {
       description = "Create a new organization account"
       entry_point = "relex_backend_create_organization" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
-      memory      = "512Mi"
     },
     "relex-backend-get-organization" = {
       description = "Get an organization account by ID"
       entry_point = "relex_backend_get_organization" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
-      memory      = "512Mi"
     },
     "relex-backend-update-organization" = {
       description = "Update an organization account"
       entry_point = "relex_backend_update_organization" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-delete-organization" = {
       description = "Delete an organization account"
       entry_point = "relex_backend_delete_organization" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-add-organization-member" = {
       description = "Add a member to an organization account"
       entry_point = "relex_backend_add_organization_member" # Updated to use member naming
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-remove-organization-member" = {
       description = "Remove a member from an organization"
       entry_point = "relex_backend_remove_organization_member" # Updated to use member naming
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-list-organization-members" = {
       description = "List members in an organization"
       entry_point = "relex_backend_list_organization_members" # Updated to use member naming
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-set-organization-member-role" = {
       description = "Update a member's role in an organization"
       entry_point = "relex_backend_set_organization_member_role" # Updated to use member naming
       env_vars    = {}
-      memory      = "512Mi"
     },
 
     # User Profile Functions
@@ -119,7 +109,6 @@ variable "functions" {
       description = "Update user profile data for the authenticated user"
       entry_point = "relex_backend_update_user_profile" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
 
     # Payment Functions
@@ -127,7 +116,6 @@ variable "functions" {
       description = "Create a Stripe payment intent"
       entry_point = "relex_backend_create_payment_intent" # Matched main.py
       env_vars    = {}
-      memory      = "512Mi"
       secret_env_vars = [
         {
           key     = "STRIPE_SECRET_KEY"
@@ -140,7 +128,6 @@ variable "functions" {
       description = "Get active products and prices from Stripe"
       entry_point = "relex_backend_get_products"
       env_vars    = {}
-      memory      = "512Mi"
       secret_env_vars = [
         {
           key     = "STRIPE_SECRET_KEY"
@@ -153,7 +140,6 @@ variable "functions" {
       description = "Create a Stripe checkout session"
       entry_point = "relex_backend_create_checkout_session" # Matched main.py
       env_vars    = {}
-      memory      = "512Mi"
       secret_env_vars = [
         {
           key     = "STRIPE_SECRET_KEY"
@@ -166,7 +152,6 @@ variable "functions" {
       description = "Handle Stripe webhook events"
       entry_point = "relex_backend_handle_stripe_webhook" # Matched main.py
       env_vars    = {}
-      memory      = "512Mi"
       secret_env_vars = [
         {
           key     = "STRIPE_WEBHOOK_SECRET"
@@ -179,7 +164,6 @@ variable "functions" {
       description = "Cancel a Stripe subscription"
       entry_point = "relex_backend_cancel_subscription" # Matched main.py
       env_vars    = {}
-      memory      = "512Mi"
       secret_env_vars = [
         {
           key     = "STRIPE_SECRET_KEY"
@@ -194,13 +178,11 @@ variable "functions" {
       description = "Get a user's role in an organization"
       entry_point = "relex_backend_get_user_organization_role" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-list-user-organizations" = {
       description = "List organizations a user belongs to"
       entry_point = "relex_backend_list_user_organizations" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
 
     # Case Functions
@@ -208,55 +190,46 @@ variable "functions" {
       description = "Create a new case"
       entry_point = "relex_backend_create_case" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-get-case" = {
       description = "Get a case by ID"
       entry_point = "relex_backend_get_case" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-list-cases" = {
       description = "List cases"
       entry_point = "relex_backend_list_cases" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-archive-case" = {
       description = "Archive a case"
       entry_point = "relex_backend_archive_case" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-delete-case" = {
       description = "Delete a case"
       entry_point = "relex_backend_delete_case" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-upload-file" = {
       description = "Upload a file to a case"
       entry_point = "relex_backend_upload_file" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-download-file" = {
       description = "Download a file from a case"
       entry_point = "relex_backend_download_file" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-attach-party" = {
       description = "Attach a party to a case"
       entry_point = "relex_backend_attach_party" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-detach-party" = {
       description = "Detach a party from a case"
       entry_point = "relex_backend_detach_party" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
 
     # Auth Functions (Mapped to existing Python functions)
@@ -264,19 +237,16 @@ variable "functions" {
       description = "Validate a user's token"
       entry_point = "relex_backend_validate_user" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-check-permissions" = {
       description = "Check permissions for a user"
       entry_point = "relex_backend_check_permissions" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-get-user-role" = { # Note: Might conflict with org membership role? Check usage.
       description = "Get a user's role" # Simplified description
       entry_point = "relex_backend_get_user_role" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
 
     # Party Functions
@@ -284,31 +254,26 @@ variable "functions" {
       description = "Create a new party"
       entry_point = "relex_backend_create_party" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-get-party" = {
       description = "Get a party by ID"
       entry_point = "relex_backend_get_party" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-update-party" = {
       description = "Update a party"
       entry_point = "relex_backend_update_party" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-delete-party" = {
       description = "Delete a party"
       entry_point = "relex_backend_delete_party" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-list-parties" = {
       description = "List parties"
       entry_point = "relex_backend_list_parties" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
 
     # List Organization Cases Function
@@ -316,7 +281,6 @@ variable "functions" {
        description = "List organization cases"
        entry_point = "relex_backend_list_organization_cases" # Matched main.py
        env_vars    = {}
-      memory      = "512Mi"
      },
 
     # Planned Functions (not yet implemented in main.py)
@@ -324,13 +288,11 @@ variable "functions" {
       description = "Redeem a voucher code (planned)"
       entry_point = "relex_backend_redeem_voucher" # Will be implemented in future
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-assign-case" = {
       description = "Assign a case to a staff member (planned)"
       entry_point = "relex_backend_assign_case" # Will be implemented in future
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-agent-handler" = {
       description = "Lawyer AI Agent handler"
@@ -350,8 +312,7 @@ variable "functions" {
           version = "latest"
         }
       ]
-      timeout = 300  # 5 minutes
-      memory  = "512Mi"
+      timeout = 500  # 5 minutes
       max_instances = 10
     }
 

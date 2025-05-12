@@ -163,7 +163,8 @@ module "api_gateway" {
   openapi_spec_path    = "${path.module}/openapi_spec.yaml"
   function_uris        = local.complete_function_uris
   api_gateway_sa_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
-  api_domain           = local.api_domain
+  # api_domain           = local.api_domain
+  environment          = var.environment
 
   depends_on = [
     module.apis,
