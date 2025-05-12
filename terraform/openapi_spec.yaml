@@ -213,7 +213,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-list-cases"]}/relex_backend_list_cases'
+        address: '${function_uris["relex-backend-list-cases"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:

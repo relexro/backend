@@ -95,150 +95,520 @@ def _authenticate_and_call(request: Request, logic_func, requires_auth=True):
 
 @functions_framework.http
 def relex_backend_create_case(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_create_case: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_create_case",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_create_case)
 
 @functions_framework.http
 def relex_backend_get_case(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_get_case: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_get_case",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_get_case)
 
 @functions_framework.http
 def relex_backend_list_cases(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_list_cases: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_list_cases",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_list_cases)
 
 @functions_framework.http
 def relex_backend_archive_case(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_archive_case: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_archive_case",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_archive_case)
 
 @functions_framework.http
 def relex_backend_delete_case(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_delete_case: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_delete_case",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_delete_case)
 
 @functions_framework.http
 def relex_backend_upload_file(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_upload_file: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_upload_file",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_upload_file)
 
 @functions_framework.http
 def relex_backend_download_file(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_download_file: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_download_file",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_download_file)
 
 @functions_framework.http
 def relex_backend_attach_party(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_attach_party: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_attach_party",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_attach_party)
 
 @functions_framework.http
 def relex_backend_detach_party(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_detach_party: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_detach_party",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_detach_party)
 
 @functions_framework.http
 def relex_backend_validate_user(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_validate_user: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_validate_user",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_validate_user, requires_auth=False)
 
 @functions_framework.http
 def relex_backend_check_permissions(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_check_permissions: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_check_permissions",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_check_permissions, requires_auth=False)
 
 @functions_framework.http
 def relex_backend_get_user_role(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_get_user_role: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_get_user_role",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_get_user_role)
 
 @functions_framework.http
 def relex_backend_create_organization(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_create_organization: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_create_organization",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_create_organization)
 
 @functions_framework.http
 def relex_backend_get_organization(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_get_organization: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_get_organization",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_get_organization)
 
 @functions_framework.http
 def relex_backend_update_organization(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_update_organization: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_update_organization",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_update_organization)
 
 @functions_framework.http
 def relex_backend_delete_organization(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_delete_organization: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_delete_organization",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_delete_organization)
 
 @functions_framework.http
 def relex_backend_create_payment_intent(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_create_payment_intent: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_create_payment_intent",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_create_payment_intent)
 
 @functions_framework.http
 def relex_backend_create_checkout_session(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_create_checkout_session: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_create_checkout_session",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_create_checkout_session)
 
 @functions_framework.http
 def relex_backend_handle_stripe_webhook(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_handle_stripe_webhook: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_handle_stripe_webhook",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_handle_stripe_webhook, requires_auth=False)
 
 @functions_framework.http
 def relex_backend_cancel_subscription(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_cancel_subscription: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_cancel_subscription",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_cancel_subscription)
 
 @functions_framework.http
 def relex_backend_add_organization_member(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_add_organization_member: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_add_organization_member",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_add_organization_member)
 
 @functions_framework.http
 def relex_backend_set_organization_member_role(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_set_organization_member_role: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_set_organization_member_role",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_set_organization_member_role)
 
 @functions_framework.http
 def relex_backend_list_organization_members(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_list_organization_members: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_list_organization_members",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_list_organization_members)
 
 @functions_framework.http
 def relex_backend_remove_organization_member(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_remove_organization_member: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_remove_organization_member",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_remove_organization_member)
 
 @functions_framework.http
 def relex_backend_get_user_organization_role(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_get_user_organization_role: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_get_user_organization_role",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_get_user_organization_role)
 
 @functions_framework.http
 def relex_backend_list_user_organizations(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_list_user_organizations: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_list_user_organizations",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_list_user_organizations)
 
 @functions_framework.http
 def relex_backend_get_user_profile(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_get_user_profile: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_get_user_profile",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_get_user_profile)
 
 @functions_framework.http
 def relex_backend_update_user_profile(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_update_user_profile: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_update_user_profile",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_update_user_profile)
 
 @functions_framework.http
 def relex_backend_create_party(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_create_party: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_create_party",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_create_party)
 
 @functions_framework.http
 def relex_backend_get_party(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_get_party: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_get_party",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_get_party)
 
 @functions_framework.http
 def relex_backend_update_party(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_update_party: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_update_party",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_update_party)
 
 @functions_framework.http
 def relex_backend_delete_party(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_delete_party: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_delete_party",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_delete_party)
 
 @functions_framework.http
 def relex_backend_list_parties(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_list_parties: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_list_parties",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_list_parties)
 
 @functions_framework.http
 def relex_backend_list_organization_cases(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_list_organization_cases: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_list_organization_cases",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_list_cases)
 
 @functions_framework.http
 def relex_backend_assign_case(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_assign_case: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_assign_case",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_assign_case)
 
 @functions_framework.http
 def relex_backend_redeem_voucher(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_redeem_voucher: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_redeem_voucher",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     return _authenticate_and_call(request, logic_redeem_voucher)
 
 @functions_framework.http
 def relex_backend_get_products(request: Request):
+    # Add health check functionality for GCP deployment
+    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
+        logging.info(f"Function relex_backend_get_products: Responding to health check or root path request at {request.path}")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running",
+            "function_name": "relex_backend_get_products",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
     try:
         return logic_get_products(request)
     except Exception as e:
@@ -254,15 +624,15 @@ def relex_backend_agent_handler(request: Request):
     """
     # Log request information for debugging
     logging.info(f"Agent handler received: {request.method} {request.path}")
-    
+
     # Add health check functionality for GCP deployment
     if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
         logging.info("Responding to health check or root path request")
         return flask.jsonify({
-            "status": "healthy", 
+            "status": "healthy",
             "message": "Service is running",
             "timestamp": datetime.now().isoformat()
         }), 200
-    
+
     # If this is a normal request, process it through the agent handler
     return _authenticate_and_call(request, logic_handle_agent_request)
