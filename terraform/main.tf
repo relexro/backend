@@ -145,6 +145,9 @@ module "cloud_functions" {
   project                         = var.project_id
   service_account_email           = trimprefix(local.functions_service_account_email, "serviceAccount:")
 
+  # Ensure consistent naming across environments
+  environment_suffix              = local.env_suffix
+
   depends_on = [
     module.apis,
     module.storage,

@@ -20,7 +20,7 @@ locals {
   # Process functions to include environment suffix, merged env vars, and explicit memory setting
   functions = {
     for k, v in var.functions : k => merge(v, {
-      name     = "${k}${var.environment == "prod" ? "" : "-${var.environment}"}"
+      name     = "${k}${var.environment_suffix}"
       env_vars = merge(local.common_env_vars, v.env_vars)
       memory   = lookup(v, "memory", "512Mi")
     })

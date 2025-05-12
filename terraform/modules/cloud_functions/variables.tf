@@ -368,3 +368,8 @@ variable "service_account_email" {
   description = "Service account email for the Cloud Functions"
   type        = string
 }
+
+variable "environment_suffix" {
+  description = "Suffix to append to resource names for the current environment (e.g., '-dev', '' for prod)."
+  type        = string
+}

@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "relexro",
+  "private_key_id": "acc6e6ae61ca6f81be493566a09492f7d1460954",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDHmhRdiavviWcU\nx+PdhxJ9oQxxmhtAZEOqeeaK7ptRZNMeHTCyymXRmc4bXkNYT5Eoeq1bbdVRU+Qj\nqZPbajPPH8Fnzn/oxgJ1yd0B3aKvTrVQjc4aC84xm1hS9Wj4UGYekczkvIPAsUDx\nqlkt9vgOzkoWfLO2E1ifcf9k/XSYlb+1GzSB7rQHCIoT3ngUxA7S6XyvqOftmypl\nXAY1KvYf5tRHmkpclUvaPCbUqAPanOTC0i6VjzmebwbJuJaPd75XtEdTa3AuhyoI\nPPoQfOPfeg94keBpAm4hPDfduqZuL3/x4WYGIvDCZeFq4zidqyQJfZff4kny2Mnf\n8DjXUrURAgMBAAECggEADJAxKfYJYWlXmKJAQGhJDKk/XEMj5fipnahQj3wXQJdF\nBoc10nsUz42LwIM9X+iaLV8TXEbcf2L1YB1DVjMoEahhBwSjXmZgL0PGamCl5bzh\ngrF6QH9vugWaGJajxcVhuBjbOaZ38H/3o35iYJdD48KuPR4aPaKYGGkXdybQ2O2v\nigFVoIksPrl6ha5s64j4xm1LwkB3ojWhmAzr/mZJ8pnX3jeqh5XgdF3QTup2O3Vp\n5Xm6jo7Ppk10nDA3kyzgLtvRxK6+4l38NXwkkAgXp79cp93cLwX8NHdU8HAPRM7f\n7iXEmkn2XJC4PsNcxj88ndbSLuvviYYR44YgY+Y8QQKBgQDrD7OLJBYbEnj3kUeo\nA+CxFtorzSTLPClQYSFP4Q+Uc6yTqw2DLq0Jku7K7nXHtKcwzOkj8SRgYw24Q6xz\nD1eUBLmNNEPVBzgSTJOdzE1DTpxc1asU+VbvXIY/orNXJXXshJAp6JUnihUT5MLX\nJz1T6HI0ApfQCtwGacf1OYLXGQKBgQDZYcRHYYUjuqzpYpGvvB69KLk581IJScl+\nT4n1+5dLhiKj55wvTSkcGJ2vgvnAJ/e6m6Kpr5DBNRr/Wzx/otoDvSo5/1kIf1Gp\n20pnnNR6x+mmhTReB9T/43WmUyuSQXR05E5lQhKOKufO2/sMhqBG2KeYYjeksxL0\no4XLdyvkuQKBgQCBy528iySZtk2Nhm8m211K6+90mEZk4sd9VuTqEsBjnKwCrkU7\n1p491yB8dcgbiil3zO4/pnwLrSZ6RQQIVMRrO2CqE94Q13eiwx4P2Cwhqlq0+FcL\nsdLLQS/wG4sj58+B1oE0YvVZa+nPnlXoMAaxOn01MulZO2XbNLXxNtyEoQKBgQCx\nvcDRZKmKJ07OnWvltvmjTTL2cT94nL6F6t8xI//3HrwgLHaGLp8YfAAizAMN3SAv\nkqYT/JttftCOTrlO24dLW1a1iVXxHrlVGxrhUVhi9CbVo0DISbsdZ4yA7KxJr/9a\nvHplTPsDB432k+PXwBQ5GVkfvd8lac5r/XCehth68QKBgCHC+gmrnnaS4veZ6Ffc\nMi3Kqcv+QjvNObRxkFH2E/SDdibFFEcHdBzOP9NOxczkWrLG2I+su0ZnO+vTo9D6\ngfixqpoMMtNEbh8JhvernAqoykhhIHUNLaZoM6W93pNLIEUQZEdyOiHEnc3Yyn6n\n26nhpniwd1afYa7ghWSDusEG\n-----END PRIVATE KEY-----\n",
+  "client_email": "relex-functions-dev@relexro.iam.gserviceaccount.com",
+  "client_id": "100193949046362161154",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/relex-functions-dev%40relexro.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

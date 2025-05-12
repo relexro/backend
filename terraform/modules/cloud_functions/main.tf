@@ -138,7 +138,8 @@ resource "google_cloudfunctions2_function" "functions" {
       }
     }
 
-    ingress_settings       = "ALLOW_INTERNAL_AND_GCLB"
+    # Allow public ingress in non-production environments to enable direct testing (e.g., dev).
+    ingress_settings = var.environment == "prod" ? "ALLOW_INTERNAL_AND_GCLB" : "ALLOW_ALL"
     service_account_email  = var.service_account_email
   }
 

@@ -1,0 +1,2140 @@
+swagger: '2.0'
+info:
+  title: Relex API
+  description: RESTful API for Relex Backend
+  version: 1.0.0
+  license: {name: Proprietary, url: 'https://relex.ro'}
+# Note: Host value is used for validation only. During deployment, this will be replaced with the actual API domain.
+host: api-dev.relex.ro
+basePath: /v1
+schemes: [https]
+produces:
+  - application/json
+consumes:
+  - application/json
+securityDefinitions:
+  firebase: {type: apiKey, name: Authorization, in: header, description: 'Firebase Authentication JWT. Use format ''Bearer {token}''', x-google-issuer: 'https://securetoken.google.com/relexro', x-google-jwks_uri: 'https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com', x-google-audiences: 'relexro'}
+paths:
+  /cases/{caseId}/agent/messages:
+    post:
+      summary: Interact with the Lawyer AI Agent for a specific case
+      description: Sends user input to the agent and receives its response or status update. Handles the entire agent workflow
+        invocation.
+      operationId: relex_backend_agent_handler
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-agent-handler-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 300.0
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case for the agent interaction
+      - in: body
+        name: body
+        required: true
+        description: The user's input or request data for the agent.
+        schema:
+          type: object
+          properties:
+            message: {type: string, description: The user's text message or input data}
+          required: [message]
+      responses:
+        '200':
+          description: Successful agent response or status update
+          schema:
+            type: object
+            properties:
+              status: {type: string, description: 'Status of the agent''s operation (e.g., ''success'', ''error'', ''quota_exceeded'',
+                  ''payment_required'')'}
+              message: {type: string, description: The agent's textual response to the user or a status message.}
+              response:
+                type: object
+                properties:
+                  content: {type: string, description: The agent's response content}
+                  recommendations:
+                    type: array
+                    items: {type: string}
+                    description: List of recommendations from the agent
+                  next_steps:
+                    type: array
+                    items: {type: string}
+                    description: List of suggested next steps
+                  draft_documents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: string, description: Document ID}
+                        title: {type: string, description: Document title}
+                        url: {type: string, description: Document URL}
+                    description: List of generated draft documents
+                  research_summary: {type: string, description: Summary of legal research performed}
+              completed_steps:
+                type: array
+                items: {type: string}
+                description: List of completed workflow nodes.
+              errors:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    node: {type: string, description: The node where the error occurred}
+                    error: {type: string, description: Error message}
+                    timestamp: {type: string, format: date-time, description: Time the error occurred}
+                description: List of errors if any
+              timestamp: {type: string, format: date-time, description: Time the response was generated}
+        '400':
+          description: Bad request (e.g., invalid input format)
+          schema:
+            $ref: '#/definitions/BadRequest'
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
+        '403':
+          description: Forbidden (e.g., user doesn't have access to the case)
+          schema:
+            $ref: '#/definitions/Forbidden'
+        '404':
+          description: Case not found
+          schema:
+            $ref: '#/definitions/NotFound'
+        '500':
+          description: Internal server error (Agent handler failure)
+          schema:
+            $ref: '#/definitions/InternalServerError'
+  /users/me:
+    get:
+      summary: Get user profile
+      description: Retrieves the profile of the authenticated user.
+      operationId: relex_backend_get_user_profile
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-get-user-profile-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      responses:
+        '200':
+          description: User profile
+          schema:
+            $ref: '#/definitions/UserProfile'
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '404':
+          description: Not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    put:
+      summary: Update user profile
+      description: Updates the profile of the authenticated user.
+      operationId: relex_backend_update_user_profile
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-update-user-profile-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            displayName: {type: string, description: User's display name}
+            photoURL: {type: string, description: URL to the user's profile photo}
+            languagePreference:
+              type: string
+              enum: [en, ro]
+              description: User's preferred language
+      responses:
+        '200':
+          description: User profile updated
+          schema:
+            $ref: '#/definitions/UserProfile'
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '404':
+          description: Not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /users/me/organizations:
+    get:
+      summary: List user's organizations
+      description: Lists all organizations the authenticated user is a member of.
+      operationId: relex_backend_list_user_organizations
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-list-user-organizations-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      responses:
+        '200':
+          description: List of organizations
+          schema:
+            type: object
+            properties:
+              organizations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    organizationId: {type: string, description: The unique identifier of the organization}
+                    name: {type: string, description: Name of the organization}
+                    description: {type: string, description: Description of the organization}
+                    role: {type: string, description: User's role in the organization (administrator or staff)}
+                    joinedAt: {type: string, format: date-time, description: ISO 8601 timestamp when the user joined}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /users/me/cases:
+    get:
+      summary: List user's cases
+      description: Lists all cases owned by the authenticated user.
+      operationId: relex_backend_list_user_cases
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-list-cases-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        type: integer
+        description: Maximum number of cases to return (default 20, max 100)
+      - name: offset
+        in: query
+        required: false
+        type: integer
+        description: Offset for pagination (default 0)
+      - name: status
+        in: query
+        required: false
+        type: string
+        description: Filter by case status (open, archived, deleted)
+        enum: [open, archived, deleted]
+      responses:
+        '200':
+          description: List of cases
+          schema:
+            type: object
+            properties:
+              cases:
+                type: array
+                items:
+                  $ref: '#/definitions/Case'
+              total: {type: integer, description: Total number of cases that match the filter}
+              limit: {type: integer, description: Maximum number of cases returned}
+              offset: {type: integer, description: Offset for pagination}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /organizations:
+    post:
+      summary: Create a new organization
+      description: Creates a new organization with the authenticated user as administrator.
+      operationId: relex_backend_create_organization
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-create-organization-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [name, type]
+          properties:
+            name: {type: string, description: Name of the organization}
+            type: {type: string, description: 'Type of organization (e.g., law_firm)'}
+            description: {type: string, description: Description of the organization}
+            address: {type: string, description: Address of the organization}
+            phone: {type: string, description: Phone number of the organization}
+            email: {type: string, description: Email of the organization}
+      responses:
+        '201':
+          description: Organization created successfully
+          schema:
+            type: object
+            properties:
+              organizationId: {type: string, description: Unique identifier for the organization}
+              name: {type: string, description: Name of the organization}
+              type: {type: string, description: Type of the organization}
+              description: {type: string, description: Description of the organization}
+              address: {type: string, description: Address of the organization}
+              phone: {type: string, description: Phone number of the organization}
+              email: {type: string, description: Email of the organization}
+              createdAt: {type: string, format: date-time, description: Creation timestamp}
+              createdBy: {type: string, description: ID of the user who created the organization}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /organizations/{organizationId}:
+    get:
+      summary: Get organization details
+      description: Retrieves detailed information about a specific organization. Accessible by organization members.
+      operationId: relex_backend_get_organization
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-get-organization-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization to retrieve
+      responses:
+        '200':
+          description: Organization details
+          schema:
+            type: object
+            properties:
+              organizationId: {type: string, description: Unique identifier for the organization}
+              name: {type: string, description: Name of the organization}
+              type: {type: string, description: Type of the organization}
+              description: {type: string, description: Description of the organization}
+              address: {type: string, description: Address of the organization}
+              phone: {type: string, description: Phone number of the organization}
+              email: {type: string, description: Email of the organization}
+              createdAt: {type: string, format: date-time, description: Creation timestamp}
+              updatedAt: {type: string, format: date-time, description: Last update timestamp}
+              memberCount: {type: integer, description: Number of members in the organization}
+              subscription:
+                type: object
+                properties:
+                  status: {type: string, description: Subscription status}
+                  plan: {type: string, description: Current subscription plan}
+                  currentPeriodEnd: {type: string, format: date-time, description: End of the current billing period}
+                  caseQuota: {type: integer, description: Number of cases allowed under current plan}
+                  casesUsed: {type: integer, description: Number of cases created under current plan}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (not a member of the organization)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    put:
+      summary: Update organization details
+      description: Updates information for an existing organization. Accessible by organization administrators.
+      operationId: relex_backend_update_organization
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-update-organization-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization to update
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name: {type: string, description: Name of the organization}
+            description: {type: string, description: Description of the organization}
+            address: {type: string, description: Address of the organization}
+            phone: {type: string, description: Phone number of the organization}
+            email: {type: string, description: Email of the organization}
+      responses:
+        '200':
+          description: Organization updated successfully
+          schema:
+            type: object
+            properties:
+              organizationId: {type: string, description: Unique identifier for the organization}
+              name: {type: string, description: Name of the organization}
+              type: {type: string, description: Type of the organization}
+              description: {type: string, description: Description of the organization}
+              address: {type: string, description: Address of the organization}
+              phone: {type: string, description: Phone number of the organization}
+              email: {type: string, description: Email of the organization}
+              updatedAt: {type: string, format: date-time, description: Update timestamp}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (caller is not an administrator)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    delete:
+      summary: Delete an organization
+      description: Deletes an organization. Only possible if there's no active subscription and caller is an administrator.
+      operationId: relex_backend_delete_organization
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-delete-organization-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization to delete
+      responses:
+        '200':
+          description: Organization deleted successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              organizationId: {type: string, description: ID of the deleted organization}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (caller is not an administrator or organization has active subscription)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /cases:
+    post:
+      summary: Create a new case
+      description: Creates a new individual case for the authenticated user or an organization case if organizationId is provided.
+      operationId: relex_backend_create_case
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-create-case-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [title, description, caseTier, caseTypeId]
+          properties:
+            title: {type: string, description: Title of the case}
+            description: {type: string, description: Description of the case}
+            caseTier: {type: integer, description: Case tier level}
+            caseTypeId: {type: string, description: The ID of the case type for this case}
+            organizationId: {type: string, description: Organization ID for organization cases}
+            paymentIntentId: {type: string, description: Stripe payment intent ID}
+            initialPartyIds: {type: array, items: {type: string}, description: Optional array of party IDs to attach initially}
+      responses:
+        '201':
+          description: Case created successfully
+          schema:
+            type: object
+            properties:
+              caseId: {type: string, description: Unique identifier for the case.}
+              status: {type: string, description: Status of the case (initially "open").}
+        '400':
+          description: Bad request (e.g., invalid input format)
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '402':
+          description: Payment Required
+          schema: {$ref: '#/definitions/PaymentRequired'}
+        '403':
+          description: Forbidden (e.g., insufficient permissions)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /organizations/{organizationId}/cases:
+    post:
+      summary: Create an organization case
+      operationId: createOrganizationCase
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-create-case-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [title, description, caseTier, caseTypeId]
+          properties:
+            title: {type: string, description: Title of the case}
+            description: {type: string, description: Description of the case}
+            paymentIntentId: {type: string, description: Stripe payment intent ID (optional if organization has an active
+                subscription with available quota)}
+            caseTier:
+              type: integer
+              enum: [1, 2, 3]
+              description: Case tier level determining the price (1=€9.00, 2=€29.00, 3=€99.00)
+            initialPartyIds:
+              type: array
+              items: {type: string}
+              description: Optional array of party IDs to attach initially
+            assignedUserId: {type: string, description: Optional staff user ID to assign the case to}
+            caseTypeId: {type: string, description: The ID of the case type for this case}
+      responses:
+        '201':
+          description: Case created successfully
+          schema: {$ref: '#/definitions/Case'}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '402':
+          description: Payment required (quota exhausted or no active subscription)
+          schema: {$ref: '#/definitions/PaymentRequired'}
+        '403':
+          description: Forbidden
+          schema: {$ref: '#/definitions/Forbidden'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    get:
+      summary: List organization cases
+      description: Lists cases associated with the specified organization.
+      operationId: relex_backend_list_organization_cases
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-list-organization-cases-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization
+      - name: limit
+        in: query
+        required: false
+        type: integer
+        description: Maximum number of cases to return (default 20, max 100)
+      - name: offset
+        in: query
+        required: false
+        type: integer
+        description: Offset for pagination (default 0)
+      - name: status
+        in: query
+        required: false
+        type: string
+        description: Filter by case status (open, archived, deleted)
+        enum: [open, archived, deleted]
+      responses:
+        '200':
+          description: List of cases
+          schema:
+            type: object
+            properties:
+              cases:
+                type: array
+                items:
+                  $ref: '#/definitions/Case'
+              total: {type: integer, description: Total number of cases that match the filter}
+              limit: {type: integer, description: Maximum number of cases returned}
+              offset: {type: integer, description: Offset for pagination}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /organizations/{organizationId}/members:
+    post:
+      summary: Add member to organization
+      description: Adds a new member to an organization with a specific role. Only administrators can add members.
+      operationId: relex_backend_add_organization_member
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-add-organization-member-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [userId, role]
+          properties:
+            userId: {type: string, description: ID of the user to add as a member}
+            role:
+              type: string
+              enum: [staff, administrator]
+              description: Role to assign to the member
+      responses:
+        '200':
+          description: Member added successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              membershipId: {type: string, description: ID of the membership record}
+              userId: {type: string, description: ID of the added member}
+              organizationId: {type: string, description: ID of the organization}
+              role: {type: string, description: Assigned role (staff or administrator)}
+              email: {type: string, description: Email of the added member}
+              displayName: {type: string, description: Display name of the added member}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (caller is not an administrator)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '409':
+          description: Conflict (user is already a member)
+          schema:
+            type: object
+            properties:
+              error: {type: string, description: Error code}
+              message: {type: string, description: Error message details}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    get:
+      summary: List organization members
+      description: Lists all members of an organization. Accessible by organization members.
+      operationId: relex_backend_list_organization_members
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-list-organization-members-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization
+      responses:
+        '200':
+          description: List of members
+          schema:
+            type: object
+            properties:
+              members:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    userId: {type: string, description: ID of the member}
+                    role: {type: string, description: Role in the organization}
+                    addedAt: {type: string, format: date-time, description: When the member was added}
+                    email: {type: string, description: Email of the member}
+                    displayName: {type: string, description: Display name of the member}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /cases/{caseId}/files:
+    post:
+      summary: Upload a file to a case
+      description: Uploads a file and attaches it to a specific case.
+      operationId: relex_backend_upload_file
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-upload-file-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 60.0
+      consumes:
+        - application/octet-stream
+        - image/jpeg
+        - image/png
+        - application/pdf
+        - text/plain
+        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        - application/msword
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case to attach the file to
+      responses:
+        '200':
+          description: File uploaded successfully
+          schema:
+            type: object
+            properties:
+              fileId: {type: string, description: ID of the uploaded file}
+              caseId: {type: string, description: ID of the case the file is attached to}
+              filename: {type: string, description: Name of the file}
+              contentType: {type: string, description: MIME type of the file}
+              size: {type: integer, description: Size of the file in bytes}
+              downloadUrl: {type: string, description: URL to download the file}
+              uploadedAt: {type: string, format: date-time, description: Timestamp when the file was uploaded}
+              metadata:
+                type: object
+                properties:
+                  fileType:
+                    type: string
+                    description: Classification of the file, such as document or image
+                  description:
+                    type: string
+                    description: Description of the file
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Case not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /cases/{caseId}/files/{fileId}:
+    get:
+      summary: Download a file from a case
+      description: Downloads a file attached to a specific case.
+      operationId: relex_backend_download_file
+      security:
+      - firebase: []
+      produces:
+        - application/octet-stream
+        - image/*
+        - application/pdf
+        - text/plain
+        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      x-google-backend:
+        address: 'https://relex-backend-download-file-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 60.0
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case the file is attached to
+      - name: fileId
+        in: path
+        required: true
+        type: string
+        description: ID of the file to download
+      responses:
+        '200':
+          description: File content with appropriate Content-Type header
+          schema:
+            type: string
+            format: binary
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: File or case not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /parties:
+    post:
+      summary: Create a new party
+      description: Creates a new party record in the system.
+      operationId: relex_backend_create_party
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-create-party-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [partyType]
+          properties:
+            partyType:
+              type: string
+              enum: [individual, company, government, other]
+              description: Type of party
+            nameDetails:
+              type: object
+              properties:
+                firstName: {type: string, description: First name for individuals}
+                lastName: {type: string, description: Last name for individuals}
+                middleName: {type: string, description: Middle name for individuals}
+                companyName: {type: string, description: Company or organization name for non-individuals}
+            identityCodes:
+              type: object
+              properties:
+                ssn: {type: string, description: Social Security Number (for US individuals)}
+                cnp: {type: string, description: Personal Numeric Code (for Romanian individuals)}
+                taxId: {type: string, description: Tax ID (for companies or organizations)}
+                registrationNumber: {type: string, description: Commercial registration number (for companies)}
+            contactInfo:
+              type: object
+              properties:
+                email: {type: string, description: Email address}
+                phone: {type: string, description: Phone number}
+                address:
+                  type: object
+                  properties:
+                    street: {type: string, description: Street address}
+                    city: {type: string, description: City}
+                    state: {type: string, description: State or province}
+                    postalCode: {type: string, description: Postal or ZIP code}
+                    country: {type: string, description: Country}
+      responses:
+        '201':
+          description: Party created successfully
+          schema:
+            type: object
+            properties:
+              partyId: {type: string, description: ID of the created party}
+              status:
+                type: string
+                enum: [success]
+                description: Status of the operation
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+    get:
+      summary: List parties
+      description: Lists parties created by the authenticated user.
+      operationId: relex_backend_list_parties
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-list-parties-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        type: integer
+        description: Maximum number of results to return
+      - name: offset
+        in: query
+        required: false
+        type: integer
+        description: Number of results to skip (for pagination)
+      - name: partyType
+        in: query
+        required: false
+        type: string
+        description: Filter by party type (individual, company, etc.)
+      responses:
+        '200':
+          description: List of parties
+          schema:
+            type: object
+            properties:
+              parties:
+                type: array
+                items:
+                  $ref: '#/definitions/Party'
+              total: {type: integer, description: Total number of parties matching the criteria}
+              limit: {type: integer, description: Limit used for this request}
+              offset: {type: integer, description: Offset used for this request}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /parties/{partyId}:
+    get:
+      summary: Get party details
+      description: Retrieves detailed information about a specific party.
+      operationId: relex_backend_get_party
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-get-party-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: partyId
+        in: path
+        required: true
+        type: string
+        description: ID of the party to retrieve
+      responses:
+        '200':
+          description: Party details retrieved successfully
+          schema:
+            $ref: '#/definitions/Party'
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '404':
+          description: Party not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+    put:
+      summary: Update a party
+      description: Updates an existing party's information.
+      operationId: relex_backend_update_party
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-update-party-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: partyId
+        in: path
+        required: true
+        type: string
+        description: ID of the party to update
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            partyType:
+              type: string
+              enum: [individual, company, government, other]
+              description: Type of party
+            nameDetails:
+              type: object
+              properties:
+                firstName: {type: string, description: First name for individuals}
+                lastName: {type: string, description: Last name for individuals}
+                middleName: {type: string, description: Middle name for individuals}
+                companyName: {type: string, description: Company or organization name for non-individuals}
+            identityCodes:
+              type: object
+              properties:
+                ssn: {type: string, description: Social Security Number (for US individuals)}
+                cnp: {type: string, description: Personal Numeric Code (for Romanian individuals)}
+                taxId: {type: string, description: Tax ID (for companies or organizations)}
+                registrationNumber: {type: string, description: Commercial registration number (for companies)}
+            contactInfo:
+              type: object
+              properties:
+                email: {type: string, description: Email address}
+                phone: {type: string, description: Phone number}
+                address:
+                  type: object
+                  properties:
+                    street: {type: string, description: Street address}
+                    city: {type: string, description: City}
+                    state: {type: string, description: State or province}
+                    postalCode: {type: string, description: Postal or ZIP code}
+                    country: {type: string, description: Country}
+      responses:
+        '200':
+          description: Party updated successfully
+          schema:
+            type: object
+            properties:
+              partyId: {type: string, description: ID of the updated party}
+              status:
+                type: string
+                enum: [success]
+                description: Status of the operation
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '404':
+          description: Party not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+    delete:
+      summary: Delete a party
+      description: Deletes a party. This operation may be restricted if the party is associated with cases.
+      operationId: relex_backend_delete_party
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-delete-party-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: partyId
+        in: path
+        required: true
+        type: string
+        description: ID of the party to delete
+      responses:
+        '204':
+          description: Party deleted successfully
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (e.g., party is associated with cases)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Party not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /cases/{caseId}/parties:
+    post:
+      summary: Attach a party to a case
+      description: Associates an existing party with a case.
+      operationId: relex_backend_attach_party
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-attach-party-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [userId]
+          properties:
+            userId: {type: string, description: ID of the user to assign the case to}
+            notes: {type: string, description: Optional notes about the assignment}
+      responses:
+        '200':
+          description: Case assigned successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              caseId: {type: string, description: ID of the assigned case}
+              userId: {type: string, description: ID of the user the case was assigned to}
+              assignedAt: {type: string, format: date-time, description: When the assignment was made}
+              notes: {type: string, description: Notes about the assignment}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (not an administrator of the organization)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Case or user not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /payments/intent:
+    post:
+      summary: Create a payment intent
+      description: Creates a Stripe payment intent for purchasing a specific case tier.
+      operationId: relex_backend_create_payment_intent
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-create-payment-intent-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [amount, currency, caseTier]
+          properties:
+            amount: {type: integer, description: Payment amount in smallest currency unit}
+            currency: {type: string, description: Three-letter currency code}
+            caseTier: {type: integer, description: Case tier level}
+            organizationId: {type: string, description: Organization ID for organization cases}
+            metadata:
+              type: object
+              description: Additional metadata to store with the payment intent
+      responses:
+        '200':
+          description: Payment intent created successfully
+          schema:
+            type: object
+            properties:
+              clientSecret: {type: string, description: Client secret for the payment intent (for use with Stripe.js)}
+              paymentIntentId: {type: string, description: ID of the created payment intent}
+              amount: {type: integer, description: Payment amount in smallest currency unit}
+              currency: {type: string, description: Currency code}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden
+          schema: {$ref: '#/definitions/Forbidden'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /payments/checkout:
+    post:
+      summary: Create a checkout session
+      description: Creates a Stripe checkout session for subscription plans.
+      operationId: relex_backend_create_checkout_session
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-create-checkout-session-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [priceId]
+          properties:
+            priceId: {type: string, description: Stripe price ID for the subscription plan}
+            organizationId: {type: string, description: Organization ID if subscribing on behalf of an organization}
+            successUrl: {type: string, description: URL to redirect to after successful payment}
+            cancelUrl: {type: string, description: URL to redirect to if user cancels}
+      responses:
+        '200':
+          description: Checkout session created successfully
+          schema:
+            type: object
+            properties:
+              sessionId: {type: string, description: ID of the created checkout session}
+              url: {type: string, description: URL to redirect the user to complete checkout}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden
+          schema: {$ref: '#/definitions/Forbidden'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /webhooks/stripe:
+    post:
+      summary: Handle Stripe webhook events
+      description: Processes webhook events from Stripe for payment and subscription management.
+      operationId: relex_backend_handle_stripe_webhook
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-handle-stripe-webhook-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 60.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          description: Stripe webhook event payload
+      - name: Stripe-Signature
+        in: header
+        required: true
+        type: string
+        description: Stripe signature for validating the webhook event
+      responses:
+        '200':
+          description: Webhook processed successfully
+          schema:
+            type: object
+            properties:
+              received:
+                type: boolean
+                description: Indicates the event was received
+              event:
+                type: string
+                description: Type of event processed
+        '400':
+          description: Bad request (invalid webhook payload)
+          schema: {$ref: '#/definitions/BadRequest'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /subscriptions/{subscriptionId}/cancel:
+    post:
+      summary: Cancel a subscription
+      description: Cancels an active subscription. The subscription will remain active until the end of the current billing period.
+      operationId: relex_backend_cancel_subscription
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-cancel-subscription-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: subscriptionId
+        in: path
+        required: true
+        type: string
+        description: ID of the subscription to cancel
+      responses:
+        '200':
+          description: Subscription canceled successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              subscriptionId: {type: string, description: ID of the canceled subscription}
+              status: {type: string, description: New status of the subscription (usually "canceled")}
+              cancelAt: {type: string, format: date-time, description: When the subscription will be effectively canceled}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (not authorized to cancel this subscription)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Subscription not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /vouchers/redeem:
+    post:
+      summary: Redeem a voucher code
+      description: Redeems a voucher code to add case credits or activate a subscription.
+      operationId: relex_backend_redeem_voucher
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-redeem-voucher-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [code]
+          properties:
+            code: {type: string, description: Voucher code to redeem}
+            organizationId: {type: string, description: Organization ID if redeeming for an organization}
+      responses:
+        '200':
+          description: Voucher redeemed successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                description: Indicates successful operation
+              voucherId:
+                type: string
+                description: ID of the redeemed voucher
+              type:
+                type: string
+                description: Type of voucher, such as subscription or case credits
+              value:
+                type: integer
+                description: Value provided by the voucher
+              expiresAt:
+                type: string
+                format: date-time
+                description: When the benefits expire, if applicable
+        '400':
+          description: Bad request (invalid or expired voucher)
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '404':
+          description: Voucher not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '409':
+          description: Conflict (voucher already redeemed)
+          schema:
+            type: object
+            properties:
+              error: {type: string, description: Error code}
+              message: {type: string, description: Error message details}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /products:
+    get:
+      summary: List available products and pricing
+      description: Retrieves the list of available products, subscription plans, and pricing information.
+      operationId: relex_backend_get_products
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-get-products-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      responses:
+        '200':
+          description: List of products and pricing
+          schema:
+            type: object
+            properties:
+              casePricing:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    tier:
+                      type: integer
+                      description: Case tier level
+                    amount:
+                      type: integer
+                      description: Price amount in smallest currency unit
+                    currency:
+                      type: string
+                      description: Currency code
+                    description:
+                      type: string
+                      description: Description of this tier level
+                description: Pricing for individual case purchases
+              subscriptionPlans:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Plan identifier
+                    name:
+                      type: string
+                      description: Plan name
+                    description:
+                      type: string
+                      description: Plan description
+                    priceId:
+                      type: string
+                      description: Stripe price ID
+                    amount:
+                      type: integer
+                      description: Price amount in smallest currency unit
+                    currency:
+                      type: string
+                      description: Currency code
+                    interval:
+                      type: string
+                      description: Billing interval (month or year)
+                    caseQuota:
+                      type: integer
+                      description: Number of cases included per billing interval
+                    features:
+                      type: array
+                      items:
+                        type: string
+                      description: List of features included in this plan
+                description: Available subscription plans
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Unauthorized'
+        '500':
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/InternalServerError'
+  /auth/validate-user:
+    get:
+      summary: Validate user authentication
+      description: Validates a user's authentication token and creates a user record if it doesn't exist.
+      operationId: relex_backend_validate_user
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-validate-user-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        type: string
+        description: Firebase Authentication token (Bearer format)
+      responses:
+        '200':
+          description: User validation successful
+          schema:
+            type: object
+            properties:
+              userId:
+                type: string
+                description: Unique identifier for the user
+              email:
+                type: string
+                description: User's email address
+              displayName:
+                type: string
+                description: User's display name
+              isNewUser:
+                type: boolean
+                description: Indicates if this is a new user record
+              validationTimestamp:
+                type: string
+                format: date-time
+                description: When the validation was performed
+        '401':
+          description: Unauthorized (invalid token)
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /auth/check-permissions:
+    post:
+      summary: Check user permissions
+      description: Checks if a user has specific permissions for a resource.
+      operationId: relex_backend_check_permissions
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-check-permissions-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        type: string
+        description: Firebase Authentication token (Bearer format)
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [resourceType, resourceId, permission]
+          properties:
+            resourceType:
+              type: string
+              enum: [case, organization, party, document]
+              description: Type of resource
+            resourceId:
+              type: string
+              description: ID of the resource
+            permission:
+              type: string
+              enum: [read, write, delete, admin]
+              description: Permission to check
+      responses:
+        '200':
+          description: Permission check result
+          schema:
+            type: object
+            properties:
+              userId:
+                type: string
+                description: ID of the user
+              resourceType:
+                type: string
+                description: Type of resource
+              resourceId:
+                type: string
+                description: ID of the resource
+              permission:
+                type: string
+                description: Permission that was checked
+              hasPermission:
+                type: boolean
+                description: Whether the user has the permission
+              reason:
+                type: string
+                description: Reason for the permission decision
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized (invalid token)
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+  /auth/user-role:
+    get:
+      summary: Get user role for organization
+      description: Gets a user's role in a specific organization.
+      operationId: relex_backend_get_user_role
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-get-user-role-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: query
+        required: true
+        type: string
+        description: ID of the organization
+      - name: userId
+        in: query
+        required: false
+        type: string
+        description: Optional user ID (if not provided, uses the authenticated user)
+      responses:
+        '200':
+          description: User role information
+          schema:
+            type: object
+            properties:
+              userId: {type: string, description: ID of the user}
+              organizationId: {type: string, description: ID of the organization}
+              role:
+                type: string
+                description: User's role in the organization, such as administrator, staff, or null if not a member
+              isMember: {type: boolean, description: Whether the user is a member of the organization}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /cases/{caseId}:
+    get:
+      summary: Get case details
+      description: Retrieves detailed information about a specific case.
+      operationId: relex_backend_get_case
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-get-case-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case to retrieve
+      responses:
+        '200':
+          description: Case details retrieved successfully
+          schema:
+            $ref: '#/definitions/Case'
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (e.g., user doesn't have access to the case)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Case not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    delete:
+      summary: Mark a case as deleted
+      description: Changes a case status to "deleted". Deleted cases are only shown when specifically requested.
+      operationId: relex_backend_delete_case
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-delete-case-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case to mark as deleted
+      responses:
+        '200':
+          description: Case marked as deleted successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              caseId: {type: string, description: ID of the deleted case}
+              status: {type: string, description: New status ("deleted")}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (e.g., user doesn't have access to the case)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Case not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /cases/{caseId}/archive:
+    put:
+      summary: Archive a case
+      description: Changes a case status to "archived". Archived cases are not shown in the default case listing.
+      operationId: relex_backend_archive_case
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-archive-case-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case to archive
+      responses:
+        '200':
+          description: Case archived successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              caseId: {type: string, description: ID of the archived case}
+              status: {type: string, description: New status ("archived")}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (e.g., user doesn't have access to the case)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Case not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /cases/{caseId}/assign:
+    post:
+      summary: Assign a case to a user
+      description: Assigns an organization case to a specific user. Only available for organization administrators.
+      operationId: relex_backend_assign_case
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-assign-case-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: caseId
+        in: path
+        required: true
+        type: string
+        description: ID of the case to assign
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [userId]
+          properties:
+            userId: {type: string, description: ID of the user to assign the case to}
+            notes: {type: string, description: Optional notes about the assignment}
+      responses:
+        '200':
+          description: Case assigned successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              caseId: {type: string, description: ID of the assigned case}
+              userId: {type: string, description: ID of the user the case was assigned to}
+              assignedAt: {type: string, format: date-time, description: When the assignment was made}
+              notes: {type: string, description: Notes about the assignment}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (not an administrator of the organization)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Case or user not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+  /organizations/{organizationId}/members/{userId}:
+    put:
+      summary: Update member role
+      description: Updates a member's role in the organization. Only administrators can update roles.
+      operationId: relex_backend_set_organization_member_role_by_id
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-set-organization-member-role-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization
+      - name: userId
+        in: path
+        required: true
+        type: string
+        description: ID of the member to update
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [newRole]
+          properties:
+            newRole:
+              type: string
+              enum: [staff, administrator]
+              description: New role to assign
+      responses:
+        '200':
+          description: Role updated successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              membershipId: {type: string, description: ID of the membership record}
+              userId: {type: string, description: ID of the member}
+              organizationId: {type: string, description: ID of the organization}
+              role: {type: string, description: New role (staff or administrator)}
+              email: {type: string, description: Email of the member}
+              displayName: {type: string, description: Display name of the member}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (caller is not an administrator)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Member or organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    delete:
+      summary: Remove member
+      description: Removes a member from an organization. Only administrators can remove members.
+      operationId: relex_backend_remove_organization_member_by_id
+      security:
+      - firebase: []
+      x-google-backend:
+        address: 'https://relex-backend-remove-organization-member-dev-apmzkjwhqq-ew.a.run.app'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        type: string
+        description: ID of the organization
+      - name: userId
+        in: path
+        required: true
+        type: string
+        description: ID of the member to remove
+      responses:
+        '200':
+          description: Member removed successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              userId: {type: string, description: ID of the removed member}
+              organizationId: {type: string, description: ID of the organization}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (caller is not an administrator)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Member or organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+
+definitions:
+  Case:
+    type: object
+    properties:
+      caseId: {type: string, description: Unique identifier for the case}
+      title: {type: string, description: Title of the case}
+      description: {type: string, description: Description of the case}
+      status:
+        type: string
+        enum: [open, archived, deleted]
+        description: Current status of the case
+      caseTier: {type: integer, description: 'Case tier level (1=€9.00, 2=€29.00, 3=€99.00)'}
+      caseTypeId: {type: string, description: The ID of the case type}
+      createdAt: {type: string, format: date-time, description: When the case was created}
+      updatedAt: {type: string, format: date-time, description: When the case was last updated}
+      createdBy: {type: string, description: ID of the user who created the case}
+      organizationId: {type: string, description: ID of the organization if this is an organization case}
+      assignedTo: {type: string, description: ID of the user the case is assigned to (for organization cases)}
+      parties:
+        type: array
+        items:
+          type: object
+          properties:
+            partyId: {type: string, description: ID of the associated party}
+            role: {type: string, description: Role of this party in the case}
+            addedAt: {type: string, format: date-time, description: When the party was added to the case}
+            notes: {type: string, description: Notes about this party's involvement}
+      labels:
+        type: array
+        items:
+          type: object
+          properties:
+            labelId: {type: string, description: ID of the label}
+            name: {type: string, description: Name of the label}
+            color: {type: string, description: Color code for the label}
+      files:
+        type: array
+        items:
+          type: object
+          properties:
+            fileId: {type: string, description: ID of the file}
+            filename: {type: string, description: Name of the file}
+            contentType: {type: string, description: MIME type of the file}
+            size: {type: integer, description: Size of the file in bytes}
+            uploadedAt: {type: string, format: date-time, description: When the file was uploaded}
+            downloadUrl: {type: string, description: URL to download the file}
+      agentProgress:
+        type: object
+        properties:
+          isActive: {type: boolean, description: Whether the agent is currently active on this case}
+          lastInteraction: {type: string, format: date-time, description: Time of the last agent interaction}
+          completedSteps:
+            type: array
+            items: {type: string}
+            description: List of completed agent workflow steps
+          recommendations:
+            type: array
+            items: {type: string}
+            description: Latest recommendations from the agent
+
+  Party:
+    type: object
+    properties:
+      partyId: {type: string, description: Unique identifier for the party}
+      partyType:
+        type: string
+        enum: [individual, company, government, other]
+        description: Type of party
+      nameDetails:
+        type: object
+        properties:
+          firstName: {type: string, description: First name for individuals}
+          lastName: {type: string, description: Last name for individuals}
+          middleName: {type: string, description: Middle name for individuals}
+          companyName: {type: string, description: Company or organization name for non-individuals}
+      identityCodes:
+        type: object
+        properties:
+          ssn: {type: string, description: Social Security Number (for US individuals)}
+          cnp: {type: string, description: Personal Numeric Code (for Romanian individuals)}
+          taxId: {type: string, description: Tax ID (for companies or organizations)}
+          registrationNumber: {type: string, description: Commercial registration number (for companies)}
+      contactInfo:
+        type: object
+        properties:
+          email: {type: string, description: Email address}
+          phone: {type: string, description: Phone number}
+          address:
+            type: object
+            properties:
+              street: {type: string, description: Street address}
+              city: {type: string, description: City}
+              state: {type: string, description: State or province}
+              postalCode: {type: string, description: Postal or ZIP code}
+              country: {type: string, description: Country}
+        description: Postal address
+      createdAt: {type: string, format: date-time, description: When the party was created}
+      updatedAt: {type: string, format: date-time, description: When the party was last updated}
+      createdBy: {type: string, description: ID of the user who created the party}
+
+  Organization:
+    type: object
+    properties:
+      organizationId:
+        type: string
+        description: Unique identifier for the organization
+      name:
+        type: string
+        description: Name of the organization
+      type:
+        type: string
+        description: Type of the organization, for example law_firm
+      description:
+        type: string
+        description: Description of the organization
+      address:
+        type: string
+        description: Address of the organization
+      phone:
+        type: string
+        description: Phone number of the organization
+      email:
+        type: string
+        description: Email of the organization
+      createdAt:
+        type: string
+        format: date-time
+        description: When the organization was created
+      updatedAt:
+        type: string
+        format: date-time
+        description: When the organization was last updated
+      createdBy:
+        type: string
+        description: ID of the user who created the organization
+      memberCount:
+        type: integer
+        description: Number of members in the organization
+      subscription:
+        type: object
+        properties:
+          status:
+            type: string
+            description: Subscription status
+          plan:
+            type: string
+            description: Current subscription plan
+          currentPeriodEnd:
+            type: string
+            format: date-time
+            description: End of the current billing period
+          caseQuota:
+            type: integer
+            description: Number of cases allowed under current plan
+          casesUsed:
+            type: integer
+            description: Number of cases created under current plan
+
+  UserProfile:
+    type: object
+    properties:
+      userId:
+        type: string
+        description: Unique identifier for the user
+      email:
+        type: string
+        description: User's email address
+      displayName:
+        type: string
+        description: User's display name
+      photoURL:
+        type: string
+        description: URL to the user's profile photo
+      languagePreference:
+        type: string
+        description: User's preferred language, such as en or ro
+      createdAt:
+        type: string
+        format: date-time
+        description: When the user profile was first created
+      lastLoginAt:
+        type: string
+        format: date-time
+        description: Time of the user's last login
+
+  OrganizationSummary:
+    type: object
+    properties:
+      organizationId: {type: string, description: The unique identifier of the organization}
+      name: {type: string, description: Name of the organization}
+      description: {type: string, description: Description of the organization}
+      role: {type: string, description: User's role in the organization (administrator or staff)}
+      joinedAt: {type: string, format: date-time, description: ISO 8601 timestamp when the user joined}
+
+  BadRequest:
+    type: object
+    properties:
+      error:
+        type: string
+        description: Error code for Bad Request
+      message:
+        type: string
+        description: Detailed error message
+      details:
+        type: array
+        items:
+          type: object
+          properties:
+            field:
+              type: string
+              description: Name of the field with the error
+            issue:
+              type: string
+              description: Description of the validation issue
+            location:
+              type: string
+              description: Where the error occurred, such as body, query, or path
+
+  Unauthorized:
+    type: object
+    properties:
+      error: {type: string, description: Error code (Unauthorized)}
+      message: {type: string, description: Detailed error message}
+
+  Forbidden:
+    type: object
+    properties:
+      error: {type: string, description: Error code (Forbidden)}
+      message: {type: string, description: Detailed error message}
+
+  NotFound:
+    type: object
+    properties:
+      error: {type: string, description: Error code (Not Found)}
+      message: {type: string, description: Detailed error message}
+      resource: {type: string, description: Type of resource that wasn't found}
+      resourceId: {type: string, description: ID of the resource that wasn't found}
+
+  InternalServerError:
+    type: object
+    properties:
+      error: {type: string, description: Error code (Internal Server Error)}
+      message: {type: string, description: Detailed error message}
+      requestId: {type: string, description: Request ID for troubleshooting}
+
+  PaymentRequired:
+    type: object
+    properties:
+      error: {type: string, description: Error code (Payment Required)}
+      message: {type: string, description: Detailed error message}
+      requiredPayment:
+        type: object
+        properties:
+          amount: {type: integer, description: Required payment amount in smallest currency unit}
+          currency: {type: string, description: Currency code}
+          reason: {type: string, description: Reason payment is required}
