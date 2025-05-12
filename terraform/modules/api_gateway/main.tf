@@ -18,6 +18,7 @@ locals {
     project_id    = var.project_id
     # api_domain    = var.api_domain
     # region        = var.region
+    environment  = var.environment
     function_uris = var.function_uris
   })
 

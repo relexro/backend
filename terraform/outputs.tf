@@ -29,11 +29,6 @@ output "api_gateway_url" {
   value       = module.api_gateway.gateway_hostname
 }
 
-output "api_domain" {
-  description = "Custom domain for the API"
-  value       = local.api_domain
-}
-
 output "firebase_web_app_name" {
   description = "The name of the Firebase Web App"
   value       = "Relex Web App"
