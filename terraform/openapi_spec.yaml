@@ -24,7 +24,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-agent-handler"]}/relex_backend_agent_handler'
+        address: '${function_uris["relex-backend-agent-handler"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 300.0
       parameters:
@@ -115,7 +115,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-get-user-profile"]}/relex_backend_get_user_profile'
+        address: '${function_uris["relex-backend-get-user-profile"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       responses:
@@ -139,7 +139,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-update-user-profile"]}/relex_backend_update_user_profile'
+        address: '${function_uris["relex-backend-update-user-profile"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -180,7 +180,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-list-user-organizations"]}/relex_backend_list_user_organizations'
+        address: '${function_uris["relex-backend-list-user-organizations"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       responses:
@@ -260,7 +260,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-create-organization"]}/relex_backend_create_organization'
+        address: '${function_uris["relex-backend-create-organization"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -309,7 +309,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-get-organization"]}/relex_backend_get_organization'
+        address: '${function_uris["relex-backend-get-organization"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -361,7 +361,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-update-organization"]}/relex_backend_update_organization'
+        address: '${function_uris["relex-backend-update-organization"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -417,7 +417,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-delete-organization"]}/relex_backend_delete_organization'
+        address: '${function_uris["relex-backend-delete-organization"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -454,7 +454,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-create-case"]}/relex_backend_create_case'
+        address: '${function_uris["relex-backend-create-case"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -502,7 +502,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-create-case"]}/relex_backend_create_case'
+        address: '${function_uris["relex-backend-create-case"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -558,7 +558,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-list-organization-cases"]}/relex_backend_list_organization_cases'
+        address: '${function_uris["relex-backend-list-organization-cases"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -616,7 +616,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-add-organization-member"]}/relex_backend_add_organization_member'
+        address: '${function_uris["relex-backend-add-organization-member"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -679,7 +679,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-list-organization-members"]}/relex_backend_list_organization_members'
+        address: '${function_uris["relex-backend-list-organization-members"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -724,7 +724,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-upload-file"]}/relex_backend_upload_file'
+        address: '${function_uris["relex-backend-upload-file"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 60.0
       consumes:
@@ -793,7 +793,7 @@ paths:
         - text/plain
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
       x-google-backend:
-        address: '${function_uris["relex-backend-download-file"]}/relex_backend_download_file'
+        address: '${function_uris["relex-backend-download-file"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 60.0
       parameters:
@@ -833,7 +833,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-create-party"]}/relex_backend_create_party'
+        address: '${function_uris["relex-backend-create-party"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -903,7 +903,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-list-parties"]}/relex_backend_list_parties'
+        address: '${function_uris["relex-backend-list-parties"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -949,7 +949,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-get-party"]}/relex_backend_get_party'
+        address: '${function_uris["relex-backend-get-party"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -980,7 +980,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-update-party"]}/relex_backend_update_party'
+        address: '${function_uris["relex-backend-update-party"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1057,7 +1057,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-delete-party"]}/relex_backend_delete_party'
+        address: '${function_uris["relex-backend-delete-party"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1093,7 +1093,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-attach-party"]}/relex_backend_attach_party'
+        address: '${function_uris["relex-backend-attach-party"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1145,7 +1145,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-create-payment-intent"]}/relex_backend_create_payment_intent'
+        address: '${function_uris["relex-backend-create-payment-intent"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1194,7 +1194,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-create-checkout-session"]}/relex_backend_create_checkout_session'
+        address: '${function_uris["relex-backend-create-checkout-session"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
@@ -1238,7 +1238,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-handle-stripe-webhook"]}/relex_backend_handle_stripe_webhook'
+        address: '${function_uris["relex-backend-handle-stripe-webhook"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 60.0
       parameters:
@@ -1280,7 +1280,7 @@ paths:
       security:
       - firebase: []
       x-google-backend:
-        address: '${function_uris["relex-backend-cancel-subscription"]}/relex_backend_cancel_subscription'
+        address: '${function_uris["relex-backend-cancel-subscription"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
