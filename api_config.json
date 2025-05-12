@@ -1,9 +1,0 @@
-{
-  "createTime": "2025-05-10T09:17:15.484478259Z",
-  "displayName": "Relex API Config",
-  "gatewayServiceAccount": "projects/-/serviceAccounts/relex-functions-dev@relexro.iam.gserviceaccount.com",
-  "name": "projects/49787884280/locations/global/apis/relex-api/configs/relex-api-config-345de340",
-  "serviceConfigId": "relex-api-config-345de340-2efpzuv6p761p",
-  "state": "ACTIVE",
-  "updateTime": "2025-05-10T09:18:54.977787376Z"
-}
