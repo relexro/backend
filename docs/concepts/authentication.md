@@ -10,14 +10,14 @@ Relex implements a comprehensive authentication and authorization system based o
 
 The system uses Firebase Authentication for user identity management:
 
-1. **Client-Side Authentication**: 
+1. **Client-Side Authentication**:
    - The frontend application integrates Firebase Auth SDK
    - Users can authenticate using various providers:
      - Email/Password
      - Google OAuth
      - (Future) Apple, Microsoft, etc.
 
-2. **Token Generation**: 
+2. **Token Generation**:
    - Upon successful authentication, Firebase issues a JWT token
    - The token contains user identity information (UID, email)
    - The token may include custom claims for authorization
@@ -26,7 +26,33 @@ The system uses Firebase Authentication for user identity management:
    - All protected API endpoints require a valid Firebase Auth token
    - The token is passed in the HTTP Authorization header
    - The API Gateway validates the token using Firebase's JWK endpoint
-   - If valid, the user's identity is extracted and passed to the backend functions
+   - The API Gateway then calls backend Cloud Run functions using a Google OIDC ID token it generates, acting as the `relex-functions-dev@relexro.iam.gserviceaccount.com` service account
+   - The backend `auth.py` script validates this Google OIDC ID token (verifying against the function's own URL as audience)
+   - The `userId` available within the backend function context after this authentication step is the subject ID of the `relex-functions-dev@...` service account, **not** the original end-user's Firebase UID
+
+### End-User Identity Propagation
+
+Currently, the original end-user's Firebase UID is not automatically propagated from the API Gateway to the backend functions. This has important implications:
+
+1. **Identity in Backend Functions**: The `userId` available in the backend function context corresponds to the `relex-functions-dev@...` service account, not the original end-user's Firebase UID.
+
+2. **User-Specific Operations**: If backend logic needs to be performed on behalf of the original end-user, their identity must be explicitly passed from the API Gateway to the backend function (e.g., as a custom header or in the request payload).
+
+3. **Future Enhancement**: A mechanism for automatically propagating the original end-user's identity from the API Gateway to the backend functions is planned but not currently implemented.
+
+### Testing Authentication
+
+For testing purposes, you can obtain a Firebase JWT token using the provided utility:
+
+1. Navigate to the `tests/` directory
+2. Start a local web server: `python3 -m http.server 8080`
+3. Open `http://localhost:8080/test-auth.html` in your browser
+4. Sign in with your Google account
+5. Click "Show/Hide Token" to reveal your JWT token
+6. Set the environment variable for testing:
+   ```bash
+   export RELEX_TEST_JWT="your_token_here"
+   ```
 
 ### Token Format
 
@@ -179,14 +205,14 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
     }
-    
+
     // Allow authenticated users to read/write their own cases
     match /cases/{caseId} {
-      allow read: if request.auth != null && 
-        (resource.data.owner.user_id == request.auth.uid || 
+      allow read: if request.auth != null &&
+        (resource.data.owner.user_id == request.auth.uid ||
          resource.data.owner.organization_id in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizations);
     }
-    
+
     // Restrict all other access to backend functions
     match /{document=**} {
       allow read, write: if false;
@@ -194,6 +220,23 @@ service cloud.firestore {
   }
 }
 ```
+
+## API Gateway Configuration
+
+### API Gateway URL
+
+The API is accessed via the default Google Cloud API Gateway URL, not the custom domain. To find this URL:
+
+1. Check the `docs/terraform_outputs.log` file after deployment
+2. Look for the `api_gateway_url` key (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)
+3. Use this URL as the base for all API requests
+
+Note: The custom domain `api-dev.relex.ro` is not currently the active endpoint for the API Gateway.
+
+### Known Issues
+
+- **API Gateway Logs**: API Gateway logs are currently not appearing in Cloud Logging. Investigation is ongoing.
+- **End-User Identity**: As mentioned above, the original end-user's Firebase UID is not automatically propagated to backend functions.
 
 ## Future Enhancements
 
@@ -205,4 +248,6 @@ service cloud.firestore {
 
 4. **Audit Logging**: Comprehensive logging of authentication and authorization events.
 
-5. **Multi-Factor Authentication**: Enhanced security for sensitive operations. 
+5. **Multi-Factor Authentication**: Enhanced security for sensitive operations.
+
+6. **End-User Identity Propagation**: Implement a mechanism to automatically propagate the original end-user's identity from the API Gateway to the backend functions.

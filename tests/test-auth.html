@@ -52,7 +52,7 @@
 </head>
 <body>
     <h1>Firebase Authentication Test</h1>
-    
+
     <div class="section">
         <h2>1. Authentication</h2>
         <div id="auth-section">
@@ -75,12 +75,13 @@
         <h2>2. Test API Endpoints</h2>
         <div id="api-section" class="hidden">
             <p>Test your authenticated API endpoints:</p>
-            
+            <p class="important">Important: Set the environment variable RELEX_TEST_JWT with the token shown above for testing.</p>
+
             <div>
-                <input type="text" id="api-url" placeholder="Enter API URL to test">
+                <input type="text" id="api-url" placeholder="relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/users/me">
                 <button id="test-api">Test API with Token</button>
             </div>
-            
+
             <h3>API Response:</h3>
             <pre id="api-response">No response yet</pre>
         </div>
@@ -89,7 +90,7 @@
     <!-- Add Firebase libraries -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    
+
     <script>
         // Replace with your Firebase config
         const firebaseConfig = {
@@ -100,7 +101,7 @@
             messagingSenderId: "764589667187",
             appId: "1:49787884280:web:80501323bdb2f5fbcb610d"
         };
-        
+
         // Initialize Firebase
         try {
             firebase.initializeApp(firebaseConfig);
@@ -109,7 +110,7 @@
             console.error("Firebase initialization error:", error);
             alert("Firebase initialization error: " + error.message);
         }
-        
+
         // Elements
         const authStatus = document.getElementById('auth-status');
         const notLoggedIn = document.getElementById('not-logged-in');
@@ -124,10 +125,10 @@
         const apiUrlInput = document.getElementById('api-url');
         const testApiBtn = document.getElementById('test-api');
         const apiResponse = document.getElementById('api-response');
-        
+
         // Current token
         let currentToken = null;
-        
+
         // Auth state listener
         firebase.auth().onAuthStateChanged(function(user) {
             if (user) {
@@ -135,13 +136,13 @@
                 authStatus.textContent = 'Authenticated';
                 userEmail.textContent = user.email;
                 userId.textContent = user.uid;
-                
+
                 // Get token
                 user.getIdToken().then(function(token) {
                     currentToken = token;
                     tokenDisplay.textContent = token;
                 });
-                
+
                 // Update UI
                 notLoggedIn.classList.add('hidden');
                 loggedIn.classList.remove('hidden');
@@ -152,7 +153,7 @@
                 notLoggedIn.classList.remove('hidden');
                 loggedIn.classList.add('hidden');
                 apiSection.classList.add('hidden');
-                
+
                 // Clear data
                 currentToken = null;
                 tokenDisplay.textContent = '';
@@ -160,7 +161,7 @@
                 userId.textContent = '';
             }
         });
-        
+
         // Show/hide token
         showTokenBtn.addEventListener('click', function() {
             if (tokenDisplay.classList.contains('hidden')) {
@@ -169,7 +170,7 @@
                 tokenDisplay.classList.add('hidden');
             }
         });
-        
+
         // Google sign-in
         googleSignInBtn.addEventListener('click', function() {
             console.log("Attempting Google sign-in");
@@ -180,12 +181,12 @@
             provider.setCustomParameters({
                 'prompt': 'select_account'
             });
-            
+
             // Try redirect auth instead of popup if popup fails
             firebase.auth().signInWithPopup(provider).catch(function(error) {
                 console.error('Sign in error with popup:', error);
                 alert('Sign in with popup failed: ' + error.message + '. Trying redirect method...');
-                
+
                 // Try redirect method as fallback
                 firebase.auth().signInWithRedirect(provider).catch(function(redirectError) {
                     console.error('Sign in error with redirect:', redirectError);
@@ -193,7 +194,7 @@
                 });
             });
         });
-        
+
         // Check for redirect result on page load
         firebase.auth().getRedirectResult().then(function(result) {
             if (result.credential) {
@@ -202,29 +203,29 @@
         }).catch(function(error) {
             console.error("Redirect auth error:", error);
         });
-        
+
         // Sign out
         signOutBtn.addEventListener('click', function() {
             firebase.auth().signOut().catch(function(error) {
                 console.error('Sign out error:', error);
             });
         });
-        
+
         // Test API
         testApiBtn.addEventListener('click', function() {
             if (!currentToken) {
                 apiResponse.textContent = 'Error: Not authenticated';
                 return;
             }
-            
+
             const apiUrl = apiUrlInput.value.trim();
             if (!apiUrl) {
                 apiResponse.textContent = 'Error: Please enter an API URL';
                 return;
             }
-            
+
             apiResponse.textContent = 'Loading...';
-            
+
             fetch(apiUrl, {
                 method: 'GET',
                 headers: {
@@ -259,4 +260,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

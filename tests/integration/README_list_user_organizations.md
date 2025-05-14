@@ -27,9 +27,18 @@ Before running the tests, ensure you have:
    pip install -r requirements-test.txt
    ```
 
-2. Update the auth token in `test_list_user_organizations.py`:
-   - Open the test file and replace the token in the `get_auth_token()` function with a fresh token
-   - You can obtain a fresh token by using the `test-auth.html` utility
+2. Update the auth token:
+   - Obtain a fresh token using the `test-auth.html` utility:
+     ```bash
+     cd tests
+     python3 -m http.server 8080
+     # Open http://localhost:8080/test-auth.html in your browser
+     # Sign in and copy the token
+     ```
+   - Set the environment variable:
+     ```bash
+     export RELEX_TEST_JWT="your_token_here"
+     ```
 
 ## Running the Test
 
@@ -53,7 +62,11 @@ A successful test will show "All tests passed successfully!" at the end.
 
 ### Authentication Token Expired
 
-If you see an "Unauthorized" response, your token might have expired. Get a new token from the `test-auth.html` utility and update the `get_auth_token()` function.
+If you see an "Unauthorized" response, your token might have expired. Get a new token from the `test-auth.html` utility and update the `RELEX_TEST_JWT` environment variable.
+
+### API Gateway URL
+
+Make sure you're using the correct API Gateway URL. This URL can be found in `docs/terraform_outputs.log` under the `api_gateway_url` key. The custom domain `api-dev.relex.ro` is not currently the active endpoint for the API Gateway.
 
 ### Missing Organizations
 
@@ -66,5 +79,6 @@ If the test fails to find the created organization, check:
 
 If the endpoint cannot be reached, verify:
 1. The function has been deployed correctly
-2. The URL in the test script is correct
-3. Your network connection can reach the Google Cloud Functions endpoint 
+2. You're using the correct API Gateway URL from `docs/terraform_outputs.log`
+3. Your network connection can reach the Google Cloud API Gateway endpoint
+4. The authentication token is valid and properly set in the `RELEX_TEST_JWT` environment variable

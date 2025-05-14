@@ -3,9 +3,11 @@
 > **Important Note**: This API documentation reflects the actual implementation in the codebase (`functions/src/*.py`), which serves as the primary source of truth. Developer Notes have been added to endpoints where discrepancies with the OpenAPI specification (`terraform/openapi_spec.yaml`) were identified. See the [Summary of API Documentation Updates and Identified Discrepancies](#summary-of-api-documentation-updates-and-identified-discrepancies) section at the end of this document for a comprehensive list of all identified inconsistencies.
 
 ## Base URL
-All endpoints are deployed to `https://api.relex.ro/v1`
+The API is accessed via the default Google Cloud API Gateway URL. This URL is generated upon deployment and can be found in `docs/terraform_outputs.log` under the `api_gateway_url` key (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`).
 
-> **Note:** The custom domain is configured as a direct CNAME to the API Gateway (unproxied), allowing for direct connections to Google Cloud without Cloudflare intermediation.
+All endpoints are deployed under the `/v1` path prefix.
+
+> **Important Note:** The custom domain `api-dev.relex.ro` is not currently the active endpoint for the API Gateway.
 
 ## Authentication
 All endpoints require Firebase Authentication. Include the ID token in the Authorization header:
@@ -36,6 +38,29 @@ await firebase.auth().signInWithPopup(provider);
 const user = firebase.auth().currentUser;
 const idToken = await user.getIdToken();
 ```
+
+### Testing Authentication
+For testing purposes, you can obtain a Firebase JWT token using the provided utility:
+
+1. Navigate to the `tests/` directory
+2. Start a local web server: `python3 -m http.server 8080`
+3. Open `http://localhost:8080/test-auth.html` in your browser
+4. Sign in with your Google account
+5. Click "Show/Hide Token" to reveal your JWT token
+6. Set the environment variable for testing:
+   ```bash
+   export RELEX_TEST_JWT="your_token_here"
+   ```
+
+### Authentication Flow
+When a client makes a request to the API:
+
+1. The client includes the Firebase JWT token in the Authorization header
+2. The API Gateway validates this token
+3. The API Gateway then calls the backend Cloud Run functions using a Google OIDC ID token it generates, acting as the `relex-functions-dev@relexro.iam.gserviceaccount.com` service account
+4. The backend validates this Google OIDC ID token
+
+Note: The `userId` available within the backend function context after authentication is the subject ID of the service account, not the original end-user's Firebase UID.
 
 ## API Gateway Structure
 

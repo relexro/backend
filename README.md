@@ -211,6 +211,43 @@ For more details, see the [Agent Implementation Documentation](docs/concepts/age
 
 The API is documented using OpenAPI specification in `terraform/openapi_spec.yaml`. For a comprehensive API reference, see the [API Documentation](docs/api.md).
 
+## Testing the API
+
+To test the API endpoints:
+
+1. **Find the API Gateway URL**:
+   - After deployment, the API Gateway URL is saved in `docs/terraform_outputs.log` under the `api_gateway_url` key
+   - This is the default Google-provided URL (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)
+   - Note: The custom domain `api-dev.relex.ro` is not currently the active endpoint for the API Gateway
+
+2. **Obtain a Firebase JWT token**:
+   - Navigate to the `tests/` directory
+   - Start a local web server: `python3 -m http.server 8080`
+   - Open `http://localhost:8080/test-auth.html` in your browser
+   - Sign in with your Google account
+   - Click "Show/Hide Token" to reveal your JWT token
+   - Copy the entire token
+
+3. **Set the authentication token environment variable**:
+   ```bash
+   # Linux/macOS
+   export RELEX_TEST_JWT="your_token_here"
+
+   # Windows (Command Prompt)
+   set RELEX_TEST_JWT=your_token_here
+
+   # Windows (PowerShell)
+   $env:RELEX_TEST_JWT="your_token_here"
+   ```
+
+4. **Make authenticated API requests**:
+   ```bash
+   # Example using curl
+   curl -H "Authorization: Bearer $RELEX_TEST_JWT" https://YOUR_API_GATEWAY_URL/v1/users/me
+   ```
+
+For more detailed testing instructions, see the [Tests README](tests/README.md).
+
 ## Additional Resources
 
 - [Data Models](docs/data_models.md): Detailed schema definitions for Firestore collections

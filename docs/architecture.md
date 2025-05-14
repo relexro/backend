@@ -37,6 +37,8 @@ Relex is a cloud-native legal assistant platform built on Google Cloud Platform 
    - Authentication and authorization checks
    - Rate limiting and quota management
    - Request routing to appropriate backend services
+   - Accessed via the default Google-provided URL (found in `docs/terraform_outputs.log`)
+   - Note: The custom domain `api-dev.relex.ro` is not currently the active endpoint
 
 3. **Cloud Functions (Serverless Backend)**
    - Written in Python for backend logic
@@ -90,8 +92,11 @@ Relex is a cloud-native legal assistant platform built on Google Cloud Platform 
 
 1. **Authentication Flow**
    - User authenticates via Firebase Authentication
-   - JWT token is generated and passed to API Gateway
-   - API Gateway validates the token and forwards to backend functions
+   - Firebase JWT token is generated and passed to API Gateway
+   - API Gateway validates the Firebase JWT token
+   - API Gateway then calls backend Cloud Run functions using a Google OIDC ID token it generates, acting as the `relex-functions-dev@relexro.iam.gserviceaccount.com` service account
+   - Backend functions validate this Google OIDC ID token
+   - Note: The `userId` available within the backend function context is the subject ID of the service account, not the original end-user's Firebase UID
    - Backend functions perform additional authorization checks
 
 2. **Case Processing Flow**

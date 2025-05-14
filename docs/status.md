@@ -137,21 +137,31 @@ This document tracks the implementation status of the Relex backend components.
 
 ## Known Issues
 
-1. **Performance**
+1. **API Gateway**
+   - API Gateway logs are currently not appearing in Cloud Logging
+   - The API is accessed via the default Google-provided URL (found in `docs/terraform_outputs.log`), not the custom domain `api-dev.relex.ro`
+   - The original end-user's Firebase UID is not automatically propagated to backend functions
+
+2. **Authentication**
+   - The `userId` available within the backend function context is the subject ID of the service account, not the original end-user's Firebase UID
+   - Backend functions receive the service account identity (`relex-functions-dev@relexro.iam.gserviceaccount.com`)
+   - For testing, use the `RELEX_TEST_JWT` environment variable (not `API_AUTH_TOKEN`)
+
+3. **Performance**
    - LLM response times can be variable
    - Large file uploads need optimization
    - Some database queries need indexing
 
-2. **Security**
+4. **Security**
    - Need to implement rate limiting
    - Additional input validation required for edge cases
    - Security headers to be configured
 
-3. **Configuration**
+5. **Configuration**
    - Environment variables for LLM API keys must be properly set during deployment
    - Firestore collection structure and naming is now consistent
 
-4. **Reliability**
+6. **Reliability**
    - Agent error handling needs more robust recovery mechanisms
    - Retry logic for external services needed
    - Better logging and monitoring needed
@@ -159,13 +169,15 @@ This document tracks the implementation status of the Relex backend components.
 ## Next Steps
 
 ### High Priority
-1. Implement voucher system for promotions
-2. Add file versioning
-3. Improve error handling and recovery for agent
-4. Set up comprehensive monitoring
-5. Implement rate limiting
-6. Add security headers
-7. Optimize permission checks with Firebase Custom Claims
+1. Implement end-user identity propagation from API Gateway to backend functions
+2. Fix API Gateway logging issues
+3. Implement voucher system for promotions
+4. Add file versioning
+5. Improve error handling and recovery for agent
+6. Set up comprehensive monitoring
+7. Implement rate limiting
+8. Add security headers
+9. Optimize permission checks with Firebase Custom Claims
 
 ### Medium Priority
 1. Implement advanced search

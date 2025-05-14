@@ -5,6 +5,8 @@ from firebase_admin import auth as firebase_auth_admin
 from firebase_admin import firestore
 import flask
 from pydantic import BaseModel, ValidationError, validator, Field
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_auth_requests  # Alias to avoid confusion with http 'requests'
 
 # Changed field_validator to validator
 from typing import Dict, Set, Tuple, Any, Literal, Optional
@@ -140,24 +142,34 @@ def get_authenticated_user(request):
         if not token:
             return None, 401, "Empty token"
         try:
-            decoded_token = firebase_auth_admin.verify_id_token(token)
-            user_id = decoded_token.get('uid')
-            email = decoded_token.get('email', '')
-            logging.info(f"Successfully validated token for user: {user_id}")
-            return {"userId": user_id, "email": email}, 200, None
-        except firebase_auth_admin.InvalidIdTokenError as e:
-            logging.error(f"Invalid token error: {str(e)}")
-            return None, 401, f"Invalid token: {str(e)}"
-        except firebase_auth_admin.ExpiredIdTokenError:
-            return None, 401, "Token expired"
-        except firebase_auth_admin.RevokedIdTokenError:
-            return None, 401, "Token revoked"
-        except firebase_auth_admin.CertificateFetchError:
-            return None, 401, "Certificate fetch error"
+            # Verify the token as a Google OIDC ID token.
+            # By not specifying an 'audience' parameter to verify_oauth2_token,
+            # the library performs default validation suitable for tokens issued for Cloud Run,
+            # where one of the audiences in the token should match the service's URL.
+            id_info = id_token.verify_oauth2_token(token, google_auth_requests.Request())
+
+            user_id = id_info.get('sub')  # 'sub' is the standard claim for subject/user ID in OIDC
+            email = id_info.get('email', '')
+
+            if not user_id:
+                logging.error("Token valid but 'sub' (user ID) claim missing.")
+                return None, 401, "Invalid token: User ID missing."
+
+            logging.info(f"Successfully validated Google OIDC token for user/SA subject: {user_id}, email: {email}")
+            # Note: The 'user_id' here will be the subject of the service account
+            # (relex-functions-dev@...) if the token is from the Gateway.
+            # If you need the *original end-user's* ID from the Firebase JWT,
+            # API Gateway needs to be configured to pass that information explicitly,
+            # e.g., in a custom header, after validating the Firebase JWT.
+            # For now, this authenticates the CALLER (API Gateway via its SA).
+            return {"userId": user_id, "email": email, "token_type": "google_oidc"}, 200, None
+
         except ValueError as e:
-            # Handle potential errors during token decoding not caught by specific exceptions
-            logging.error(f"Token verification value error: {str(e)}")
-            return None, 401, f"Token verification error: {str(e)}"
+            logging.error(f"Google OIDC ID Token verification failed: {str(e)}")
+            return None, 401, f"Invalid token: {str(e)}"
+        except Exception as e:  # Catch any other unexpected errors during validation
+            logging.error(f"Unexpected error during token verification: {str(e)}", exc_info=True)
+            return None, 500, f"Token verification error: {str(e)}"
     except Exception as e:
         logging.error(f"Error validating user: {str(e)}", exc_info=True)
         return None, 500, f"Failed to validate token: {str(e)}"

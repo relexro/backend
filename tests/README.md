@@ -48,22 +48,24 @@ pip install -r functions/requirements.txt
 Integration tests that interact with the deployed API require a Firebase JWT token for authentication. Follow these steps to obtain and use a token:
 
 1. **Obtain a Firebase JWT token**:
-   - Open `tests/test-auth.html` in a web browser
+   - Navigate to the `tests/` directory
+   - Start a local web server: `python3 -m http.server 8080`
+   - Open `http://localhost:8080/test-auth.html` in your browser
    - Click "Sign in with Google" and authenticate with your Google account
    - After successful authentication, click "Show/Hide Token" to reveal your JWT token
    - Copy the entire token
 
 2. **Make the token available to tests** (choose one method):
-   - **Method 1**: Set the `API_AUTH_TOKEN` environment variable:
+   - **Method 1**: Set the `RELEX_TEST_JWT` environment variable:
      ```bash
      # Linux/macOS
-     export API_AUTH_TOKEN="your_token_here"
+     export RELEX_TEST_JWT="your_token_here"
 
      # Windows (Command Prompt)
-     set API_AUTH_TOKEN=your_token_here
+     set RELEX_TEST_JWT=your_token_here
 
      # Windows (PowerShell)
-     $env:API_AUTH_TOKEN="your_token_here"
+     $env:RELEX_TEST_JWT="your_token_here"
      ```
 
    - **Method 2**: Create a file named `tests/temp_api_token.txt` and paste the token into it:
@@ -99,7 +101,8 @@ def test_something():
 
 # Test function with fixture
 def test_with_fixture(api_base_url):
-    assert api_base_url == "https://api-dev.relex.ro"
+    # The API Gateway URL is found in docs/terraform_outputs.log
+    assert api_base_url.startswith("https://relex-api-gateway-dev")
 ```
 
 ## API Specification Reference
@@ -110,6 +113,25 @@ When writing integration tests, refer to the following resources for API endpoin
 - `terraform/openapi_spec.yaml`: Authoritative OpenAPI v3 specification
 
 These documents define the available endpoints, methods, request/response bodies, and authentication requirements.
+
+### API Gateway URL
+
+The API is accessed via the default Google Cloud API Gateway URL, not the custom domain. To find this URL:
+
+1. Check the `docs/terraform_outputs.log` file after deployment
+2. Look for the `api_gateway_url` key (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)
+3. Use this URL as the base for all API requests in tests
+
+Example:
+```python
+# In conftest.py or similar
+@pytest.fixture
+def api_base_url():
+    # Read from terraform_outputs.log or use environment variable
+    return "https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev"
+```
+
+Note: The custom domain `api-dev.relex.ro` is not currently the active endpoint for the API Gateway.
 
 ## Test Data Management
 
