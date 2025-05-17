@@ -78,82 +78,63 @@ This document outlines the operational procedures, roles, responsibilities, and 
 * **No Deployment Commands:** Do not instruct the Executor to run `terraform/deploy.sh` or any other deployment scripts. The Operator handles all deployments. The Planner may *prepare* changes that the Operator will then deploy.
 * **Focus:** Each prompt should address a well-defined, manageable step.
 
-## 3.1. Crafting Effective Executor Prompts
+### 3.A Ensuring Executor Prompts are Self-Contained and Context-Rich
 
-### Communication Protocol with User
+**Core Principle:** The AI Executor is entirely stateless between prompts. It has no memory of prior interactions, Operator actions, or outputs from previous prompts unless that information is explicitly provided *within the current prompt*. Each prompt must be a complete package, providing all necessary information for the Executor to perform its task accurately and without needing to make assumptions or ask for clarification on the immediate task's context.
 
-* **Results-Oriented Communication:** Prioritize delivering results over extensive explanations to the user. Focus on technical outcomes and actionable insights.
-* **Eliminate Apologies:** Do not include apologies in communications to the user. Instead, focus resources on effective planning and execution.
-* **Concise Technical Context:** State facts and necessary technical context concisely. Provide only the information needed for the user to understand the current state and next steps.
+**Mandatory Elements for Each Prompt:**
 
-## Advanced Planner Personas for Enhanced Contextual Understanding
+1.  **Clear, Singular Objective:**
+    * State precisely what the prompt aims to achieve (e.g., "Identify root cause of X," "Implement function Y," "Gather diagnostic data for Z").
+    * Avoid multiple unrelated objectives in a single prompt.
 
-* **Principle:** Planner MUST operate under psychologically-grounded personas (e.g., inspired by PB&J framework, utilizing Big 5 personality traits, Schwartz's Basic Human Values, Primal World Beliefs) to achieve deeper contextual understanding and generate more relevant, empathetic, and effective plans.
-* **Implementation:**
-  * Personas should be defined with detailed attributes: role (e.g., "Security-Focused Architect," "Innovative Principal Engineer"), relevant background/experience, core motivations, problem-solving strategies, and attitudes (e.g., "believes world is dangerous," "high conscientiousness").
-  * Planner prompts for persona activation should enable the LLM to generate rationales for its decisions based on these psychological scaffolds.
-  * Example: A "High Conscientiousness" persona will prioritize detailed planning, thorough risk assessment, and quality checks. A "World is Dangerous" persona will emphasize robust security and contingency planning.
+2.  **Comprehensive Context Setting (`Context:` Block):**
+    * **Current State of Investigation/Knowledge:** If the prompt is part of a sequence, explicitly summarize relevant findings, conclusions, or data from *previous Executor outputs* or *Operator-provided information* that directly inform the current task. Do not assume the Executor "remembers" these. Example: "Based on the API Gateway logs from Prompt_XYZ (which showed error code 503), and the Cloud Function logs (which showed a timeout), we will now examine..."
+    * **Problem Definition:** Clearly describe the problem, error, or task. Include specific error messages, symptoms, or requirements. If debugging a specific failure, state how this failure was observed (e.g., "Operator reports that a `curl` command to `/v1/users/me` with JWT `[TEST_JWT_SNIPPET_IF_KNOWN]` at `[APPROX_TIMESTAMP_IF_KNOWN]` resulted in a 403 error: `{'error':'detail'}`"). If the goal is a general check (e.g., "check for any 403 errors"), state this clearly.
+    * **Relevant System Information:** List all necessary system details:
+        * Specific file paths involved (relative to project root, e.g., `functions/src/auth.py`).
+        * Function names, class names, API endpoints, URLs.
+        * Relevant configuration parameters or values (e.g., Project ID, specific service names).
+        * Known versions of key software/libraries if pertinent.
+        * The exact names of other relevant documents or sections within documents that the Executor might need to be aware of (though avoid making it *read* them if the information can be summarized).
+    * **Assumptions Made by the Planner:** Explicitly list any assumptions the Planner is making when crafting the prompt (e.g., "Assuming the API Gateway configuration has not changed since X," "Assuming the `X-Endpoint-API-Userinfo` header is the sole source of user identity for this function").
+    * **Prerequisites:** State any conditions that must be true for the prompt to be executed correctly (e.g., "Operator must have set `RELEX_TEST_JWT` environment variable," "The `relex-backend-get-user-profile` function must be deployed").
 
-## Strategic Foresight, Prediction, and Scenario Planning
+3.  **Unambiguous Instructions (`Instructions for Executor:` Block):**
+    * **Sequential Steps:** Break down tasks into clear, numbered, sequential steps.
+    * **Exact Commands:** Provide full, exact CLI commands. Ensure correct syntax, flags, quoting, and escaping.
+    * **File Modifications:**
+        * Specify the exact file path.
+        * Provide the **complete new content** for any section of code being replaced.
+        * For insertions, specify the exact line number *and the content of that line* as a reference point (e.g., "In `functions/src/main.py`, after line 42 which reads `logger.info('Starting request')`, insert the following block:...").
+    * **Expected Outputs & Reporting:**
+        * Clearly state what output the Executor should provide for each step (e.g., "Provide the complete, unaltered JSON output of this command," "Report the full content of the modified file `xyz.py`").
+        * If no output is expected for a step (e.g., a successful file write), instruct the Executor to confirm completion (e.g., "Confirm that the file was written successfully").
+    * **Error Handling by Executor (within prompt scope):** If applicable, provide simple conditional logic for the Executor if a command might have common, predictable failures (e.g., "If the `gcloud` command returns 'permission denied', report this error and stop. Otherwise, proceed to the next step."). This is for immediate, simple error branches, not complex debugging logic.
 
-* **Principle:** Planner MUST proactively analyze potential future states, anticipate challenges/opportunities, and build resilience through scenario planning.
-* **Techniques:**
-  * Conduct "what-if" scenario analysis for potential disruptions (e.g., API failures, resource constraints, security vulnerabilities) and opportunities (e.g., early availability of new technology).
-  * Generate comprehensive User Acceptance Testing (UAT) scenarios, including common use cases, edge cases, and error conditions.
-  * Outline Non-Functional Requirements (NFRs) and associated test considerations to explore future operational states.
-  * Act as an "Ideation Agent" to explore how project requirements might evolve under different future conditions.
+4.  **Standard Guardrail Adherence Statement:**
+    * Always begin the prompt with: "Standard Guardrail Adherence: Enforce all guardrails from `docs/guardrail.md`." This reinforces the baseline operational constraints.
 
-## Advanced Task Decomposition and Hierarchical Planning
+**Example of Referencing Previous Executor Output (Conceptual):**
+```markdown
+Standard Guardrail Adherence: Enforce all guardrails from `docs/guardrail.md`.
 
-* **Principle:** Planner MUST master and select task-appropriate advanced decomposition techniques to break down goals into manageable, verifiable, and logically sequenced sub-tasks. Prioritize methods that enhance verifiability and transparency.
-* **Key Techniques & Application Guidelines:**
-  * **Chain-of-Thought (CoT) & Self-Consistency:** For generating and robustifying step-by-step reasoning.
-  * **Tree of Thoughts (ToT):** For exploring and evaluating multiple distinct reasoning paths or solution options concurrently (e.g., architectural decisions).
-  * **Skeleton-of-Thought (SoT):** For efficiently generating structured outlines first, then expanding (e.g., documentation, feature summaries).
-  * **Program-of-Thoughts (PoT):** For tasks requiring verifiable calculations or executable logic; express reasoning as code (e.g., Python) to be run by an interpreter.
-  * **Prompt Chaining:** For complex, sequential tasks where the output of one step feeds into the next.
-  * **Plan-and-Solve (PS) / Plan-then-Execute:** For explicitly generating a detailed plan for human review and approval *before* initiating execution by the Executor. Crucial for complex or high-impact tasks.
+Task: Analyze Firestore read patterns for user profiles.
 
-## Proactive Assumption and Risk Management
+Context:
+- **Current State of Investigation:** Prompt_001 (Log Analysis) revealed that Cloud Function `relex-backend-get-user-profile` is frequently invoked but sometimes returns 403 errors. Prompt_002 (Code Review `auth.py`) confirmed that the `X-Endpoint-API-Userinfo` header is correctly parsed and user UID is extracted.
+- **Problem Definition:** We suspect that even with a valid UID, the subsequent Firestore lookup in `logic_get_user_profile` (`functions/src/user.py`) might be failing or encountering unexpected conditions.
+- **Relevant System Information:**
+    - Function: `logic_get_user_profile` in `functions/src/user.py`.
+    - Firestore Collection: `users`.
+- **Assumption:** The `user_id` passed to `logic_get_user_profile` is the Firebase UID.
 
-* **Principle:** Planner MUST proactively identify and manage assumptions and risks as integral components of all planning outputs.
-* **Process:**
-  * Explicitly list all key assumptions (re: technology, dependencies, skills, data availability) *before or alongside* risk identification.
-  * Link assumptions to potential risks (i.e., impact if assumption is false).
-  * Conduct systematic risk assessment, covering technical, operational, and security categories. For security, consider common vulnerabilities (e.g., OWASP Top 10, CWEs).
-  * Prompt for specific, actionable mitigation strategies for all high-impact risks.
-  * Ensure comprehensive contextual information (system architecture, constraints, compliance) is provided to the LLM when tasking it with risk assessment.
-
-### Prompt Engineering Best Practices
-
-* **Precise Problem Definition & Focused Initial Command:** Define the immediate technical objective clearly for the Executor. Provide a single, unambiguous, meticulously crafted command for the primary objective first.
-
-* **Meticulous Attention to Command Syntax:** Ensure exact syntax, correct flag usage, proper quoting, and accurate function usage in all commands. Verify against official documentation when necessary.
-
-* **Proactive Contingency Planning:** Anticipate potential failure modes. Include explicit fallback commands or alternative strategies within prompts, detailing triggers for such contingencies.
-
-* **Structured and Conditional Execution Flow:** Organize complex tasks into logical parts with clear conditional steps (e.g., "If command X fails with error Y, then execute command Z").
-
-* **Specific and Actionable Reporting Requirements:** Mandate detailed reporting from the Executor for both success (e.g., full JSON output, confirmation messages) and failure (e.g., complete, exact error messages) to enable accurate state assessment.
-
-* **Proactive Risk Identification & Mitigation Suggestions:** Identify potential risks or limitations (e.g., volatility of identifiers). Suggest how these should be documented or managed.
-
-## Crafting Effective and Efficient Executor Prompts
-
-* **Token Efficiency & Conciseness:** Minimize polite filler and superfluous language. Focus tokens on essential implementation details and explicit instructions.
-* **Explicitness & Structure:** Employ highly detailed, step-by-step instructions, breaking tasks into sub-tasks and using bullet points for clarity.
-* **Comprehensive Context:** Provide all necessary context: programming language, frameworks, relevant library versions, existing code snippets, data structures/schemas, overall goals, coding standards, and architectural patterns.
-* **Structured Inputs (Task Schemas):** Whenever possible, use well-defined "task schemas" (e.g., JSON) to pass instructions and context to the Executor, ensuring all required fields are present.
-* **Illustrative Examples (Few-Shot Prompting):** Include concrete examples of desired inputs/outputs to guide the Executor, especially for specific formats or complex logic.
-* **Negative Prompting:** Explicitly state what the Executor *should not* do (e.g., "Do NOT use deprecated library X," "Do NOT generate code that uses `eval()`").
-* **Edge Case & Constraint Handling:** Clearly define how the Executor should handle known edge cases, error conditions, and constraints.
-* **Defined Output Format:** Precisely specify the desired format for the Executor's output (e.g., "Provide output as a JSON object with keys 'X', 'Y', 'Z'," or "Generate Python code block only").
-
-## Planner-Executor Interaction: Feedback and Dynamic Refinement
-
-* **Expect Rich Executor Feedback:** Planner requires detailed, structured feedback from the Executor via standardized schemas. This includes Task ID, status, output artifacts, execution metrics (time, tokens), all guardrails triggered (even if resolved) with reasons, error diagnostics, recovery attempts, and relevant environmental observations.
-* **Dynamic Plan Refinement:** Planner MUST use this rich feedback to dynamically refine plans, learn from execution outcomes (successes and failures), and improve its own planning strategies and heuristics over time.
-* **Escalation Protocol:** Planner MUST define clear conditions for escalating to human intervention if autonomous refinement fails repeatedly or a novel, unresolvable issue is reported by the Executor.
+Instructions for Executor:
+1. Review the `logic_get_user_profile` function in `functions/src/user.py`.
+2. Specifically, examine the Firestore query that attempts to read the user document (e.g., `db.collection('users').document(user_id).get()`).
+3. Report on how the function handles a scenario where `document.exists` is false. Does it log this event? What does it return?
+4. Report on any other error handling around the Firestore read operation.
+```
 
 ## 4. Workflow: Task Management & Documentation Integrity
 
@@ -172,7 +153,7 @@ This document outlines the operational procedures, roles, responsibilities, and 
 ## 5. Current Critical Knowledge Points (For Immediate Planner Review)
 
 * **API Gateway Access:** Currently via its default Google-provided URL (see `docs/terraform_outputs.log` for `api_gateway_url`). The custom domain `api-dev.relex.ro` is **NOT** currently configured or operational for the API Gateway.
-* **Test Authentication:** Requires a Firebase JWT. This token is obtained using `tests/test-auth.html` (served locally from the `tests/` directory, e.g., via `python3 -m http.server 8080`). The obtained token must be set as the `RELEX_TEST_JWT` environment variable by the Operator for use in `curl` or test scripts.
+* **Test Authentication:** Requires a Firebase JWT. This token is obtained by the operator using `tests/test-auth.html` (served locally from the `tests/` directory, e.g., via `python3 -m http.server 8080`). The obtained token is set as the `RELEX_TEST_JWT` environment variable by the Operator for use in `curl` or test scripts. This is always required for testing authenticated API endpoints and is already done by the Operator.
 * **Backend Authentication Flow:**
     1.  Client sends Firebase JWT (`RELEX_TEST_JWT`) to API Gateway.
     2.  API Gateway validates this Firebase JWT.

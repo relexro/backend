@@ -1,151 +1,103 @@
-# Relex Backend - TODO List
+# Relex Backend - TODO List (Revised - Focus: API Stability & Testing)
 
-This document tracks outstanding tasks, issues, and planned work for the Relex Backend system. Items are organized by priority and status.
+**Overall Goal:** Ensure all API endpoints are fully functional, robustly tested (unit and integration), and any identified issues are systematically resolved via executor prompts. The immediate priority is to address why the API might not be working as expected, starting with authentication and core user/organization endpoints.
 
-## Critical Issues
+## Phase 1: Urgent - Establish Baseline API Functionality & Core Testing
 
-### API Gateway Logging
-- **Status**: RESOLVED_WORKAROUND_IDENTIFIED
-- **Symptom**: API Gateway logs were not appearing in Cloud Logging when filtering for `resource.type=api_gateway`. Investigation revealed that logs are present but under `resource.type=api` with a `logName` containing `apigateway` (e.g., `projects/relexro/logs/relex-api-dev-1zpirx0ouzrnu.apigateway.relexro.cloud.goog%2Fendpoints_log`).
-- **Impact**: Monitoring and debugging of the API Gateway is now possible using the correct query.
-- **Next Steps**:
-  1. Created a dedicated log view `api-gateway-logs` for easier access (Actioned on 2025-05-17).
-  2. Verify log generation by making test requests to the API Gateway (`relex-api-gateway-dev-mvef5dk.ew.gateway.dev`) and checking the `api-gateway-logs` view or using the query: `resource.type=api AND logName:apigateway` in Cloud Logging for project `relexro`.
-  3. Update any internal developer documentation or runbooks to reflect the correct method for querying API Gateway logs.
-  4. Consider creating a custom monitoring dashboard in Cloud Monitoring for API Gateway metrics and these logs for improved long-term visibility.
-  5. If detailed transactional or payload logging from the API Gateway itself is still required beyond what is available in `resource.type=api` logs, investigate enabling this at the API Config level or through backend function logging enhancements.
+### 1.1. Initial API Health Check & Authentication Debugging
+    * **Objective:** Verify and fix basic API accessibility and core authentication mechanisms. The previous test of `/v1/users/me` returned a 403 error: `{"error":"Unauthorized: End-user identity not available for this operation."}`. This must be the first issue addressed.
+    * **Sub-Tasks:**
+        * 1.1.1. **Investigate `/v1/users/me` 403 Error:**
+            * **Hypothesis:** Issue with JWT validation, user record lookup after token validation, or IAM permissions on the Cloud Function.
+            * **Executor Prompt (Log Analysis):** "Query Cloud Function logs for the `Relex_backend_get_user_profile` function (associated with `GET /v1/users/me`) for the timeframe of the last failed test. Filter for errors or warnings. Also, query API Gateway logs (`resource.type=api AND logName:apigateway`) for the same request, focusing on the `jsonPayload.responseCode` and any error messages. Report relevant log snippets."
+            * **Executor Prompt (Code Review - `auth.py`):** "Review `functions/src/auth.py`, specifically the Firebase JWT verification logic (`_verify_firebase_jwt` or equivalent) and how the user identity is extracted and passed to the main function. Identify potential points of failure if a valid token is provided but the system still deems the user unauthorized for their own profile."
+            * **Executor Prompt (Code Review - `user.py`):** "Review `functions/src/user.py` (handler for `/users/me`). Check how it receives user identity from the auth layer and fetches user data. Ensure it correctly handles the case where an authenticated user requests their own profile."
+        * 1.1.2. **Fix `/v1/users/me` Authentication Issue:**
+            * Based on findings from 1.1.1.
+            * **Executor Prompt (Code Modification):** "Based on the root cause identified for the `/v1/users/me` 403 error (e.g., incorrect user lookup in `user.py` after successful auth), provide the exact code modification for `[file_path.py]`. Replace the problematic code block `[old code snippet]` with `[new complete code snippet]`."
+        * 1.1.3. **Re-test `/v1/users/me`:**
+            * **Executor Prompt (Integration Test Execution):** "Using a known valid Firebase Test JWT (Operator to provide as `RELEX_TEST_JWT`), execute the following `curl` command. Report the full output: `curl -H \"Authorization: Bearer $RELEX_TEST_JWT\" https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/users/me`. If successful (200 OK), proceed. If still failing, revert to 1.1.1 with new findings."
 
-### Custom Domain for API Gateway
-- **Status**: DEFERRED
-- **Current State**: The API is accessed via the default Google-provided URL (found in `docs/terraform_outputs.log` as `api_gateway_url`), not the custom domain `api-dev.relex.ro`.
-- **Next Steps**:
-  1. If reactivated, implement using Cloud Load Balancer with SSL certificate
-  2. Update DNS records in Cloudflare
-  3. Configure proper health checks
-  4. Update documentation to reflect the new endpoint
+### 1.2. Core Unit Testing Implementation
+    * **Objective:** Establish foundational unit tests for critical business logic, ensuring functions behave as expected in isolation within the `tests/unit` directory.
+    * **Sub-Tasks:**
+        * 1.2.1. **Unit Tests for `functions/src/auth.py`:**
+            * Focus: JWT validation (valid, invalid, expired tokens), user extraction from token. Mock Firebase Admin SDK.
+            * **Executor Prompt:** "Create comprehensive unit tests for all functions in `functions/src/auth.py`. Ensure `_verify_firebase_jwt` (or equivalent) is tested with various token states. Mock external calls (e.g., `firebase_admin.auth.verify_id_token`). Store tests in `tests/unit/test_auth.py`. Report test execution results."
+        * 1.2.2. **Unit Tests for `functions/src/user.py` (Core Functions):**
+            * Focus: User profile creation (if applicable), retrieval, update logic. Mock Firestore calls.
+            * **Executor Prompt:** "Create unit tests for `get_user_profile_logic` and `update_user_profile_logic` (or equivalent functions) in `functions/src/user.py`. Mock Firestore client interactions (`db.collection(...).document(...).get()`, etc.). Store tests in `tests/unit/test_user.py`. Report test execution results."
+        * 1.2.3. **Run All New Unit Tests:**
+            * **Executor Prompt:** "Execute all unit tests in the `tests/unit/` directory using `python -m pytest tests/unit/`. Report any failures with full tracebacks."
 
-### End-User Identity Propagation
-- **Status**: PARTIALLY IMPLEMENTED
-- **Current State**: The backend function's `auth.py` (`get_authenticated_user`) now extracts the original end-user's Firebase UID and email from the `X-Endpoint-API-Userinfo` header.
-- **Next Steps**:
-  1. Verify this implementation works for all endpoints
-  2. Add comprehensive tests for the authentication flow
-  3. Update documentation to reflect the current implementation
+### 1.3. Basic Integration Tests for Core User & Organization Flows
+    * **Objective:** Ensure the primary user and organization API endpoints work end-to-end against a deployed environment, using tests located in `tests/integration`.
+    * **Context:** API Gateway URL: `https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/`
+    * **Sub-Tasks:**
+        * 1.3.1. **Integration Test: User Creation & Retrieval (if applicable, or focus on retrieval if creation is external):**
+            * If user creation is via an endpoint: Test `POST /users` then `GET /users/me`.
+            * If only retrieval: Confirm `GET /users/me` (already covered by 1.1.3 if successful).
+            * **Executor Prompt (if creation endpoint exists):** "Develop an integration test for user creation (e.g., `POST /v1/users`) followed by retrieval (`GET /v1/users/me`). Use a valid test JWT. Assert 201/200 status codes and validate response data. Store in `tests/integration/test_user.py`. Report execution results."
+        * 1.3.2. **Integration Test: Organization Creation & Retrieval:**
+            * Test `POST /organizations` to create a new organization.
+            * Test `GET /organizations/{orgId}` to retrieve the created organization.
+            * Test `GET /organizations` (or `/users/me/organizations`) to list user's organizations.
+            * **Executor Prompt:** "Develop integration tests for: 1. Creating an organization (`POST /v1/organizations`) with payload `{\"name\": \"Test Org Integration\"}`. 2. Retrieving the created org by its ID. 3. Listing organizations for the test user. Use a valid test JWT. Assert appropriate status codes and response data. Store in `tests/integration/test_organization.py`. Report execution results."
+        * 1.3.3. **Run Core Integration Tests:**
+            * **Executor Prompt:** "Execute integration tests: `test_user.py` and `test_organization.py` from `tests/integration/` against the deployed dev environment. Ensure `RELEX_API_BASE_URL` (e.g., `https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/`) and `RELEX_TEST_JWT` are set as environment variables for the test execution environment. Report failures with request/response details."
 
-## High Priority Tasks
+## Phase 2: Expanding Test Coverage & API Functionality
 
-### Comprehensive API Endpoint Testing
-- **Status**: INCOMPLETE
-- **Current State**: Only `/v1/users/me` has been partially tested for routing, authentication, and end-user identity propagation.
-- **Next Steps**:
-  1. Create a test plan for all ~37 endpoints
-  2. Implement automated tests for each endpoint
-  3. Verify routing, authentication, authorization, and business logic
-  4. Test health check mechanism for all endpoints
-  5. Document test results and any issues found
+### 2.1. Comprehensive Unit Testing
+    * **Objective:** Achieve >80% unit test coverage for all modules in `functions/src/`, with tests residing in `tests/unit/`.
+    * **Sub-Tasks:** (For each `.py` file in `functions/src/` not yet covered)
+        * 2.1.1. **Module: `[module_name.py]`**
+            * **Executor Prompt:** "Analyze `functions/src/[module_name.py]`. Identify all functions and classes. Create comprehensive unit tests covering main logic paths, edge cases, and error handling. Mock all external dependencies (Firestore, other GCP services, external APIs). Store tests in `tests/unit/test_[module_name].py`. Report execution results and estimated coverage."
+            * Modules to cover: `cases.py`, `payments.py`, `organization_membership.py`, `party.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
 
-### JWT Audience Configuration Review
-- **Status**: PENDING
-- **Current State**: The `jwt_audience` in `openapi_spec.yaml` is not currently explicitly set, relying on defaults.
-- **Next Steps**:
-  1. Review current configuration and behavior
-  2. Consider adding explicit configuration for clarity
-  3. Test with different audience values to ensure proper validation
+### 2.2. Comprehensive Integration Testing
+    * **Objective:** Ensure all API endpoints defined in `terraform/openapi_spec.yaml` are covered by integration tests located in `tests/integration/`.
+    * **Sub-Tasks:** (For each endpoint/flow not yet covered)
+        * 2.2.1. **Endpoint/Flow: `[HTTP Method] [path]` (e.g., `POST /cases/{caseId}/parties`)**
+            * **Executor Prompt:** "Develop integration tests for the `[HTTP Method] [path]` endpoint. Cover successful scenarios, common error conditions (invalid input, unauthorized, not found), and data validation. Store tests in `tests/integration/test_[resource_name].py`. Report execution results."
+            * Endpoints/Flows to cover: All CRUD operations for Cases, Parties, Organization Memberships, Payments (including webhook simulation if possible), Agent invocations.
 
-### Implement Rate Limiting
-- **Status**: NOT STARTED
-- **Next Steps**:
-  1. Design rate limiting strategy (per user, per IP, per endpoint)
-  2. Implement in API Gateway configuration
-  3. Add monitoring for rate limit events
-  4. Document rate limits in API documentation
+### 2.3. Debugging and Fixing Issues from Expanded Testing
+    * **Objective:** Systematically address any failures identified during comprehensive testing.
+    * **Process:** For each failing test:
+        * 1. **Isolate Failure:** Confirm if it's a test issue or an API issue.
+        * 2. **Investigate API Issue (if applicable):** Use prompts similar to 1.1.1 (log analysis, code review).
+            * **Executor Prompt (Investigation):** "The integration test `[test_function_name]` for `[HTTP Method] [path]` is failing with `[error/status]`. Analyze relevant Cloud Function logs for `[cloud_function_name]`, API Gateway logs, and review the handler code in `functions/src/[handler_file.py]`. Summarize findings and potential root cause."
+        * 3. **Implement Fix:**
+            * **Executor Prompt (Code Modification):** "Based on the investigation for the failing `[HTTP Method] [path]` test, modify `functions/src/[file_to_fix.py]`. Replace/update the code at `[specific function/line numbers]` with the following: `[complete new code snippet]`.
+        * 4. **Re-test:**
+            * **Executor Prompt:** "After applying the fix for `[HTTP Method] [path]`, re-run the specific failing test `[test_function_name]` and then the entire `tests/integration/test_[resource_name].py` suite. Report results."
 
-### Security Headers Configuration
-- **Status**: NOT STARTED
-- **Next Steps**:
-  1. Define required security headers (CORS, Content-Security-Policy, etc.)
-  2. Implement in API Gateway or backend functions
-  3. Verify with security scanning tools
+## Phase 3: Refinement, Documentation & Ongoing Maintenance
 
-## Medium Priority Tasks
+### 3.1. API Documentation Accuracy
+    * **Objective:** Ensure `terraform/openapi_spec.yaml` accurately reflects the working API.
+    * **Sub-Tasks:**
+        * 3.1.1. **Audit and Update OpenAPI Spec:**
+            * **Executor Prompt:** "Compare the implemented API behavior (verified by integration tests) against `terraform/openapi_spec.yaml`. Identify and list all discrepancies in paths, methods, parameters, request/response schemas. For each discrepancy, provide the corrective YAML snippet for `openapi_spec.yaml`."
 
-### Optimize Permission Checks
-- **Status**: PLANNED
-- **Current State**: Permission checks require Firestore reads for each check.
-- **Next Steps**:
-  1. Implement Firebase Custom Claims for frequently used permissions
-  2. Update `auth.py` to use claims when available
-  3. Benchmark performance improvements
+### 3.2. Developer Documentation Updates
+    * **Objective:** Update all relevant markdown documents in `docs/` (e.g., `api.md`, `architecture.md`, `concepts/*`).
+    * **Sub-Tasks:**
+        * 3.2.1. **Sync Documentation with Code/API Reality:**
+            * **Executor Prompt:** "Review `docs/api.md` and `docs/architecture.md`. Update these documents to reflect any changes or clarifications that arose from the intensive testing and debugging phases (e.g., corrected endpoint behavior, refined authentication flow). Provide the modified sections."
 
-### Implement Voucher System
-- **Status**: PLANNED
-- **Next Steps**:
-  1. Design database schema for vouchers
-  2. Implement voucher creation and validation endpoints
-  3. Integrate with payment system
-  4. Add admin interface for voucher management
+### 3.3. Monitoring & Alerting
+    * **Objective:** Proactively identify API issues in production.
+    * **Sub-Tasks:**
+        * 3.3.1. **Review existing monitoring and logging (as per `docs/monitoring_and_logging.md`).**
+        * 3.3.2. **Set up alerts for critical errors** (e.g., >X% 5xx errors on API Gateway, high Cloud Function error rates).
+            * **Executor Prompt:** "Based on `docs/monitoring_and_logging.md` and the project's GCP setup, outline the steps or provide a gcloud command to create an alert policy in Google Cloud Monitoring that triggers if the API Gateway (identified by its name, e.g., `relex-api-gateway-dev` or similar, check `docs/terraform_outputs.log` if unsure) experiences a 5xx error rate above 1% over a 5-minute window."
 
-### Add File Versioning
-- **Status**: PLANNED
-- **Next Steps**:
-  1. Design versioning system for documents
-  2. Update storage operations to maintain versions
-  3. Implement version history API
-  4. Update UI to display and manage versions
+---
 
-### Improve Agent Error Handling
-- **Status**: PLANNED
-- **Next Steps**:
-  1. Implement more robust error recovery for the Lawyer AI Agent
-  2. Add retry mechanisms for LLM API calls
-  3. Improve error messages and logging
-  4. Implement session recovery for interrupted agent conversations
-
-## Low Priority Tasks
-
-### API Versioning
-- **Status**: PLANNED
-- **Next Steps**:
-  1. Design versioning strategy
-  2. Update OpenAPI specification
-  3. Implement version routing in API Gateway
-  4. Document versioning policy
-
-### Advanced Search Implementation
-- **Status**: PLANNED
-- **Next Steps**:
-  1. Evaluate search technologies (Firestore native, Algolia, etc.)
-  2. Design search API
-  3. Implement indexing and search functionality
-  4. Add to API documentation
-
-### Contribution Guidelines
-- **Status**: PLANNED
-- **Next Steps**:
-  1. Create `CONTRIBUTING.md` with development workflow
-  2. Document code style and review process
-  3. Add issue and PR templates
-
-### Architecture Diagrams
-- **Status**: PLANNED
-- **Next Steps**:
-  1. Create detailed system architecture diagrams
-  2. Add sequence diagrams for key flows
-  3. Update `docs/architecture.md`
-
-## Completed Tasks
-
-### LLM Planner and Executor Guidelines Overhaul
-- **Status**: COMPLETED
-- **Resolution**: Integrated "Superior Guidelines for LLM Planners and Executors" research into project documentation (`docs/PLANNER_GUIDE.md`, `docs/guardrail.md`), enhancing AI operational protocols with advanced strategies for persona development, strategic foresight, task decomposition, risk management, explicit guardrailing, and planner-executor interaction.
-- **Date**: May 17, 2025
-
-### API Gateway Path Translation
-- **Status**: COMPLETED
-- **Resolution**: Configured with `path_translation: CONSTANT_ADDRESS` for all backends
-- **Date**: May 2025
-
-### Cloud Function Health Checks
-- **Status**: COMPLETED
-- **Resolution**: Standardized to respond to `X-Google-Health-Check: true` header
-- **Date**: May 2025
+**Notes for Lead Planner:**
+* This TODO list is a living document. Update it as new issues are found or priorities shift.
+* Break down tasks into the smallest actionable steps suitable for an Executor.
+* Always reference the `docs/PLANNER_GUIDE.md` and `docs/guardrail.md` when creating prompts.
+* Executor prompts should be generated one at a time as you progress through these tasks.
