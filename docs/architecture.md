@@ -37,6 +37,7 @@ Relex is a cloud-native legal assistant platform built on Google Cloud Platform 
    - Authentication and authorization checks
    - Rate limiting and quota management
    - Request routing to appropriate backend services
+   - Health checks via `X-Google-Health-Check` header
    - Accessed via the default Google-provided URL (found in `docs/terraform_outputs.log`)
    - Note: The custom domain `api-dev.relex.ro` is not currently the active endpoint
 

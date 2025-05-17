@@ -9,6 +9,26 @@ All endpoints are deployed under the `/v1` path prefix.
 
 > **Important Note:** The custom domain `api-dev.relex.ro` is not currently the active endpoint for the API Gateway.
 
+## Health Checks
+All API endpoints support health checks via the `X-Google-Health-Check` header. To check the health of any endpoint, send a GET request with this header:
+
+```
+GET /v1/any/endpoint
+X-Google-Health-Check: true
+```
+
+The response will be a 200 OK with a JSON body:
+```json
+{
+  "status": "healthy",
+  "message": "Service is running, health check via X-Google-Health-Check header successful.",
+  "function_name": "relex_backend_function_name",
+  "timestamp": "2023-04-01T12:00:00.000000"
+}
+```
+
+> **Note:** Health checks are implemented using the `X-Google-Health-Check` header rather than specific paths like `/_ah/health`.
+
 ## Authentication
 All endpoints require Firebase Authentication. Include the ID token in the Authorization header:
 ```

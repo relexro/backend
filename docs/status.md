@@ -141,6 +141,7 @@ This document tracks the implementation status of the Relex backend components.
    - API Gateway logs are currently not appearing in Cloud Logging
    - The API is accessed via the default Google-provided URL (found in `docs/terraform_outputs.log`), not the custom domain `api-dev.relex.ro`
    - The original end-user's Firebase UID is not automatically propagated to backend functions
+   - Health checks are implemented using the `X-Google-Health-Check` header rather than specific paths like `/_ah/health`
 
 2. **Authentication**
    - The `userId` available within the backend function context is the subject ID of the service account, not the original end-user's Firebase UID

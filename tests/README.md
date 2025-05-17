@@ -122,6 +122,21 @@ The API is accessed via the default Google Cloud API Gateway URL, not the custom
 2. Look for the `api_gateway_url` key (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)
 3. Use this URL as the base for all API requests in tests
 
+### Health Checks
+
+When testing API endpoints, you can verify the health of a function by including the `X-Google-Health-Check` header:
+
+```python
+response = requests.get(
+    f"{api_base_url}/endpoint/path",
+    headers={"X-Google-Health-Check": "true"}
+)
+assert response.status_code == 200
+assert response.json()["status"] == "healthy"
+```
+
+Note that health checks are implemented using the `X-Google-Health-Check` header rather than specific paths like `/_ah/health`.
+
 Example:
 ```python
 # In conftest.py or similar

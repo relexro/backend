@@ -285,7 +285,15 @@ After deployment, verify the following:
    - This is the default Google-provided URL (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)
    - Note: The custom domain `api-dev.relex.ro` is not currently the active endpoint for the API Gateway
 
-2. **Authentication**:
+2. **Health Checks**:
+   - Test function health checks by sending a GET request with the `X-Google-Health-Check` header:
+     ```bash
+     curl -H "X-Google-Health-Check: true" https://YOUR_API_GATEWAY_URL/v1/users/me
+     ```
+   - The response should be a 200 OK with a JSON body containing `{"status": "healthy", ...}`
+   - Note: Health checks use the `X-Google-Health-Check` header rather than specific paths like `/_ah/health`
+
+3. **Authentication**:
    - Obtain a Firebase JWT token using the test utility:
      ```bash
      cd tests
@@ -299,15 +307,15 @@ After deployment, verify the following:
      curl -H "Authorization: Bearer $RELEX_TEST_JWT" https://YOUR_API_GATEWAY_URL/v1/users/me
      ```
 
-3. **API Endpoints**: Test key endpoints using curl or Postman with the correct API Gateway URL and authentication token
+4. **API Endpoints**: Test key endpoints using curl or Postman with the correct API Gateway URL and authentication token
 
-4. **Storage**: Check file upload and download functionality
+5. **Storage**: Check file upload and download functionality
 
-5. **Firestore**: Verify database operations
+6. **Firestore**: Verify database operations
 
-6. **Stripe Integration**: Test payment flows
+7. **Stripe Integration**: Test payment flows
 
-7. **Known Issues**:
+8. **Known Issues**:
    - API Gateway logs may not appear in Cloud Logging
    - The backend functions receive the service account identity, not the original end-user's Firebase UID
 

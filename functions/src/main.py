@@ -126,12 +126,12 @@ def _authenticate_and_call(request: Request, logic_function, needs_end_user_id_a
 
 @functions_framework.http
 def relex_backend_create_case(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_create_case: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_create_case: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_create_case",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -140,12 +140,12 @@ def relex_backend_create_case(request: Request):
 
 @functions_framework.http
 def relex_backend_get_case(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_get_case: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_get_case: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_get_case",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -154,12 +154,12 @@ def relex_backend_get_case(request: Request):
 
 @functions_framework.http
 def relex_backend_list_cases(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_list_cases: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_list_cases: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_list_cases",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -168,12 +168,12 @@ def relex_backend_list_cases(request: Request):
 
 @functions_framework.http
 def relex_backend_archive_case(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_archive_case: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_archive_case: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_archive_case",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -182,12 +182,12 @@ def relex_backend_archive_case(request: Request):
 
 @functions_framework.http
 def relex_backend_delete_case(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_delete_case: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_delete_case: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_delete_case",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -196,12 +196,12 @@ def relex_backend_delete_case(request: Request):
 
 @functions_framework.http
 def relex_backend_upload_file(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_upload_file: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_upload_file: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_upload_file",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -210,12 +210,12 @@ def relex_backend_upload_file(request: Request):
 
 @functions_framework.http
 def relex_backend_download_file(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_download_file: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_download_file: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_download_file",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -224,12 +224,12 @@ def relex_backend_download_file(request: Request):
 
 @functions_framework.http
 def relex_backend_attach_party(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_attach_party: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_attach_party: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_attach_party",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -238,12 +238,12 @@ def relex_backend_attach_party(request: Request):
 
 @functions_framework.http
 def relex_backend_detach_party(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_detach_party: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_detach_party: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_detach_party",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -252,12 +252,12 @@ def relex_backend_detach_party(request: Request):
 
 @functions_framework.http
 def relex_backend_validate_user(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_validate_user: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_validate_user: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_validate_user",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -266,12 +266,12 @@ def relex_backend_validate_user(request: Request):
 
 @functions_framework.http
 def relex_backend_check_permissions(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_check_permissions: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_check_permissions: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_check_permissions",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -280,12 +280,12 @@ def relex_backend_check_permissions(request: Request):
 
 @functions_framework.http
 def relex_backend_get_user_role(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_get_user_role: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_get_user_role: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_get_user_role",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -294,12 +294,12 @@ def relex_backend_get_user_role(request: Request):
 
 @functions_framework.http
 def relex_backend_create_organization(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_create_organization: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_create_organization: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_create_organization",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -308,12 +308,12 @@ def relex_backend_create_organization(request: Request):
 
 @functions_framework.http
 def relex_backend_get_organization(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_get_organization: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_get_organization: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_get_organization",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -322,12 +322,12 @@ def relex_backend_get_organization(request: Request):
 
 @functions_framework.http
 def relex_backend_update_organization(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_update_organization: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_update_organization: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_update_organization",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -336,12 +336,12 @@ def relex_backend_update_organization(request: Request):
 
 @functions_framework.http
 def relex_backend_delete_organization(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_delete_organization: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_delete_organization: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_delete_organization",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -350,12 +350,12 @@ def relex_backend_delete_organization(request: Request):
 
 @functions_framework.http
 def relex_backend_create_payment_intent(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_create_payment_intent: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_create_payment_intent: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_create_payment_intent",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -364,12 +364,12 @@ def relex_backend_create_payment_intent(request: Request):
 
 @functions_framework.http
 def relex_backend_create_checkout_session(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_create_checkout_session: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_create_checkout_session: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_create_checkout_session",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -378,12 +378,12 @@ def relex_backend_create_checkout_session(request: Request):
 
 @functions_framework.http
 def relex_backend_handle_stripe_webhook(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_handle_stripe_webhook: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_handle_stripe_webhook: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_handle_stripe_webhook",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -392,12 +392,12 @@ def relex_backend_handle_stripe_webhook(request: Request):
 
 @functions_framework.http
 def relex_backend_cancel_subscription(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_cancel_subscription: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_cancel_subscription: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_cancel_subscription",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -406,12 +406,12 @@ def relex_backend_cancel_subscription(request: Request):
 
 @functions_framework.http
 def relex_backend_add_organization_member(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_add_organization_member: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_add_organization_member: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_add_organization_member",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -420,12 +420,12 @@ def relex_backend_add_organization_member(request: Request):
 
 @functions_framework.http
 def relex_backend_set_organization_member_role(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_set_organization_member_role: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_set_organization_member_role: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_set_organization_member_role",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -434,12 +434,12 @@ def relex_backend_set_organization_member_role(request: Request):
 
 @functions_framework.http
 def relex_backend_list_organization_members(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_list_organization_members: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_list_organization_members: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_list_organization_members",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -448,12 +448,12 @@ def relex_backend_list_organization_members(request: Request):
 
 @functions_framework.http
 def relex_backend_remove_organization_member(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_remove_organization_member: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_remove_organization_member: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_remove_organization_member",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -462,12 +462,12 @@ def relex_backend_remove_organization_member(request: Request):
 
 @functions_framework.http
 def relex_backend_get_user_organization_role(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_get_user_organization_role: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_get_user_organization_role: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_get_user_organization_role",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -476,12 +476,12 @@ def relex_backend_get_user_organization_role(request: Request):
 
 @functions_framework.http
 def relex_backend_list_user_organizations(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_list_user_organizations: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_list_user_organizations: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_list_user_organizations",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -490,12 +490,12 @@ def relex_backend_list_user_organizations(request: Request):
 
 @functions_framework.http
 def relex_backend_get_user_profile(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_get_user_profile: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_get_user_profile: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_get_user_profile",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -505,12 +505,12 @@ def relex_backend_get_user_profile(request: Request):
 
 @functions_framework.http
 def relex_backend_update_user_profile(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_update_user_profile: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_update_user_profile: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_update_user_profile",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -520,12 +520,12 @@ def relex_backend_update_user_profile(request: Request):
 
 @functions_framework.http
 def relex_backend_create_party(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_create_party: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_create_party: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_create_party",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -534,12 +534,12 @@ def relex_backend_create_party(request: Request):
 
 @functions_framework.http
 def relex_backend_get_party(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_get_party: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_get_party: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_get_party",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -548,12 +548,12 @@ def relex_backend_get_party(request: Request):
 
 @functions_framework.http
 def relex_backend_update_party(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_update_party: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_update_party: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_update_party",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -562,12 +562,12 @@ def relex_backend_update_party(request: Request):
 
 @functions_framework.http
 def relex_backend_delete_party(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_delete_party: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_delete_party: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_delete_party",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -576,12 +576,12 @@ def relex_backend_delete_party(request: Request):
 
 @functions_framework.http
 def relex_backend_list_parties(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_list_parties: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_list_parties: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_list_parties",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -590,12 +590,12 @@ def relex_backend_list_parties(request: Request):
 
 @functions_framework.http
 def relex_backend_list_organization_cases(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_list_organization_cases: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_list_organization_cases: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_list_organization_cases",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -604,12 +604,12 @@ def relex_backend_list_organization_cases(request: Request):
 
 @functions_framework.http
 def relex_backend_assign_case(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_assign_case: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_assign_case: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_assign_case",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -618,12 +618,12 @@ def relex_backend_assign_case(request: Request):
 
 @functions_framework.http
 def relex_backend_redeem_voucher(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_redeem_voucher: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_redeem_voucher: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_redeem_voucher",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -632,12 +632,12 @@ def relex_backend_redeem_voucher(request: Request):
 
 @functions_framework.http
 def relex_backend_get_products(request: Request):
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info(f"Function relex_backend_get_products: Responding to health check or root path request at {request.path}")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info(f"Function relex_backend_get_products: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
             "function_name": "relex_backend_get_products",
             "timestamp": datetime.now().isoformat()
         }), 200
@@ -658,12 +658,13 @@ def relex_backend_agent_handler(request: Request):
     # Log request information for debugging
     logging.info(f"Agent handler received: {request.method} {request.path}")
 
-    # Add health check functionality for GCP deployment
-    if request.method == 'GET' and (request.path == '/_ah/health' or request.path == '/'):
-        logging.info("Responding to health check or root path request")
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info("Function relex_backend_agent_handler: Responding to X-Google-Health-Check header.")
         return flask.jsonify({
             "status": "healthy",
-            "message": "Service is running",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
+            "function_name": "relex_backend_agent_handler",
             "timestamp": datetime.now().isoformat()
         }), 200
 
