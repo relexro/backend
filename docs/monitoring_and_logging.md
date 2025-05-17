@@ -11,6 +11,8 @@ API Gateway logs are available in Cloud Logging but with a specific configuratio
 1. **Resource Type**: API Gateway logs use `resource.type=api` (not `resource.type=api_gateway` as might be expected)
 2. **Log Name Pattern**: The logs have a `logName` containing `apigateway` (e.g., `projects/relexro/logs/relex-api-dev-1zpirx0ouzrnu.apigateway.relexro.cloud.goog%2Fendpoints_log`)
 
+> **Verification**: This logging configuration was verified on 2025-05-17. The logs are being correctly generated and can be successfully retrieved using the recommended query filters.
+
 #### Accessing API Gateway Logs
 
 There are two recommended ways to access API Gateway logs:
@@ -30,6 +32,10 @@ There are two recommended ways to access API Gateway logs:
      ```
      resource.type=api AND logName:apigateway
      ```
+   - For CLI access, use:
+     ```bash
+     gcloud logging read "resource.type=api AND logName:apigateway" --project=relexro --limit=10
+     ```
 
 #### Log Content
 
@@ -37,9 +43,12 @@ API Gateway logs include valuable information such as:
 
 - HTTP request details (method, URL, status code, latency)
 - Client IP addresses
-- Error information
-- API method being called
+- Error information (including HTTP status codes like 403 for authentication issues)
+- API method being called (e.g., `Relex_backend_get_user_profile`)
 - Service configuration ID
+- Timestamp of the request
+
+The logs capture both successful requests and errors, making them valuable for debugging authentication and authorization issues.
 
 ### Cloud Function Logs
 
