@@ -135,34 +135,49 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] Contribution guidelines
 - [ ] Advanced troubleshooting
 
-## Known Issues
+## Current System Status
 
-1. **API Gateway**
-   - API Gateway logs are currently not appearing in Cloud Logging
-   - The API is accessed via the default Google-provided URL (found in `docs/terraform_outputs.log`), not the custom domain `api-dev.relex.ro`
-   - The original end-user's Firebase UID is not automatically propagated to backend functions
-   - Health checks are implemented using the `X-Google-Health-Check` header rather than specific paths like `/_ah/health`
+### API Accessibility
+- **API Gateway URL**: The API is accessed via the default Google-provided URL found in `docs/terraform_outputs.log` as `api_gateway_url` (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)
+- **Custom Domain Status**: The custom domain `api-dev.relex.ro` is NOT currently the active endpoint for the API Gateway
 
-2. **Authentication**
-   - The `userId` available within the backend function context is the subject ID of the service account, not the original end-user's Firebase UID
-   - Backend functions receive the service account identity (`relex-functions-dev@relexro.iam.gserviceaccount.com`)
-   - For testing, use the `RELEX_TEST_JWT` environment variable (not `API_AUTH_TOKEN`)
+### Test Authentication
+- **Authentication Method**: Requires a Firebase JWT token
+- **Token Acquisition**: Use `tests/test-auth.html` (served locally from the `tests/` directory via `python3 -m http.server 8080`)
+- **Environment Variable**: Set the obtained token as the `RELEX_TEST_JWT` environment variable for use in `curl` or test scripts
 
-3. **Performance**
-   - LLM response times can be variable
-   - Large file uploads need optimization
-   - Some database queries need indexing
+### Authentication Flow
+1. Client sends Firebase JWT (`RELEX_TEST_JWT`) to API Gateway
+2. API Gateway validates this Firebase JWT
+3. API Gateway passes end-user claims in the `X-Endpoint-API-Userinfo` header (base64-encoded JSON) to the backend
+4. API Gateway generates a new Google OIDC ID Token (using `relex-functions-dev@relexro.iam.gserviceaccount.com` SA identity) to authenticate itself to the backend Cloud Run function
+5. The backend function's `auth.py` (`get_authenticated_user`) validates this Google OIDC ID token and extracts the original end-user's Firebase UID from the `X-Endpoint-API-Userinfo` header
+6. The business logic in the backend uses this propagated end-user Firebase UID
 
-4. **Security**
-   - Need to implement rate limiting
+### Resolved Issues
+- **API Gateway Path Routing**: Fixed routing for default URL with `CONSTANT_ADDRESS` path translation - RESOLVED
+- **Backend Authentication of Gateway SA**: Properly validating Google OIDC ID token from API Gateway - RESOLVED
+- **End-User Identity Propagation**: Implemented extraction of end-user identity from `X-Endpoint-API-Userinfo` header - IMPLEMENTED & VERIFIED for `/v1/users/me`
+- **Cloud Function Health Check Mechanism**: Standardized to use `X-Google-Health-Check` header - IMPLEMENTED
+
+### Key Unresolved Issues
+
+1. **API Gateway Logging**
+   - Logs are currently not appearing in Cloud Logging despite `roles/logging.logWriter` being granted to the Gateway's Google-managed SA
+   - This severely hinders debugging and monitoring of the API Gateway itself
+   - Investigation is ongoing to determine the root cause
+
+2. **Performance Optimization Needed**
+   - LLM response times can be variable and need optimization
+   - Large file uploads need performance improvements
+   - Some database queries need indexing for better performance
+
+3. **Security Enhancements Required**
+   - Rate limiting needs to be implemented
    - Additional input validation required for edge cases
    - Security headers to be configured
 
-5. **Configuration**
-   - Environment variables for LLM API keys must be properly set during deployment
-   - Firestore collection structure and naming is now consistent
-
-6. **Reliability**
+4. **Reliability Improvements**
    - Agent error handling needs more robust recovery mechanisms
    - Retry logic for external services needed
    - Better logging and monitoring needed
@@ -170,29 +185,24 @@ This document tracks the implementation status of the Relex backend components.
 ## Next Steps
 
 ### High Priority
-1. Implement end-user identity propagation from API Gateway to backend functions
-2. Fix API Gateway logging issues
-3. Implement voucher system for promotions
-4. Add file versioning
-5. Improve error handling and recovery for agent
-6. Set up comprehensive monitoring
-7. Implement rate limiting
-8. Add security headers
-9. Optimize permission checks with Firebase Custom Claims
+1. **Fix API Gateway Logging Issues**: Investigate why logs are not appearing in Cloud Logging
+2. **Complete End-User Identity Propagation Testing**: Verify implementation works for all endpoints
+3. **Comprehensive API Endpoint Testing**: Test all ~37 endpoints for routing, auth, end-user ID logic, and health checks
+4. **Review JWT Audience Configuration**: Consider explicit configuration in `openapi_spec.yaml` for clarity
+5. **Implement Rate Limiting**: Design and implement rate limiting strategy
+6. **Configure Security Headers**: Define and implement required security headers
 
 ### Medium Priority
-1. Implement advanced search
-2. Add batch operations for files and case management
-3. Improve agent response time
-4. Add streaming responses for agent
-5. Enhance business analytics
+1. **Optimize Permission Checks**: Implement Firebase Custom Claims for frequently used permissions
+2. **Implement Voucher System**: Design and implement voucher creation and validation
+3. **Add File Versioning**: Design and implement versioning system for documents
+4. **Improve Agent Error Handling**: Implement more robust error recovery for the Lawyer AI Agent
 
 ### Low Priority
-1. Add API versioning
-2. Implement file versioning
-3. Add contribution guidelines
-4. Create architecture diagrams
-5. Set up load testing
+1. **Implement API Versioning**: Design and implement versioning strategy
+2. **Advanced Search Implementation**: Evaluate and implement search technologies
+3. **Create Contribution Guidelines**: Document development workflow and standards
+4. **Create Architecture Diagrams**: Add detailed system architecture and sequence diagrams
 
 ## Development Environment
 
