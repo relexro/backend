@@ -148,25 +148,23 @@ def get_authenticated_user(request):
         if not token:
             return None, 401, "Empty token"
 
-        # Step 1: Verify the Google OIDC ID token from API Gateway
+        # Step 1: Verify the Firebase ID token from the client
         try:
-            id_info = id_token.verify_oauth2_token(token, google_auth_requests.Request())
-            gateway_sa_subject = id_info.get('sub')
-            gateway_sa_email = id_info.get('email', '')
+            decoded_token = firebase_auth_admin.verify_id_token(token)
+            end_user_id_from_header = decoded_token.get("uid") or decoded_token.get("sub")
+            end_user_email_from_header = decoded_token.get("email", "")
+            if not end_user_id_from_header:
+                logging.error("Firebase token verified but 'uid' or 'sub' claim is missing.")
+                return None, 401, "Invalid Firebase token: UID missing."
+            logging.info(f"Successfully validated Firebase token for user: {end_user_id_from_header}")
+        except firebase_auth_admin.InvalidIdTokenError as e:
+            logging.error(f"Firebase ID token verification failed (InvalidIdTokenError): {e}")
+            return None, 401, f"Invalid Firebase token: {e}"
+        except Exception as e:
+            logging.error(f"Firebase token verification encountered an unexpected error: {e}")
+            return None, 500, f"Token validation error: {e}"
 
-            if not gateway_sa_subject:
-                logging.error("Google OIDC token valid but 'sub' (Gateway SA subject) claim missing.")
-                return None, 401, "Invalid token: Gateway SA subject missing."
-            logging.info(f"Successfully validated Google OIDC token for Gateway SA: {gateway_sa_subject}")
-
-        except ValueError as e:
-            logging.error(f"Google OIDC ID Token verification failed for Gateway SA: {str(e)}")
-            # This could also be a Firebase token if a client calls the function directly (bypassing Gateway)
-            # For now, we assume calls only come via Gateway with its OIDC token.
-            # If direct Firebase token validation is also needed here, logic would be more complex.
-            return None, 401, f"Invalid Gateway SA token: {str(e)}"
-
-        # Step 2: Extract end-user identity from X-Endpoint-API-Userinfo header
+        # Step 2: Extract end-user identity from X-Endpoint-API-Userinfo header (optional/fallback)
         end_user_id_from_header = None
         end_user_email_from_header = None
         user_info_header = request.headers.get("X-Endpoint-API-Userinfo")
@@ -193,7 +191,7 @@ def get_authenticated_user(request):
 
         return {
             "is_authenticated_call_from_gateway": True,
-            "gateway_sa_subject": gateway_sa_subject,
+            "gateway_sa_subject": end_user_id_from_header,
             "end_user_id": end_user_id_from_header, # This is the original Firebase User ID
             "end_user_email": end_user_email_from_header
         }, 200, None

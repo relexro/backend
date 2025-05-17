@@ -80,6 +80,19 @@ This document outlines the operational procedures, roles, responsibilities, and 
 
 ### 3.A Ensuring Executor Prompts are Self-Contained and Context-Rich
 
+#### Stateless Executor Sessions and Self-Contained Prompts: A Fundamental Principle
+
+**Critical Rule:** The Planner MUST operate under the assumption that each prompt sent to the Executor is run by the Operator in a **completely fresh, isolated, and stateless session.**
+
+* **No Historical Context:** The Executor retains NO memory, state, variables, or environmental setup (beyond what the Operator explicitly provides for that specific session, e.g., via `source ~/.zshenv`) from any previous prompt executions.
+* **Every Prompt is a Reset:** Think of each new prompt execution as starting from a clean slate.
+* **Mandatory Self-Containment:** Consequently, every single prompt issued by the Planner **must be entirely self-contained**. This means:
+    * All necessary information (e.g., API Gateway URLs, full file paths, specific data values, environment variables to be used if not globally set by Operator) must be explicitly stated or requested *within that prompt*, even if it was determined or mentioned in a previous Planner-Executor interaction.
+    * The Planner must **never** assume the Executor "remembers" any details from prior commands or outputs. For example, if an API URL was retrieved in prompt A, and prompt B needs it, prompt B must include instructions to re-retrieve or be explicitly provided that URL again.
+    * Define all variables or information contextually within each prompt.
+
+Adherence to this principle is vital for predictable and successful execution of tasks. Failing to provide all necessary context in each prompt will lead to errors and inefficiencies.
+
 **Core Principle:** The AI Executor is entirely stateless between prompts. It has no memory of prior interactions, Operator actions, or outputs from previous prompts unless that information is explicitly provided *within the current prompt*. Each prompt must be a complete package, providing all necessary information for the Executor to perform its task accurately and without needing to make assumptions or ask for clarification on the immediate task's context.
 
 **Mandatory Elements for Each Prompt:**
