@@ -235,7 +235,7 @@ Note: The custom domain `api-dev.relex.ro` is not currently the active endpoint 
 
 ### Known Issues
 
-- **API Gateway Logs**: API Gateway logs are currently not appearing in Cloud Logging. Investigation is ongoing.
+- **API Gateway Logs**: API Gateway logs are available in Cloud Logging under `resource.type=api` (not `resource.type=api_gateway`) with a `logName` containing `apigateway`. Use the dedicated log view `api-gateway-logs` or the query `resource.type=api AND logName:apigateway` to access these logs.
 - **End-User Identity**: As mentioned above, the original end-user's Firebase UID is not automatically propagated to backend functions.
 
 ## Future Enhancements

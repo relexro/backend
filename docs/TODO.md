@@ -5,15 +5,15 @@ This document tracks outstanding tasks, issues, and planned work for the Relex B
 ## Critical Issues
 
 ### API Gateway Logging
-- **Status**: UNRESOLVED
-- **Symptom**: API Gateway logs are not appearing in Cloud Logging, despite `roles/logging.logWriter` being granted to the Gateway's Google-managed service account.
-- **Impact**: Severely hinders debugging and monitoring of the API Gateway itself.
+- **Status**: RESOLVED_WORKAROUND_IDENTIFIED
+- **Symptom**: API Gateway logs were not appearing in Cloud Logging when filtering for `resource.type=api_gateway`. Investigation revealed that logs are present but under `resource.type=api` with a `logName` containing `apigateway` (e.g., `projects/relexro/logs/relex-api-dev-1zpirx0ouzrnu.apigateway.relexro.cloud.goog%2Fendpoints_log`).
+- **Impact**: Monitoring and debugging of the API Gateway is now possible using the correct query.
 - **Next Steps**:
-  1. Investigate log filters and sinks to ensure logs aren't being filtered out
-  2. Check if logs are being sent to a different project or log bucket
-  3. Verify IAM permissions for the API Gateway service account
-  4. Consider opening a support case with Google Cloud if the issue persists
-  5. Implement a temporary workaround by adding more detailed logging in backend functions
+  1. Created a dedicated log view `api-gateway-logs` for easier access (Actioned on 2025-05-17).
+  2. Verify log generation by making test requests to the API Gateway (`relex-api-gateway-dev-mvef5dk.ew.gateway.dev`) and checking the `api-gateway-logs` view or using the query: `resource.type=api AND logName:apigateway` in Cloud Logging for project `relexro`.
+  3. Update any internal developer documentation or runbooks to reflect the correct method for querying API Gateway logs.
+  4. Consider creating a custom monitoring dashboard in Cloud Monitoring for API Gateway metrics and these logs for improved long-term visibility.
+  5. If detailed transactional or payload logging from the API Gateway itself is still required beyond what is available in `resource.type=api` logs, investigate enabling this at the API Config level or through backend function logging enhancements.
 
 ### Custom Domain for API Gateway
 - **Status**: DEFERRED
