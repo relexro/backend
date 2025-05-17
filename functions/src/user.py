@@ -68,77 +68,87 @@ def create_user_profile_logic(user_record): # Separated logic for clarity or pot
     # logging.info(f"User profile created successfully for user: {user_id}")
 
 # This is the HTTP function exposed via main.py
-def get_user_profile(request: Request):
+def get_user_profile(request: Request, user_id_for_profile):
     """Retrieves the profile of the authenticated user.
 
     Args:
-        request (flask.Request): HTTP request object. Expects 'user_id' attribute from wrapper.
+        request (flask.Request): HTTP request object.
+        user_id_for_profile (str): The Firebase UID of the end-user whose profile to retrieve.
 
     Returns:
         tuple: (response_body, status_code)
     """
-    logging.info("Received request to get user profile")
+    logging.info(f"logic_get_user_profile called for end_user_id: {user_id_for_profile}")
+
+    if not user_id_for_profile:
+        return ({"error": "Bad Request", "message": "User ID for profile lookup is missing"}, 400)
 
     try:
-        # The authentication wrapper in main.py should have already run and set request.user_id
-        # We rely on that here. If not using the wrapper, call get_authenticated_user directly.
-        user_id = getattr(request, 'user_id', None)
-
-        if not user_id:
-            # This indicates an issue with the authentication wrapper or function setup
-            logging.error("Authorization Error: User ID not found in request context for get_user_profile.")
-            # Return 401 as the user effectively isn't authenticated for this function's context
-            return ({"error": "Unauthorized", "message": "User authentication context missing"}, 401)
-
-        logging.info(f"Authenticated user for get_user_profile: {user_id}")
-
-        # Get the user document from Firestore
-        user_doc_ref = db.collection("users").document(user_id)
-        user_doc = user_doc_ref.get()
+        # Use user_id_for_profile for Firestore operations
+        user_ref = db.collection('users').document(user_id_for_profile)
+        user_doc = user_ref.get()
 
         # Check if the user document exists
         if not user_doc.exists:
-            logging.warning(f"User profile for {user_id} not found in Firestore.")
-            # Potentially handle this case - maybe create a default profile if one is expected?
-            # For now, return 404 Not Found.
-            return ({"error": "Not Found", "message": "User profile not found"}, 404)
+            logging.warning(f"User profile for {user_id_for_profile} not found in Firestore. Attempting to create.")
+
+            # Auto-create profile logic using user_id_for_profile and request.end_user_email (if available on request)
+            email_for_new_profile = getattr(request, 'end_user_email', None)
+
+            if not email_for_new_profile:
+                logging.error(f"Cannot auto-create profile for {user_id_for_profile}, email not available.")
+                return ({"error": "Not Found", "message": "User profile not found and cannot auto-create without email"}, 404)
+
+            # Prepare user data for Firestore document
+            user_data = {
+                "userId": user_id_for_profile,
+                "email": email_for_new_profile,
+                "displayName": email_for_new_profile.split('@')[0] if '@' in email_for_new_profile else "New User",
+                "photoURL": "",
+                "role": "user",
+                "subscriptionStatus": None,
+                "languagePreference": "en",
+                "createdAt": firestore.SERVER_TIMESTAMP,
+                "updatedAt": firestore.SERVER_TIMESTAMP
+            }
+
+            # Write to Firestore
+            user_ref.set(user_data)
+
+            # Return the newly created profile
+            logging.info(f"Auto-created profile for {user_id_for_profile} with email {email_for_new_profile}")
+            return (user_data, 201) # 201 Created
 
         # Get the user data from the document
         user_data = user_doc.to_dict()
-        user_data["userId"] = user_id # Ensure userId is included in the response
+        user_data["userId"] = user_id_for_profile # Ensure userId is included in the response
 
         # Return the user profile data
-        logging.info(f"Successfully retrieved profile for user: {user_id}")
+        logging.info(f"Successfully retrieved profile for user: {user_id_for_profile}")
         return (user_data, 200) # Return data and 200 OK
 
     except Exception as e:
         # Log unexpected errors
-        logging.error(f"Error retrieving user profile for user {user_id if 'user_id' in locals() else 'UNKNOWN'}: {str(e)}", exc_info=True)
+        logging.error(f"Error retrieving user profile for user {user_id_for_profile}: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "Failed to retrieve user profile"}, 500)
 
 # This is the HTTP function exposed via main.py
-def update_user_profile(request: Request):
+def update_user_profile(request: Request, user_id_for_profile):
     """Updates the profile fields for the authenticated user.
 
     Args:
         request (flask.Request): HTTP request object with JSON body containing fields to update.
-                                 Expects 'user_id' attribute from wrapper.
+        user_id_for_profile (str): The Firebase UID of the end-user whose profile to update.
 
     Returns:
         tuple: (response_body, status_code)
     """
-    logging.info("Received request to update user profile")
+    logging.info(f"logic_update_user_profile called for end_user_id: {user_id_for_profile}")
+
+    if not user_id_for_profile:
+        return ({"error": "Bad Request", "message": "User ID for profile update is missing"}, 400)
 
     try:
-        # Rely on authentication wrapper in main.py to set user_id
-        user_id = getattr(request, 'user_id', None)
-
-        if not user_id:
-            logging.error("Authorization Error: User ID not found in request context for update_user_profile.")
-            return ({"error": "Unauthorized", "message": "User authentication context missing"}, 401)
-
-        logging.info(f"Authenticated user for update_user_profile: {user_id}")
-
         # Extract JSON data from request body
         data = request.get_json(silent=True)
         if not data:
@@ -146,13 +156,8 @@ def update_user_profile(request: Request):
             return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
 
         # Get user document reference
-        user_ref = db.collection("users").document(user_id)
+        user_ref = db.collection("users").document(user_id_for_profile)
         user_doc = user_ref.get() # Check if profile exists before updating
-
-        # Check if the user document exists
-        if not user_doc.exists:
-            logging.error(f"Not Found: User profile for {user_id} not found during update attempt")
-            return ({"error": "Not Found", "message": "User profile not found"}, 404)
 
         # --- Field Validation ---
         # Define fields allowed for update and any validation rules
@@ -191,31 +196,57 @@ def update_user_profile(request: Request):
                 ignored_fields.append(field)
 
         if ignored_fields:
-             logging.warning(f"Ignoring attempts by user {user_id} to update non-allowed fields: {', '.join(ignored_fields)}")
+             logging.warning(f"Ignoring attempts by user {user_id_for_profile} to update non-allowed fields: {', '.join(ignored_fields)}")
 
         # Check if there are any valid fields to update
         if not update_data:
-            logging.info(f"No valid fields provided to update for user: {user_id}")
+            logging.info(f"No valid fields provided to update for user: {user_id_for_profile}")
             # Return 400 Bad Request as the request didn't contain actionable data
             return ({"error": "Bad Request", "message": "No valid fields provided for update"}, 400)
 
         # Add updatedAt timestamp to track the update time
         update_data["updatedAt"] = firestore.SERVER_TIMESTAMP
 
-        # Update the document in Firestore
-        user_ref.update(update_data)
+        # Check if the user document exists
+        if not user_doc.exists:
+            logging.warning(f"User profile for {user_id_for_profile} not found during update attempt. Creating new profile.")
 
-        # Get the updated document to return the latest state
-        updated_doc = user_ref.get() # Read after write
-        updated_data = updated_doc.to_dict()
-        updated_data["userId"] = user_id # Ensure userId is present
+            # Create a basic profile for the user if we have their email
+            email_for_new_profile = getattr(request, 'end_user_email', None)
 
-        # Return the updated profile data
-        logging.info(f"Successfully updated profile for user: {user_id}")
-        return (updated_data, 200) # 200 OK
+            # Prepare complete user data for Firestore document
+            complete_user_data = {
+                "userId": user_id_for_profile,
+                "email": email_for_new_profile or "",
+                "displayName": update_data.get("displayName", email_for_new_profile.split('@')[0] if email_for_new_profile and '@' in email_for_new_profile else "New User"),
+                "photoURL": update_data.get("photoURL", ""),
+                "role": "user",
+                "subscriptionStatus": None,
+                "languagePreference": update_data.get("languagePreference", "en"),
+                "createdAt": firestore.SERVER_TIMESTAMP,
+                "updatedAt": firestore.SERVER_TIMESTAMP
+            }
+
+            # Write to Firestore (set will create the document)
+            user_ref.set(complete_user_data)
+
+            # Return the newly created profile
+            logging.info(f"Created and returning new profile for user: {user_id_for_profile}")
+            return (complete_user_data, 201) # 201 Created
+        else:
+            # Update the existing document in Firestore
+            user_ref.update(update_data)
+
+            # Get the updated document to return the latest state
+            updated_doc = user_ref.get() # Read after write
+            updated_data = updated_doc.to_dict()
+            updated_data["userId"] = user_id_for_profile # Ensure userId is present
+
+            # Return the updated profile data
+            logging.info(f"Successfully updated profile for user: {user_id_for_profile}")
+            return (updated_data, 200) # 200 OK
 
     except Exception as e:
         # Log unexpected errors
-        user_id_for_log = getattr(request, 'user_id', 'UNKNOWN') # Safely get user_id for logging
-        logging.error(f"Error updating user profile for user {user_id_for_log}: {str(e)}", exc_info=True)
+        logging.error(f"Error updating user profile for user {user_id_for_profile}: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "Failed to update user profile"}, 500)

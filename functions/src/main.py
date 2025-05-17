@@ -66,31 +66,62 @@ from agent import handle_agent_request as logic_handle_agent_request
 
 logging.basicConfig(level=logging.INFO)
 
-def _authenticate_and_call(request: Request, logic_func, requires_auth=True):
+# Decorator to add user context to request if available
+def require_end_user_id(func):
+    def wrapper(request, *args, **kwargs):
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+            logging.warning(f"Endpoint {request.path} requires end_user_id, but it was not available.")
+            return flask.jsonify({"error": "Unauthorized: Valid end-user identity not available for this operation."}), 403
+        return func(request, *args, **kwargs)
+    wrapper._original_function = func # Preserve original for introspection if needed
+    wrapper.__name__ = func.__name__ # Preserve name
+    return wrapper
+
+def _authenticate_and_call(request: Request, logic_function, needs_end_user_id_arg=False):
+    """
+    Authenticates the request using get_authenticated_user, then calls the logic_function.
+    Passes end_user_id as the first argument to logic_function if needs_end_user_id_arg is True.
+    Also sets request.end_user_id and request.end_user_email if available.
+    """
     try:
-        user_data = None
-        auth_user_id = None
-        if requires_auth:
-            auth_user_data, status_code, error_message = get_authenticated_user(request)
-            if status_code != 200:
-                logging.warning(f"Authentication failed for {logic_func.__name__}: {error_message}")
-                return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
-            auth_user_id = auth_user_data["userId"]
-            setattr(request, 'user_id', auth_user_id)
-            setattr(request, 'user_email', auth_user_data.get("email"))
-            user_data = auth_user_data
-        response = logic_func(request)
-        if isinstance(response, tuple):
-            return response
-        elif isinstance(response, flask.Response):
-            return response
-        elif isinstance(response, dict) or response is None:
-            return flask.jsonify(response), 200
+        if not hasattr(request, 'method') or not hasattr(request, 'path'):
+            logging.error("Invalid request object passed to _authenticate_and_call")
+            return flask.jsonify({"error": "Internal Server Error", "message": "Invalid request object"}), 500
+
+        auth_context, status_code, error_message = get_authenticated_user(request) # from auth.py
+
+        if error_message:
+            return flask.jsonify({"error": error_message}), status_code
+
+        if not auth_context or not auth_context.get("is_authenticated_call_from_gateway"):
+            logging.error("Authentication context not properly established by get_authenticated_user.")
+            return flask.jsonify({"error": "Internal authentication error"}), 500
+
+        # Make end-user info available on the request object for general use or decorators
+        request.end_user_id = auth_context.get("end_user_id")
+        request.end_user_email = auth_context.get("end_user_email")
+        request.gateway_sa_subject = auth_context.get("gateway_sa_subject") # For logging/auditing if needed
+
+        logging.info(f"Request from Gateway SA {request.gateway_sa_subject}. End-user ID: {request.end_user_id}, Email: {request.end_user_email}")
+
+        if needs_end_user_id_arg:
+            if not request.end_user_id:
+                logging.error(f"Logic function {logic_function.__name__} requires end_user_id, but it was not available from token claims.")
+                return flask.jsonify({"error": "Unauthorized: End-user identity not available for this operation."}), 403
+            try:
+                return logic_function(request, request.end_user_id) # Pass end_user_id as an argument
+            except Exception as e:
+                logging.error(f"Error executing logic_function {logic_function.__name__} with user_id: {str(e)}", exc_info=True)
+                return flask.jsonify({"error": "Internal server error processing request"}), 500
         else:
-            logging.error(f"Unexpected return type from {logic_func.__name__}: {type(response)}")
-            return flask.jsonify({"error": "Internal Server Error", "message": "Invalid function response type"}), 500
+            try:
+                return logic_function(request) # For functions that don't take end_user_id as an arg
+            except Exception as e:
+                logging.error(f"Error executing logic_function {logic_function.__name__}: {str(e)}", exc_info=True)
+                return flask.jsonify({"error": "Internal server error processing request"}), 500
     except Exception as e:
-        logging.error(f"Error in function '{logic_func.__name__}': {str(e)}", exc_info=True)
+        logic_name = getattr(logic_function, '__name__', 'unknown')
+        logging.error(f"Error in _authenticate_and_call for {logic_name}: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred."}), 500
 
 @functions_framework.http
@@ -469,7 +500,8 @@ def relex_backend_get_user_profile(request: Request):
             "timestamp": datetime.now().isoformat()
         }), 200
 
-    return _authenticate_and_call(request, logic_get_user_profile)
+    # Assumes logic_get_user_profile now expects (request, end_user_id)
+    return _authenticate_and_call(request, logic_get_user_profile, needs_end_user_id_arg=True)
 
 @functions_framework.http
 def relex_backend_update_user_profile(request: Request):
@@ -483,7 +515,8 @@ def relex_backend_update_user_profile(request: Request):
             "timestamp": datetime.now().isoformat()
         }), 200
 
-    return _authenticate_and_call(request, logic_update_user_profile)
+    # Assumes logic_update_user_profile now expects (request, end_user_id)
+    return _authenticate_and_call(request, logic_update_user_profile, needs_end_user_id_arg=True)
 
 @functions_framework.http
 def relex_backend_create_party(request: Request):
