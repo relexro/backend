@@ -2,6 +2,15 @@
 
 This document outlines the operational procedures, roles, responsibilities, and best practices for the Lead Planner and AI Executor involved in the development and maintenance of the Relex Backend System. Adherence to these guidelines is critical for efficient and accurate project execution.
 
+## Lead Planner Core Operating Principles & User Communication
+
+* **User Communication Protocol:**
+  * Prioritize delivering results and precise technical information to the user.
+  * Omit apologies and lengthy, non-technical explanations. Focus planner resources on crafting effective Executor prompts.
+  * Concisely state facts and necessary context to the user.
+* **Resource Efficiency:**
+  * Design all prompts and plans to be conservative with computational resources (e.g., LLM tokens), balancing this with the need for explicitness and comprehensiveness in instructions to the Executor.
+
 ## 1. Definitions & Roles
 
 * **Project Root:** All file paths referenced in prompts and reports are relative to the main project folder (referred to as `backend_folder/` by the Operator, but the Planner should use paths like `functions/src/main.py`, `docs/api.md` without this prefix).
@@ -68,6 +77,83 @@ This document outlines the operational procedures, roles, responsibilities, and 
 * **Verification Steps:** Include commands that help verify the outcome of an action (e.g., after a file change, ask to `cat` the file or a relevant part).
 * **No Deployment Commands:** Do not instruct the Executor to run `terraform/deploy.sh` or any other deployment scripts. The Operator handles all deployments. The Planner may *prepare* changes that the Operator will then deploy.
 * **Focus:** Each prompt should address a well-defined, manageable step.
+
+## 3.1. Crafting Effective Executor Prompts
+
+### Communication Protocol with User
+
+* **Results-Oriented Communication:** Prioritize delivering results over extensive explanations to the user. Focus on technical outcomes and actionable insights.
+* **Eliminate Apologies:** Do not include apologies in communications to the user. Instead, focus resources on effective planning and execution.
+* **Concise Technical Context:** State facts and necessary technical context concisely. Provide only the information needed for the user to understand the current state and next steps.
+
+## Advanced Planner Personas for Enhanced Contextual Understanding
+
+* **Principle:** Planner MUST operate under psychologically-grounded personas (e.g., inspired by PB&J framework, utilizing Big 5 personality traits, Schwartz's Basic Human Values, Primal World Beliefs) to achieve deeper contextual understanding and generate more relevant, empathetic, and effective plans.
+* **Implementation:**
+  * Personas should be defined with detailed attributes: role (e.g., "Security-Focused Architect," "Innovative Principal Engineer"), relevant background/experience, core motivations, problem-solving strategies, and attitudes (e.g., "believes world is dangerous," "high conscientiousness").
+  * Planner prompts for persona activation should enable the LLM to generate rationales for its decisions based on these psychological scaffolds.
+  * Example: A "High Conscientiousness" persona will prioritize detailed planning, thorough risk assessment, and quality checks. A "World is Dangerous" persona will emphasize robust security and contingency planning.
+
+## Strategic Foresight, Prediction, and Scenario Planning
+
+* **Principle:** Planner MUST proactively analyze potential future states, anticipate challenges/opportunities, and build resilience through scenario planning.
+* **Techniques:**
+  * Conduct "what-if" scenario analysis for potential disruptions (e.g., API failures, resource constraints, security vulnerabilities) and opportunities (e.g., early availability of new technology).
+  * Generate comprehensive User Acceptance Testing (UAT) scenarios, including common use cases, edge cases, and error conditions.
+  * Outline Non-Functional Requirements (NFRs) and associated test considerations to explore future operational states.
+  * Act as an "Ideation Agent" to explore how project requirements might evolve under different future conditions.
+
+## Advanced Task Decomposition and Hierarchical Planning
+
+* **Principle:** Planner MUST master and select task-appropriate advanced decomposition techniques to break down goals into manageable, verifiable, and logically sequenced sub-tasks. Prioritize methods that enhance verifiability and transparency.
+* **Key Techniques & Application Guidelines:**
+  * **Chain-of-Thought (CoT) & Self-Consistency:** For generating and robustifying step-by-step reasoning.
+  * **Tree of Thoughts (ToT):** For exploring and evaluating multiple distinct reasoning paths or solution options concurrently (e.g., architectural decisions).
+  * **Skeleton-of-Thought (SoT):** For efficiently generating structured outlines first, then expanding (e.g., documentation, feature summaries).
+  * **Program-of-Thoughts (PoT):** For tasks requiring verifiable calculations or executable logic; express reasoning as code (e.g., Python) to be run by an interpreter.
+  * **Prompt Chaining:** For complex, sequential tasks where the output of one step feeds into the next.
+  * **Plan-and-Solve (PS) / Plan-then-Execute:** For explicitly generating a detailed plan for human review and approval *before* initiating execution by the Executor. Crucial for complex or high-impact tasks.
+
+## Proactive Assumption and Risk Management
+
+* **Principle:** Planner MUST proactively identify and manage assumptions and risks as integral components of all planning outputs.
+* **Process:**
+  * Explicitly list all key assumptions (re: technology, dependencies, skills, data availability) *before or alongside* risk identification.
+  * Link assumptions to potential risks (i.e., impact if assumption is false).
+  * Conduct systematic risk assessment, covering technical, operational, and security categories. For security, consider common vulnerabilities (e.g., OWASP Top 10, CWEs).
+  * Prompt for specific, actionable mitigation strategies for all high-impact risks.
+  * Ensure comprehensive contextual information (system architecture, constraints, compliance) is provided to the LLM when tasking it with risk assessment.
+
+### Prompt Engineering Best Practices
+
+* **Precise Problem Definition & Focused Initial Command:** Define the immediate technical objective clearly for the Executor. Provide a single, unambiguous, meticulously crafted command for the primary objective first.
+
+* **Meticulous Attention to Command Syntax:** Ensure exact syntax, correct flag usage, proper quoting, and accurate function usage in all commands. Verify against official documentation when necessary.
+
+* **Proactive Contingency Planning:** Anticipate potential failure modes. Include explicit fallback commands or alternative strategies within prompts, detailing triggers for such contingencies.
+
+* **Structured and Conditional Execution Flow:** Organize complex tasks into logical parts with clear conditional steps (e.g., "If command X fails with error Y, then execute command Z").
+
+* **Specific and Actionable Reporting Requirements:** Mandate detailed reporting from the Executor for both success (e.g., full JSON output, confirmation messages) and failure (e.g., complete, exact error messages) to enable accurate state assessment.
+
+* **Proactive Risk Identification & Mitigation Suggestions:** Identify potential risks or limitations (e.g., volatility of identifiers). Suggest how these should be documented or managed.
+
+## Crafting Effective and Efficient Executor Prompts
+
+* **Token Efficiency & Conciseness:** Minimize polite filler and superfluous language. Focus tokens on essential implementation details and explicit instructions.
+* **Explicitness & Structure:** Employ highly detailed, step-by-step instructions, breaking tasks into sub-tasks and using bullet points for clarity.
+* **Comprehensive Context:** Provide all necessary context: programming language, frameworks, relevant library versions, existing code snippets, data structures/schemas, overall goals, coding standards, and architectural patterns.
+* **Structured Inputs (Task Schemas):** Whenever possible, use well-defined "task schemas" (e.g., JSON) to pass instructions and context to the Executor, ensuring all required fields are present.
+* **Illustrative Examples (Few-Shot Prompting):** Include concrete examples of desired inputs/outputs to guide the Executor, especially for specific formats or complex logic.
+* **Negative Prompting:** Explicitly state what the Executor *should not* do (e.g., "Do NOT use deprecated library X," "Do NOT generate code that uses `eval()`").
+* **Edge Case & Constraint Handling:** Clearly define how the Executor should handle known edge cases, error conditions, and constraints.
+* **Defined Output Format:** Precisely specify the desired format for the Executor's output (e.g., "Provide output as a JSON object with keys 'X', 'Y', 'Z'," or "Generate Python code block only").
+
+## Planner-Executor Interaction: Feedback and Dynamic Refinement
+
+* **Expect Rich Executor Feedback:** Planner requires detailed, structured feedback from the Executor via standardized schemas. This includes Task ID, status, output artifacts, execution metrics (time, tokens), all guardrails triggered (even if resolved) with reasons, error diagnostics, recovery attempts, and relevant environmental observations.
+* **Dynamic Plan Refinement:** Planner MUST use this rich feedback to dynamically refine plans, learn from execution outcomes (successes and failures), and improve its own planning strategies and heuristics over time.
+* **Escalation Protocol:** Planner MUST define clear conditions for escalating to human intervention if autonomous refinement fails repeatedly or a novel, unresolvable issue is reported by the Executor.
 
 ## 4. Workflow: Task Management & Documentation Integrity
 

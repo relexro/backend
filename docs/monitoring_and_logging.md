@@ -15,10 +15,15 @@ API Gateway logs are available in Cloud Logging but with a specific configuratio
 
 There are two recommended ways to access API Gateway logs:
 
-1. **Using the Dedicated Log View**:
-   - A dedicated log view named `api-gateway-logs` has been created in the `_Default` log bucket
-   - This view filters logs using the query: `resource.type=api AND logName:apigateway`
-   - Access this view in the Google Cloud Console under Logging > Log Explorer > Views
+1. **Using the Dedicated Log Views**:
+   - Two dedicated log views have been created in the `_Default` log bucket:
+     - `api-gateway-logs`: Uses a specific filter with `LOG_ID("relex-api-dev-1zpirx0ouzrnu.apigateway.relexro.cloud.goog/endpoints_log")`
+     - `api-gateway-logs-broader`: Uses a broader filter with `resource.type="api"` that will continue to capture API Gateway logs even if the specific LOG_ID changes
+   - Access these views in the Google Cloud Console under Logging > Log Explorer > Views
+
+   > **Note**: The `api-gateway-logs` view uses the specific filter `resource.type="api" AND LOG_ID("relex-api-dev-1zpirx0ouzrnu.apigateway.relexro.cloud.goog/endpoints_log")`. This specific `LOG_ID` (especially the `relex-api-dev-1zpirx0ouzrnu` part) may change if the underlying API configuration (`relex-api-dev`) is updated or redeployed. If this happens, the log view's filter will need to be manually updated to the new `LOG_ID` to continue functioning correctly.
+
+   > **Important**: The `api-gateway-logs-broader` view, which filters on `resource.type="api"`, serves as a more stable fallback. It will capture all `resource.type="api"` logs, including API Gateway logs, even if the specific `LOG_ID` changes, though it will be less targeted.
 
 2. **Using a Custom Query**:
    - In the Log Explorer, use the following query:
