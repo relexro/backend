@@ -153,7 +153,7 @@ Instructions for Executor:
 ## 5. Current Critical Knowledge Points (For Immediate Planner Review)
 
 * **API Gateway Access:** Currently via its default Google-provided URL (see `docs/terraform_outputs.log` for `api_gateway_url`). The custom domain `api-dev.relex.ro` is **NOT** currently configured or operational for the API Gateway.
-* **Test Authentication:** Requires a Firebase JWT. This token is obtained by the operator using `tests/test-auth.html` (served locally from the `tests/` directory, e.g., via `python3 -m http.server 8080`). The obtained token is set as the `RELEX_TEST_JWT` environment variable by the Operator for use in `curl` or test scripts. This is always required for testing authenticated API endpoints and is already done by the Operator.
+* **Test Authentication:** The Operator will ensure the `RELEX_TEST_JWT` environment variable is set in their environment (typically in `~/.zshenv`). The Executor should source `~/.zshenv` and use the `RELEX_TEST_JWT` environment variable to set the token for authenticated API endpoint testing.
 * **Backend Authentication Flow:**
     1.  Client sends Firebase JWT (`RELEX_TEST_JWT`) to API Gateway.
     2.  API Gateway validates this Firebase JWT.
@@ -164,3 +164,22 @@ Instructions for Executor:
 * **Cloud Function Health Checks:** All HTTP functions in `functions/src/main.py` are standardized to respond to a `GET` request containing the `X-Google-Health-Check: true` header by returning a 200 OK health status JSON. Business logic paths (like `/v1/users/me`) routed via API Gateway with `CONSTANT_ADDRESS` (calling the function's root `/`) will execute business logic unless this header is present.
 * **Critical Unresolved Issue:** API Gateway logs are not appearing in Cloud Logging, despite `roles/logging.logWriter` being granted to the Gateway's Google-managed SA. This severely hinders debugging and monitoring of the Gateway itself.
 * **Path Translation:** The API Gateway is configured with `path_translation: CONSTANT_ADDRESS` for its backends. This means for a Gateway path like `/v1/users/me`, the corresponding backend function is called at its root (`/`).
+
+### Using the `RELEX_TEST_JWT` for Authenticated Testing
+
+For test scenarios requiring interaction with authenticated API endpoints, the `RELEX_TEST_JWT` environment variable is to be used. This JWT is specifically designated for testing purposes.
+
+**Crucial Guidelines for `RELEX_TEST_JWT`:**
+
+* **Operator Provided**: The `RELEX_TEST_JWT` environment variable is set up and made available by the Operator. This is typically done by the Operator sourcing a shell configuration file (e.g., `source ~/.zshenv` or `source ~/.bashrc`) in the Executor's environment *before* the Executor begins its tasks.
+* **Executor's Responsibility**: The Executor **must** rely on this environment variable being present if a test scenario calls for using `RELEX_TEST_JWT`.
+* **Executor MUST NOT Generate/Retrieve**: The Executor **must not** attempt to generate, log in to obtain, or otherwise retrieve the `RELEX_TEST_JWT` token by itself. Its role is solely to *use* the token from the environment variable when instructed.
+* **Usage Example in Prompts**: When the Planner requires the Executor to make an authenticated API call using this test token, the prompt will instruct the Executor to read it from the environment. For example:
+    ```bash
+    # Planner's instruction in a prompt:
+    # export TOKEN="$RELEX_TEST_JWT"
+    # curl -H "Authorization: Bearer $TOKEN" https://api.example.com/protected_endpoint
+    ```
+* **Absence of Variable**: If `RELEX_TEST_JWT` is required for a task but is not found in the environment, the Executor should report this back to the Operator and await further instructions, rather than attempting to bypass its absence or handle the issue by itself. 
+
+This procedure ensures that test tokens are managed and controlled by the Operator, maintaining security and operational consistency.
