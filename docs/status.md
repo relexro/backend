@@ -132,10 +132,17 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Prompt design guidelines
 - [x] Case tier system explanation
 - [x] Payment and subscription system
+- [x] LLM Planner and Executor guidelines
 - [ ] Contribution guidelines
 - [ ] Advanced troubleshooting
 
 ## Current System Status
+
+### Latest Updates
+---
+**Date:** 2025-05-17
+**Update:** Completed comprehensive overhaul of LLM Planner and Executor guidelines (`docs/PLANNER_GUIDE.md`, `docs/guardrail.md`). This enhancement incorporates advanced strategies for AI persona development, strategic foresight, task decomposition, risk management, explicit guardrailing, and planner-executor synergy, based on the "Superior Guidelines for LLM Planners and Executors in Software Engineering" research. This marks a significant improvement in our AI operational protocols and strategic capabilities.
+---
 
 ### API Accessibility
 - **API Gateway URL**: The API is accessed via the default Google-provided URL found in `docs/terraform_outputs.log` as `api_gateway_url` (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)

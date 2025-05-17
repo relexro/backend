@@ -135,6 +135,11 @@ This document tracks outstanding tasks, issues, and planned work for the Relex B
 
 ## Completed Tasks
 
+### LLM Planner and Executor Guidelines Overhaul
+- **Status**: COMPLETED
+- **Resolution**: Integrated "Superior Guidelines for LLM Planners and Executors" research into project documentation (`docs/PLANNER_GUIDE.md`, `docs/guardrail.md`), enhancing AI operational protocols with advanced strategies for persona development, strategic foresight, task decomposition, risk management, explicit guardrailing, and planner-executor interaction.
+- **Date**: May 17, 2025
+
 ### API Gateway Path Translation
 - **Status**: COMPLETED
 - **Resolution**: Configured with `path_translation: CONSTANT_ADDRESS` for all backends
