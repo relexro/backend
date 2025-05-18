@@ -14,6 +14,11 @@ consumes:
   - application/json
 securityDefinitions:
   firebase: {type: apiKey, name: Authorization, in: header, description: 'Firebase Authentication JWT. Use format ''Bearer {token}''', x-google-issuer: 'https://securetoken.google.com/${project_id}', x-google-jwks_uri: 'https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com', x-google-audiences: '${project_id}'}
+
+# Add global security requirement
+security:
+  - firebase: []
+
 paths:
   /cases/{caseId}/agent/messages:
     post:
@@ -21,8 +26,6 @@ paths:
       description: Sends user input to the agent and receives its response or status update. Handles the entire agent workflow
         invocation.
       operationId: relex_backend_agent_handler
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-agent-handler"]}'
         path_translation: CONSTANT_ADDRESS
@@ -112,8 +115,6 @@ paths:
       summary: Get user profile
       description: Retrieves the profile of the authenticated user.
       operationId: relex_backend_get_user_profile
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-get-user-profile"]}'
         path_translation: CONSTANT_ADDRESS
@@ -136,8 +137,6 @@ paths:
       summary: Update user profile
       description: Updates the profile of the authenticated user.
       operationId: relex_backend_update_user_profile
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-update-user-profile"]}'
         path_translation: CONSTANT_ADDRESS
@@ -177,8 +176,6 @@ paths:
       summary: List user's organizations
       description: Lists all organizations the authenticated user is a member of.
       operationId: relex_backend_list_user_organizations
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-list-user-organizations"]}'
         path_translation: CONSTANT_ADDRESS
@@ -210,8 +207,6 @@ paths:
       summary: List user's cases
       description: Lists all cases owned by the authenticated user.
       operationId: relex_backend_list_user_cases
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-list-cases"]}'
         path_translation: CONSTANT_ADDRESS
@@ -257,8 +252,6 @@ paths:
       summary: Create a new organization
       description: Creates a new organization with the authenticated user as administrator.
       operationId: relex_backend_create_organization
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-create-organization"]}'
         path_translation: CONSTANT_ADDRESS
@@ -306,8 +299,6 @@ paths:
       summary: Get organization details
       description: Retrieves detailed information about a specific organization. Accessible by organization members.
       operationId: relex_backend_get_organization
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-get-organization"]}'
         path_translation: CONSTANT_ADDRESS
@@ -358,8 +349,6 @@ paths:
       summary: Update organization details
       description: Updates information for an existing organization. Accessible by organization administrators.
       operationId: relex_backend_update_organization
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-update-organization"]}'
         path_translation: CONSTANT_ADDRESS
@@ -414,8 +403,6 @@ paths:
       summary: Delete an organization
       description: Deletes an organization. Only possible if there's no active subscription and caller is an administrator.
       operationId: relex_backend_delete_organization
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-delete-organization"]}'
         path_translation: CONSTANT_ADDRESS
@@ -451,8 +438,6 @@ paths:
       summary: Create a new case
       description: Creates a new individual case for the authenticated user or an organization case if organizationId is provided.
       operationId: relex_backend_create_case
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-create-case"]}'
         path_translation: CONSTANT_ADDRESS
@@ -499,8 +484,6 @@ paths:
     post:
       summary: Create an organization case
       operationId: createOrganizationCase
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-create-case"]}'
         path_translation: CONSTANT_ADDRESS
@@ -555,8 +538,6 @@ paths:
       summary: List organization cases
       description: Lists cases associated with the specified organization.
       operationId: relex_backend_list_organization_cases
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-list-organization-cases"]}'
         path_translation: CONSTANT_ADDRESS
@@ -613,8 +594,6 @@ paths:
       summary: Add member to organization
       description: Adds a new member to an organization with a specific role. Only administrators can add members.
       operationId: relex_backend_add_organization_member
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-add-organization-member"]}'
         path_translation: CONSTANT_ADDRESS
@@ -676,8 +655,6 @@ paths:
       summary: List organization members
       description: Lists all members of an organization. Accessible by organization members.
       operationId: relex_backend_list_organization_members
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-list-organization-members"]}'
         path_translation: CONSTANT_ADDRESS
@@ -721,8 +698,6 @@ paths:
       summary: Upload a file to a case
       description: Uploads a file and attaches it to a specific case.
       operationId: relex_backend_upload_file
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-upload-file"]}'
         path_translation: CONSTANT_ADDRESS
@@ -784,14 +759,6 @@ paths:
       summary: Download a file from a case
       description: Downloads a file attached to a specific case.
       operationId: relex_backend_download_file
-      security:
-      - firebase: []
-      produces:
-        - application/octet-stream
-        - image/*
-        - application/pdf
-        - text/plain
-        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
       x-google-backend:
         address: '${function_uris["relex-backend-download-file"]}'
         path_translation: CONSTANT_ADDRESS
@@ -830,8 +797,6 @@ paths:
       summary: Create a new party
       description: Creates a new party record in the system.
       operationId: relex_backend_create_party
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-create-party"]}'
         path_translation: CONSTANT_ADDRESS
@@ -900,8 +865,6 @@ paths:
       summary: List parties
       description: Lists parties created by the authenticated user.
       operationId: relex_backend_list_parties
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-list-parties"]}'
         path_translation: CONSTANT_ADDRESS
@@ -946,8 +909,6 @@ paths:
       summary: Get party details
       description: Retrieves detailed information about a specific party.
       operationId: relex_backend_get_party
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-get-party"]}'
         path_translation: CONSTANT_ADDRESS
@@ -977,8 +938,6 @@ paths:
       summary: Update a party
       description: Updates an existing party's information.
       operationId: relex_backend_update_party
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-update-party"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1054,8 +1013,6 @@ paths:
       summary: Delete a party
       description: Deletes a party. This operation may be restricted if the party is associated with cases.
       operationId: relex_backend_delete_party
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-delete-party"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1090,8 +1047,6 @@ paths:
       summary: Attach a party to a case
       description: Associates an existing party with a case.
       operationId: relex_backend_attach_party
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-attach-party"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1142,8 +1097,6 @@ paths:
       summary: Create a payment intent
       description: Creates a Stripe payment intent for purchasing a specific case tier.
       operationId: relex_backend_create_payment_intent
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-create-payment-intent"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1191,8 +1144,6 @@ paths:
       summary: Create a checkout session
       description: Creates a Stripe checkout session for subscription plans.
       operationId: relex_backend_create_checkout_session
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-create-checkout-session"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1235,8 +1186,6 @@ paths:
       summary: Handle Stripe webhook events
       description: Processes webhook events from Stripe for payment and subscription management.
       operationId: relex_backend_handle_stripe_webhook
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-handle-stripe-webhook"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1277,8 +1226,6 @@ paths:
       summary: Cancel a subscription
       description: Cancels an active subscription. The subscription will remain active until the end of the current billing period.
       operationId: relex_backend_cancel_subscription
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-cancel-subscription"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1320,8 +1267,6 @@ paths:
       summary: Redeem a voucher code
       description: Redeems a voucher code to add case credits or activate a subscription.
       operationId: relex_backend_redeem_voucher
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-redeem-voucher"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1383,8 +1328,6 @@ paths:
       summary: List available products and pricing
       description: Retrieves the list of available products, subscription plans, and pricing information.
       operationId: relex_backend_get_products
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-get-products"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1461,8 +1404,6 @@ paths:
       summary: Validate user authentication
       description: Validates a user's authentication token and creates a user record if it doesn't exist.
       operationId: relex_backend_validate_user
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-validate-user"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1507,8 +1448,6 @@ paths:
       summary: Check user permissions
       description: Checks if a user has specific permissions for a resource.
       operationId: relex_backend_check_permissions
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-check-permissions"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1576,8 +1515,6 @@ paths:
       summary: Get user role for organization
       description: Gets a user's role in a specific organization.
       operationId: relex_backend_get_user_role
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-get-user-role"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1622,8 +1559,6 @@ paths:
       summary: Get case details
       description: Retrieves detailed information about a specific case.
       operationId: relex_backend_get_case
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-get-case"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1655,8 +1590,6 @@ paths:
       summary: Mark a case as deleted
       description: Changes a case status to "deleted". Deleted cases are only shown when specifically requested.
       operationId: relex_backend_delete_case
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-delete-case"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1693,8 +1626,6 @@ paths:
       summary: Archive a case
       description: Changes a case status to "archived". Archived cases are not shown in the default case listing.
       operationId: relex_backend_archive_case
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-archive-case"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1731,8 +1662,6 @@ paths:
       summary: Assign a case to a user
       description: Assigns an organization case to a specific user. Only available for organization administrators.
       operationId: relex_backend_assign_case
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-assign-case"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1783,8 +1712,6 @@ paths:
       summary: Update member role
       description: Updates a member's role in the organization. Only administrators can update roles.
       operationId: relex_backend_set_organization_member_role_by_id
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-set-organization-member-role"]}'
         path_translation: CONSTANT_ADDRESS
@@ -1843,8 +1770,6 @@ paths:
       summary: Remove member
       description: Removes a member from an organization. Only administrators can remove members.
       operationId: relex_backend_remove_organization_member_by_id
-      security:
-      - firebase: []
       x-google-backend:
         address: '${function_uris["relex-backend-remove-organization-member"]}'
         path_translation: CONSTANT_ADDRESS
