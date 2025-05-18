@@ -9,6 +9,7 @@ import auth as local_auth_module # Import local auth module for get_authenticate
 import flask
 import uuid
 from google.cloud import firestore
+import datetime
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -73,42 +74,38 @@ def create_user_profile_logic(user_record): # Separated logic for clarity or pot
 
 # This is the HTTP function exposed via main.py
 def get_user_profile(request: Request, user_id_for_profile):
-    """Retrieves the profile of the authenticated user.
-
-    Args:
-        request (flask.Request): HTTP request object.
-        user_id_for_profile (str): The Firebase UID of the end-user whose profile to retrieve.
-
-    Returns:
-        tuple: (response_body, status_code)
-    """
+    """Retrieves the profile of the authenticated user. If not found, creates it."""
     logging.info(f"logic_get_user_profile called for end_user_id: {user_id_for_profile}")
 
     if not user_id_for_profile:
-        return ({"error": "Bad Request", "message": "User ID for profile lookup is missing"}, 400)
+        return flask.jsonify({"error": "Unauthorized", "message": "User authentication context missing"}), 401
 
-    try:
-        # Use user_id_for_profile for Firestore operations
-        user_ref = db.collection('users').document(user_id_for_profile)
-        user_doc = user_ref.get()
+    db = firestore.Client()
+    user_ref = db.collection('users').document(user_id_for_profile)
+    user_doc = user_ref.get()
 
-        # Check if the user document exists
-        if not user_doc.exists:
-            logging.warning(f"User profile for {user_id_for_profile} not found in Firestore.")
-            return ({"error": "Not Found", "message": "User profile not found"}, 404)
+    if not user_doc.exists:
+        # Try to get email and displayName from request context (set by auth)
+        email = getattr(request, 'end_user_email', None)
+        display_name = getattr(request, 'end_user_display_name', None)
+        now = datetime.datetime.utcnow()
+        user_data = {
+            "userId": user_id_for_profile,
+            "email": email or "",
+            "displayName": display_name or "",
+            "createdAt": now,
+            "updatedAt": now,
+            "role": "user",
+            "subscriptionStatus": None,
+            "languagePreference": "en"
+        }
+        user_ref.set(user_data)
+        logging.info(f"Created new user profile for {user_id_for_profile}: {user_data}")
+        return flask.jsonify(user_data), 200
 
-        # Get the user data from the document
-        user_data = user_doc.to_dict()
-        user_data["userId"] = user_id_for_profile # Ensure userId is included in the response
-
-        # Return the user profile data
-        logging.info(f"Successfully retrieved profile for user: {user_id_for_profile}")
-        return (user_data, 200) # Return data and 200 OK
-
-    except Exception as e:
-        # Log unexpected errors
-        logging.error(f"Error retrieving user profile for user {user_id_for_profile}: {str(e)}", exc_info=True)
-        return ({"error": "Internal Server Error", "message": "Failed to retrieve user profile"}, 500)
+    user_data = user_doc.to_dict()
+    user_data["userId"] = user_id_for_profile
+    return flask.jsonify(user_data), 200
 
 # This is the HTTP function exposed via main.py
 def update_user_profile(request: Request, user_id_for_profile):
