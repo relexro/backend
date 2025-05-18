@@ -9,6 +9,8 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_auth_requests  # Alias to avoid confusion with http 'requests'
 import base64
 import json
+import os # To potentially get Cloud Run URL if passed as env var
+from functools import wraps
 
 # Changed field_validator to validator
 from typing import Dict, Set, Tuple, Any, Literal, Optional
@@ -102,15 +104,21 @@ class PermissionCheckRequest(BaseModel):
         return v
 
 class AuthContext:
-    def __init__(self, authenticated=False, user_id=None, email=None, email_verified=False, firebase_claims=None, authenticated_by=None, error_message=None, status_code=None):
+    def __init__(self, authenticated=False, user_id=None, email=None, email_verified=False, firebase_claims=None, authenticated_by=None, gateway_sa_verified=False, error_message=None, status_code=None):
         self.authenticated = authenticated
         self.user_id = user_id
         self.email = email
         self.email_verified = email_verified
         self.firebase_claims = firebase_claims
         self.authenticated_by = authenticated_by
-        self.error_message = error_message # For storing error messages
-        self.status_code = status_code     # For storing relevant HTTP status codes
+        self.gateway_sa_verified = gateway_sa_verified
+        self.error_message = error_message
+        self.status_code = status_code
+
+# Set the expected audience to the Cloud Run URL for relex-backend-get-user-profile
+EXPECTED_GATEWAY_TOKEN_AUDIENCE = os.environ.get("SELF_SERVICE_URL") or "https://relex-backend-get-user-profile-dev-apmzkjwhqq-ew.a.run.app"
+EXPECTED_GATEWAY_SA_EMAIL = "relex-functions-dev@relexro.iam.gserviceaccount.com"
+EXPECTED_FIREBASE_ISSUER_PREFIX = "https://securetoken.google.com/"
 
 def _get_firestore_client() -> firestore.Client:
     return firestore.client()
@@ -144,70 +152,114 @@ def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Opti
         logging.error(f"Firestore error fetching membership for user {user_id} in org {org_id}: {e}", exc_info=True)
         raise
 
-def get_authenticated_user(request):
+def get_authenticated_user(request: flask.Request):
     """
-    Authenticates the request. First, verifies the Google OIDC ID token from API Gateway
-    (identifying the Gateway's SA). Then, extracts the original end-user's identity
-    from the 'X-Endpoint-API-Userinfo' header passed by API Gateway.
+    Authenticates the request based on the Relex backend auth flow:
+    1. Validates the Google OIDC ID token from API Gateway (identifying the Gateway's SA).
+    2. Extracts the original end-user's Firebase identity from 'X-Endpoint-API-Userinfo'.
     """
+    # Dynamically construct the expected Firebase issuer using project_id from firebaseConfig
+    firebase_project_id = os.environ.get("FIREBASE_PROJECT_ID", "relexro") 
+    expected_firebase_issuer = f"{EXPECTED_FIREBASE_ISSUER_PREFIX}{firebase_project_id}"
+
+    # Fallback for audience if not set by env var (Planner will replace this if needed)
+    current_expected_gateway_audience = EXPECTED_GATEWAY_TOKEN_AUDIENCE
+    if not current_expected_gateway_audience:
+        logging.warning("SELF_SERVICE_URL env var not set for Gateway token audience. Using placeholder to be replaced by Planner.")
+        current_expected_gateway_audience = "YOUR_CLOUD_RUN_SERVICE_URL_PLACEHOLDER" # Planner to replace
+
+    auth_context = AuthContext()
+
+    # Step 1: Validate the Google OIDC ID token from API Gateway SA
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        auth_context.error_message = "Authorization token missing or malformed"
+        auth_context.status_code = 401
+        logging.warning(f"Auth failure: {auth_context.error_message}")
+        return auth_context, 401, auth_context.error_message
+    
+    gateway_sa_token = auth_header.split('Bearer ')[1]
+    if not gateway_sa_token:
+        auth_context.error_message = "Empty token in Authorization header"
+        auth_context.status_code = 401
+        logging.warning(f"Auth failure: {auth_context.error_message}")
+        return auth_context, 401, auth_context.error_message
+
     try:
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return AuthContext(authenticated=False, error_message="Authorization token missing or malformed", status_code=401), 401, "Authorization token missing or malformed"
+        gateway_identity = google_oauth2_id_token.verify_oauth2_token(
+            gateway_sa_token,
+            google_auth_requests.Request(),
+            audience=current_expected_gateway_audience 
+        )
+        auth_context.gateway_sa_verified = True
+        logging.info(f"Gateway SA token successfully validated. SA email: {gateway_identity.get('email')}")
 
-        token = auth_header.split('Bearer ')[1]
-        if not token:
-            return AuthContext(authenticated=False, error_message="Empty token", status_code=401), 401, "Empty token"
+        # Optional: Check if the SA email is the expected one
+        if gateway_identity.get('email') != EXPECTED_GATEWAY_SA_EMAIL:
+            logging.warning(
+                f"Caller SA '{gateway_identity.get('email')}' is not the expected Gateway SA '{EXPECTED_GATEWAY_SA_EMAIL}'. Proceeding with caution."
+            )
+    except ValueError as e:
+        auth_context.error_message = f"Invalid Gateway SA token: {e}"
+        auth_context.status_code = 401
+        logging.error(f"Auth failure: {auth_context.error_message} (Audience checked: {current_expected_gateway_audience})")
+        return auth_context, 401, auth_context.error_message
+    except Exception as e: # Catch any other unexpected errors during SA token validation
+        auth_context.error_message = f"Unexpected error validating Gateway SA token: {e}"
+        auth_context.status_code = 500
+        logging.error(f"Auth failure: {auth_context.error_message}", exc_info=True)
+        return auth_context, 500, auth_context.error_message
 
-        # Step 1: Verify the Firebase ID token from the client
-        try:
-            decoded_token = firebase_auth_admin.verify_id_token(token)
-            end_user_id_from_header = decoded_token.get("uid") or decoded_token.get("sub")
-            end_user_email_from_header = decoded_token.get("email", "")
-            if not end_user_id_from_header:
-                logging.error("Firebase token verified but 'uid' or 'sub' claim is missing.")
-                return AuthContext(authenticated=False, error_message="Invalid Firebase token: UID missing.", status_code=401), 401, "Invalid Firebase token: UID missing."
-            logging.info(f"Successfully validated Firebase token for user: {end_user_id_from_header}")
-        except firebase_auth_admin.InvalidIdTokenError as e:
-            logging.error(f"Firebase ID token verification failed (InvalidIdTokenError): {e}")
-            return AuthContext(authenticated=False, error_message=f"Invalid Firebase token: {e}", status_code=401), 401, f"Invalid Firebase token: {e}"
-        except Exception as e:
-            logging.error(f"Firebase token verification encountered an unexpected error: {e}")
-            return AuthContext(authenticated=False, error_message=f"Token validation error: {e}", status_code=500), 500, f"Token validation error: {e}"
+    # Step 2: Extract and decode X-Endpoint-API-Userinfo header for end-user Firebase claims
+    user_info_header = request.headers.get("X-Endpoint-API-Userinfo")
+    if not user_info_header:
+        auth_context.error_message = "X-Endpoint-API-Userinfo header missing"
+        auth_context.status_code = 401 # If Gateway SA is valid, but user info is missing, it's an issue.
+        logging.error(f"Auth failure: {auth_context.error_message}. Gateway SA was verified, but no end-user claims provided.")
+        return auth_context, 401, auth_context.error_message
 
-        # Step 2: Extract end-user identity from X-Endpoint-API-Userinfo header (optional/fallback)
-        user_info_header = request.headers.get("X-Endpoint-API-Userinfo")
-        if user_info_header:
-            try:
-                decoded_user_info_str = base64.b64decode(user_info_header).decode('utf-8')
-                user_info_json = json.loads(decoded_user_info_str)
-                # Only use as fallback if direct Firebase token did not provide info
-                if not end_user_id_from_header:
-                    end_user_id_from_header = user_info_json.get('user_id') or user_info_json.get('sub')
-                if not end_user_email_from_header:
-                    end_user_email_from_header = user_info_json.get('email', '')
-                if end_user_id_from_header:
-                    logging.info(f"Extracted end-user from X-Endpoint-API-Userinfo: UID={end_user_id_from_header}, Email={end_user_email_from_header}")
-                else:
-                    logging.warning(f"X-Endpoint-API-Userinfo decoded but 'user_id' or 'sub' claim missing. Payload: {user_info_json}")
-            except Exception as e:
-                logging.error(f"Error decoding X-Endpoint-API-Userinfo header: {str(e)} - proceeding without end-user details from header.")
-        else:
-            logging.warning("X-Endpoint-API-Userinfo header not found in request from Gateway. End-user identity cannot be determined.")
-
-        # Return AuthContext for successful authentication
-        return AuthContext(
-            authenticated=True,
-            user_id=end_user_id_from_header,
-            email=end_user_email_from_header,
-            email_verified=decoded_token.get("email_verified", False),
-            firebase_claims=decoded_token,
-            authenticated_by="firebase_token_direct"
-        ), 200, None
-
+    try:
+        # Add padding if necessary for base64 decoding
+        padding = '=' * (-len(user_info_header) % 4)
+        user_info_claims_str = base64.urlsafe_b64decode(user_info_header + padding).decode('utf-8')
+        user_info_claims = json.loads(user_info_claims_str)
+        auth_context.firebase_claims = user_info_claims
     except Exception as e:
-        logging.error(f"Generic error in get_authenticated_user: {str(e)}", exc_info=True)
-        return AuthContext(authenticated=False, error_message=f"Authentication processing error: {str(e)}", status_code=500), 500, f"Authentication processing error: {str(e)}"
+        auth_context.error_message = f"Failed to decode X-Endpoint-API-Userinfo: {e}"
+        auth_context.status_code = 400 # Bad request if header is malformed
+        logging.error(f"Auth failure: {auth_context.error_message}. Header value: {user_info_header[:100]}...") # Log snippet
+        return auth_context, 400, auth_context.error_message
+    
+    # Step 3: Extract and validate end-user details from decoded claims
+    end_user_id = user_info_claims.get("sub") or user_info_claims.get("user_id")
+    end_user_email = user_info_claims.get("email")
+    firebase_token_issuer = user_info_claims.get("iss")
+
+    if not end_user_id:
+        auth_context.error_message = "User ID ('sub' or 'user_id') missing in X-Endpoint-API-Userinfo claims"
+        auth_context.status_code = 401
+        logging.error(f"Auth failure: {auth_context.error_message}. Claims: {user_info_claims}")
+        return auth_context, 401, auth_context.error_message
+
+    if firebase_token_issuer != expected_firebase_issuer:
+        auth_context.error_message = (
+            f"Issuer mismatch in X-Endpoint-API-Userinfo. Expected '{expected_firebase_issuer}', "
+            f"got '{firebase_token_issuer}'"
+        )
+        auth_context.status_code = 401
+        logging.error(f"Auth failure: {auth_context.error_message}. Claims: {user_info_claims}")
+        return auth_context, 401, auth_context.error_message
+
+    # If all checks pass for the end-user claims from X-Endpoint-API-Userinfo
+    auth_context.authenticated = True
+    auth_context.user_id = end_user_id
+    auth_context.email = end_user_email
+    auth_context.email_verified = user_info_claims.get("email_verified", False)
+    auth_context.authenticated_by = "firebase_via_gateway_userinfo"
+    auth_context.status_code = 200
+    
+    logging.info(f"Successfully authenticated end-user: {end_user_id} via X-Endpoint-API-Userinfo.")
+    return auth_context, 200, None
 
 
 def _is_action_allowed(
