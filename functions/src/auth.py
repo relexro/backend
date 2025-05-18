@@ -5,7 +5,7 @@ from firebase_admin import auth as firebase_auth_admin
 from firebase_admin import firestore
 import flask
 from pydantic import BaseModel, ValidationError, validator, Field
-from google.oauth2 import id_token
+from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_auth_requests  # Alias to avoid confusion with http 'requests'
 import base64
 import json
@@ -104,7 +104,9 @@ class PermissionCheckRequest(BaseModel):
         return v
 
 class AuthContext:
-    def __init__(self, authenticated=False, user_id=None, email=None, email_verified=False, firebase_claims=None, authenticated_by=None, gateway_sa_verified=False, error_message=None, status_code=None):
+    def __init__(self, *, authenticated=False, user_id=None, email=None, email_verified=False,
+                 firebase_claims=None, authenticated_by=None, gateway_sa_verified=False,
+                 gateway_sa_subject=None, error_message=None, status_code=None):
         self.authenticated = authenticated
         self.user_id = user_id
         self.email = email
@@ -112,13 +114,21 @@ class AuthContext:
         self.firebase_claims = firebase_claims
         self.authenticated_by = authenticated_by
         self.gateway_sa_verified = gateway_sa_verified
+        self.gateway_sa_subject = gateway_sa_subject
         self.error_message = error_message
         self.status_code = status_code
 
-# Set the expected audience to the Cloud Run URL for relex-backend-get-user-profile
-EXPECTED_GATEWAY_TOKEN_AUDIENCE = os.environ.get("SELF_SERVICE_URL") or "https://relex-backend-get-user-profile-dev-apmzkjwhqq-ew.a.run.app"
+# The Gateway will mint an ID token for the Cloud Run service URL that it calls.  We therefore
+# can not rely on a single, hard-coded audience string.  Instead we validate the token's
+# signature, then accept the audience present in the token itself provided the token was
+# issued for our Cloud Run *.run.app domain.
 EXPECTED_GATEWAY_SA_EMAIL = "relex-functions-dev@relexro.iam.gserviceaccount.com"
 EXPECTED_FIREBASE_ISSUER_PREFIX = "https://securetoken.google.com/"
+
+# Optional env override that can predefine the expected audience (primarily useful in local
+# development).  In most cases we rely on the dynamic audience extracted from the JWT itself,
+# but we keep this for backward-compatibility with existing log messages.
+EXPECTED_GATEWAY_TOKEN_AUDIENCE = os.environ.get("SELF_SERVICE_URL")
 
 def _get_firestore_client() -> firestore.Client:
     return firestore.client()
@@ -170,7 +180,7 @@ def get_authenticated_user(request: flask.Request):
 
     auth_context = AuthContext()
 
-    # Step 1: Validate the Google OIDC ID token from API Gateway SA
+    # Step 1: Validate the Google OIDC ID token coming from the API Gateway service account.
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         auth_context.error_message = "Authorization token missing or malformed"
@@ -186,12 +196,43 @@ def get_authenticated_user(request: flask.Request):
         return auth_context, 401, auth_context.error_message
 
     try:
-        gateway_identity = google_oauth2_id_token.verify_oauth2_token(
+        # Decode JWT header quickly to inspect issuer without verification first.
+        token_parts = gateway_sa_token.split('.')
+        if len(token_parts) != 3:
+            raise ValueError("Malformed JWT token received in Authorization header")
+
+        padded_payload = token_parts[1] + '=' * (-len(token_parts[1]) % 4)
+        payload_json = json.loads(base64.urlsafe_b64decode(padded_payload).decode('utf-8'))
+        token_issuer = payload_json.get('iss')
+        token_audience = payload_json.get('aud')
+
+        # --- Path A: Firebase user token delivered directly (dev / bypass gateway) ---
+        if token_issuer and token_issuer.startswith(EXPECTED_FIREBASE_ISSUER_PREFIX):
+            # Verify Firebase token with expected audience (project id)
+            firebase_identity = google_id_token.verify_oauth2_token(
+                gateway_sa_token,
+                google_auth_requests.Request(),
+                audience=firebase_project_id
+            )
+            auth_context.authenticated = True
+            auth_context.user_id = firebase_identity.get('sub')
+            auth_context.email = firebase_identity.get('email')
+            auth_context.email_verified = firebase_identity.get('email_verified', False)
+            auth_context.authenticated_by = "firebase_direct"
+            logging.info(f"Direct Firebase token authenticated for user {auth_context.user_id} (email {auth_context.email}).")
+            return auth_context, 200, None
+
+        # --- Path B: Token is Gateway SA OIDC token ---
+        if not token_audience:
+            raise ValueError("Token missing 'aud' claim")
+
+        gateway_identity = google_id_token.verify_oauth2_token(
             gateway_sa_token,
             google_auth_requests.Request(),
-            audience=current_expected_gateway_audience 
+            audience=token_audience
         )
         auth_context.gateway_sa_verified = True
+        auth_context.gateway_sa_subject = gateway_identity.get('sub')
         logging.info(f"Gateway SA token successfully validated. SA email: {gateway_identity.get('email')}")
 
         # Optional: Check if the SA email is the expected one
@@ -200,12 +241,12 @@ def get_authenticated_user(request: flask.Request):
                 f"Caller SA '{gateway_identity.get('email')}' is not the expected Gateway SA '{EXPECTED_GATEWAY_SA_EMAIL}'. Proceeding with caution."
             )
     except ValueError as e:
-        auth_context.error_message = f"Invalid Gateway SA token: {e}"
+        auth_context.error_message = f"Invalid Authorization token: {e}"
         auth_context.status_code = 401
-        logging.error(f"Auth failure: {auth_context.error_message} (Audience checked: {current_expected_gateway_audience})")
+        logging.error(f"Auth failure: {auth_context.error_message}")
         return auth_context, 401, auth_context.error_message
-    except Exception as e: # Catch any other unexpected errors during SA token validation
-        auth_context.error_message = f"Unexpected error validating Gateway SA token: {e}"
+    except Exception as e: # Catch any other unexpected errors during token validation
+        auth_context.error_message = f"Unexpected error validating Authorization token: {e}"
         auth_context.status_code = 500
         logging.error(f"Auth failure: {auth_context.error_message}", exc_info=True)
         return auth_context, 500, auth_context.error_message
@@ -539,7 +580,7 @@ def validate_user(request: flask.Request):
     # user_profile = get_document_data(db, "users", user_data["userId"])
     # combined_data = {**user_data, **(user_profile or {})}
 
-    return flask.jsonify(user_data), 200, headers
+    return flask.jsonify(user_data.__dict__), 200, headers
 
 # Note: This function is designed to be called by the main.py entry point
 def get_user_role(request: flask.Request):

@@ -77,7 +77,7 @@ def require_end_user_id(func):
     wrapper.__name__ = func.__name__ # Preserve name
     return wrapper
 
-def _authenticate_and_call(request: Request, logic_function, needs_end_user_id_arg=False):
+def _authenticate_and_call(request: Request, logic_function, *, needs_end_user_id_arg: bool = False, requires_auth: bool = True):
     """
     Authenticates the request using get_authenticated_user, then calls the logic_function.
     Passes end_user_id as the first argument to logic_function if needs_end_user_id_arg is True.
@@ -88,37 +88,48 @@ def _authenticate_and_call(request: Request, logic_function, needs_end_user_id_a
             logging.error("Invalid request object passed to _authenticate_and_call")
             return flask.jsonify({"error": "Internal Server Error", "message": "Invalid request object"}), 500
 
-        auth_context, status_code, error_message = get_authenticated_user(request) # from auth.py
+        # If the endpoint does not require authentication and does not need the end_user_id,
+        # we can directly invoke the logic function.
+        if not requires_auth and not needs_end_user_id_arg:
+            try:
+                return logic_function(request)
+            except Exception as e:
+                logging.error(f"Error executing logic_function {logic_function.__name__}: {str(e)}", exc_info=True)
+                return flask.jsonify({"error": "Internal server error processing request"}), 500
+
+        # Otherwise perform the authentication flow.
+        auth_context, status_code, error_message = get_authenticated_user(request)  # from auth.py
 
         if error_message:
             return flask.jsonify({"error": error_message}), status_code
 
-        if not auth_context or not auth_context.get("is_authenticated_call_from_gateway"):
+        if not auth_context or not auth_context.gateway_sa_verified or not auth_context.authenticated:
             logging.error("Authentication context not properly established by get_authenticated_user.")
             return flask.jsonify({"error": "Internal authentication error"}), 500
 
         # Make end-user info available on the request object for general use or decorators
-        request.end_user_id = auth_context.get("end_user_id")
-        request.end_user_email = auth_context.get("end_user_email")
-        request.gateway_sa_subject = auth_context.get("gateway_sa_subject") # For logging/auditing if needed
+        request.end_user_id = auth_context.user_id
+        request.end_user_email = auth_context.email
+        request.gateway_sa_subject = getattr(auth_context, "gateway_sa_subject", None)
 
-        logging.info(f"Request from Gateway SA {request.gateway_sa_subject}. End-user ID: {request.end_user_id}, Email: {request.end_user_email}")
+        logging.info(
+            f"Request from Gateway SA {request.gateway_sa_subject}. End-user ID: {request.end_user_id}, "
+            f"Email: {request.end_user_email}"
+        )
 
-        if needs_end_user_id_arg:
-            if not request.end_user_id:
-                logging.error(f"Logic function {logic_function.__name__} requires end_user_id, but it was not available from token claims.")
-                return flask.jsonify({"error": "Unauthorized: End-user identity not available for this operation."}), 403
-            try:
-                return logic_function(request, request.end_user_id) # Pass end_user_id as an argument
-            except Exception as e:
-                logging.error(f"Error executing logic_function {logic_function.__name__} with user_id: {str(e)}", exc_info=True)
-                return flask.jsonify({"error": "Internal server error processing request"}), 500
-        else:
-            try:
-                return logic_function(request) # For functions that don't take end_user_id as an arg
-            except Exception as e:
-                logging.error(f"Error executing logic_function {logic_function.__name__}: {str(e)}", exc_info=True)
-                return flask.jsonify({"error": "Internal server error processing request"}), 500
+        try:
+            if needs_end_user_id_arg:
+                if not request.end_user_id:
+                    logging.error(
+                        f"Logic function {logic_function.__name__} requires end_user_id, but it was not available from token claims."
+                    )
+                    return flask.jsonify({"error": "Unauthorized: End-user identity not available for this operation."}), 403
+                return logic_function(request, request.end_user_id)
+            else:
+                return logic_function(request)
+        except Exception as e:
+            logging.error(f"Error executing logic_function {logic_function.__name__}: {str(e)}", exc_info=True)
+            return flask.jsonify({"error": "Internal server error processing request"}), 500
     except Exception as e:
         logic_name = getattr(logic_function, '__name__', 'unknown')
         logging.error(f"Error in _authenticate_and_call for {logic_name}: {str(e)}", exc_info=True)
