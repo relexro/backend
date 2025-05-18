@@ -119,6 +119,9 @@ paths:
         address: '${function_uris["relex-backend-get-user-profile"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
+      # Explicitly define security for this endpoint to ensure Firebase token validation
+      security:
+        - firebase: []
       responses:
         '200':
           description: User profile
@@ -1408,6 +1411,9 @@ paths:
         address: '${function_uris["relex-backend-validate-user"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
+      # Explicitly define security for this endpoint to ensure Firebase token validation
+      security:
+        - firebase: []
       parameters:
       - name: Authorization
         in: header

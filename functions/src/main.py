@@ -103,19 +103,20 @@ def _authenticate_and_call(request: Request, logic_function, *, needs_end_user_i
         if error_message:
             return flask.jsonify({"error": error_message}), status_code
 
-        if not auth_context or not auth_context.gateway_sa_verified or not auth_context.authenticated:
+        if not auth_context:
             logging.error("Authentication context not properly established by get_authenticated_user.")
             return flask.jsonify({"error": "Internal authentication error"}), 500
 
         # Make end-user info available on the request object for general use or decorators
-        request.end_user_id = auth_context.user_id
-        request.end_user_email = auth_context.email
+        request.end_user_id = auth_context.firebase_user_id
+        request.end_user_email = auth_context.firebase_user_email
         request.gateway_sa_subject = getattr(auth_context, "gateway_sa_subject", None)
 
         logging.info(
-            f"Request from Gateway SA {request.gateway_sa_subject}. End-user ID: {request.end_user_id}, "
-            f"Email: {request.end_user_email}"
+            f"Request authenticated. End-user ID: {request.end_user_id}, Email: {request.end_user_email}"
         )
+        if request.gateway_sa_subject:
+            logging.info(f"Request from Gateway SA: {request.gateway_sa_subject}")
 
         try:
             if needs_end_user_id_arg:

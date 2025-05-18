@@ -6,6 +6,9 @@ from firebase_admin import firestore # Use Firestore from firebase_admin
 from firebase_admin import auth as firebase_auth_admin  # Renamed to avoid conflict if needed
 from flask import Request
 import auth as local_auth_module # Import local auth module for get_authenticated_user
+import flask
+import uuid
+from google.cloud import firestore
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -18,8 +21,9 @@ except ValueError:
     # Use the application default credentials when running in GCP
     firebase_admin.initialize_app()
 
-# Initialize Firestore client (using the client from firebase_admin)
-db = firestore.client()
+# Initialize Firestore client
+# Fixed: use firestore.Client() not firestore.client()
+db = firestore.Client()
 
 # NOTE: This function (`create_user_profile_trigger`) seems intended as a Firebase Authentication *trigger*,
 #       not a standard HTTP function. It should be deployed differently.
@@ -90,34 +94,8 @@ def get_user_profile(request: Request, user_id_for_profile):
 
         # Check if the user document exists
         if not user_doc.exists:
-            logging.warning(f"User profile for {user_id_for_profile} not found in Firestore. Attempting to create.")
-
-            # Auto-create profile logic using user_id_for_profile and request.end_user_email (if available on request)
-            email_for_new_profile = getattr(request, 'end_user_email', None)
-
-            if not email_for_new_profile:
-                logging.error(f"Cannot auto-create profile for {user_id_for_profile}, email not available.")
-                return ({"error": "Not Found", "message": "User profile not found and cannot auto-create without email"}, 404)
-
-            # Prepare user data for Firestore document
-            user_data = {
-                "userId": user_id_for_profile,
-                "email": email_for_new_profile,
-                "displayName": email_for_new_profile.split('@')[0] if '@' in email_for_new_profile else "New User",
-                "photoURL": "",
-                "role": "user",
-                "subscriptionStatus": None,
-                "languagePreference": "en",
-                "createdAt": firestore.SERVER_TIMESTAMP,
-                "updatedAt": firestore.SERVER_TIMESTAMP
-            }
-
-            # Write to Firestore
-            user_ref.set(user_data)
-
-            # Return the newly created profile
-            logging.info(f"Auto-created profile for {user_id_for_profile} with email {email_for_new_profile}")
-            return (user_data, 201) # 201 Created
+            logging.warning(f"User profile for {user_id_for_profile} not found in Firestore.")
+            return ({"error": "Not Found", "message": "User profile not found"}, 404)
 
         # Get the user data from the document
         user_data = user_doc.to_dict()
@@ -159,7 +137,6 @@ def update_user_profile(request: Request, user_id_for_profile):
         user_ref = db.collection("users").document(user_id_for_profile)
         user_doc = user_ref.get() # Check if profile exists before updating
 
-        # --- Field Validation ---
         # Define fields allowed for update and any validation rules
         updatable_fields = {"displayName", "photoURL", "languagePreference"}
         valid_languages = ["en", "ro", "fr", "de", "es"] # Example list, adjust as needed
@@ -209,30 +186,7 @@ def update_user_profile(request: Request, user_id_for_profile):
 
         # Check if the user document exists
         if not user_doc.exists:
-            logging.warning(f"User profile for {user_id_for_profile} not found during update attempt. Creating new profile.")
-
-            # Create a basic profile for the user if we have their email
-            email_for_new_profile = getattr(request, 'end_user_email', None)
-
-            # Prepare complete user data for Firestore document
-            complete_user_data = {
-                "userId": user_id_for_profile,
-                "email": email_for_new_profile or "",
-                "displayName": update_data.get("displayName", email_for_new_profile.split('@')[0] if email_for_new_profile and '@' in email_for_new_profile else "New User"),
-                "photoURL": update_data.get("photoURL", ""),
-                "role": "user",
-                "subscriptionStatus": None,
-                "languagePreference": update_data.get("languagePreference", "en"),
-                "createdAt": firestore.SERVER_TIMESTAMP,
-                "updatedAt": firestore.SERVER_TIMESTAMP
-            }
-
-            # Write to Firestore (set will create the document)
-            user_ref.set(complete_user_data)
-
-            # Return the newly created profile
-            logging.info(f"Created and returning new profile for user: {user_id_for_profile}")
-            return (complete_user_data, 201) # 201 Created
+            return ({"error": "Not Found", "message": "User profile not found"}, 404)
         else:
             # Update the existing document in Firestore
             user_ref.update(update_data)
