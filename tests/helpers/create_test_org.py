@@ -106,18 +106,16 @@ def main():
     parser = argparse.ArgumentParser(description="Create or delete a test organization")
     parser.add_argument("--action", choices=["create", "delete"], default="create", help="Action to perform")
     parser.add_argument("--base-url", default="https://api-dev.relex.ro", help="Base URL for the API")
-    parser.add_argument("--token-file", default=os.path.join(os.path.dirname(__file__), '../temp_api_token.txt'), help="Path to file containing auth token")
+    parser.add_argument("--token", help="Auth token (if not provided, will use RELEX_ORG_ADMIN_TEST_JWT environment variable)")
     parser.add_argument("--org-id", help="Organization ID to delete (only needed for delete action)")
 
     args = parser.parse_args()
 
-    # Get auth token from file
-    try:
-        with open(args.token_file, "r") as f:
-            auth_token = f.read().strip()
-    except FileNotFoundError:
-        logger.error(f"Auth token file not found: {args.token_file}")
-        logger.error("Please create this file with your Firebase JWT token")
+    # Get auth token from environment variable or command line argument
+    auth_token = args.token or os.environ.get("RELEX_ORG_ADMIN_TEST_JWT")
+    if not auth_token:
+        logger.error("Auth token not provided and RELEX_ORG_ADMIN_TEST_JWT environment variable not set")
+        logger.error("Please set the RELEX_ORG_ADMIN_TEST_JWT environment variable or provide a token with --token")
         return 1
 
     if args.action == "create":

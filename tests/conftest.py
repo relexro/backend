@@ -225,44 +225,68 @@ def api_base_url():
     """
     # The API is deployed as a set of Cloud Run services behind an API Gateway
     # The API Gateway URL is in the format: https://{api_gateway_url}/v1
-    return "https://relex-api-gateway-mvef5dk.ew.gateway.dev/v1"
+    return "https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1"
 
 @pytest.fixture(scope="session")
 def auth_token():
-    """Get the authentication token for API requests.
+    """Get the standard authentication token for API requests.
 
-    This fixture tries to get the token from:
-    1. The API_AUTH_TOKEN environment variable
-    2. The tests/temp_api_token.txt file
-
-    If neither is available, it skips tests that require authentication.
+    This fixture gets the token from the RELEX_TEST_JWT environment variable.
+    If it's not available, it skips tests that require authentication.
+    This token is for a regular user without organization membership.
 
     Returns:
         str: The authentication token.
     """
-    token = os.environ.get("API_AUTH_TOKEN")
+    token = os.environ.get("RELEX_TEST_JWT")
     if not token:
-        # Fallback for local testing: try to read from a file
-        try:
-            with open("tests/temp_api_token.txt", "r") as f:
-                token = f.read().strip()
-        except FileNotFoundError:
-            pytest.skip("API_AUTH_TOKEN environment variable not set or tests/temp_api_token.txt not found. Skipping integration tests that require auth.")
+        pytest.skip("RELEX_TEST_JWT environment variable is not set. Skipping integration tests that require auth.")
     return token
 
 @pytest.fixture(scope="session")
-def api_client(api_base_url, auth_token):
+def org_admin_token():
+    """Get the organization admin authentication token for API requests.
+
+    This fixture gets the token from the RELEX_ORG_ADMIN_TEST_JWT environment variable.
+    If it's not available, it skips tests that require organization admin authentication.
+    This token is for a user with administrator role in an organization.
+
+    Returns:
+        str: The organization admin authentication token.
+    """
+    token = os.environ.get("RELEX_ORG_ADMIN_TEST_JWT")
+    if not token:
+        pytest.skip("RELEX_ORG_ADMIN_TEST_JWT environment variable is not set. Skipping integration tests that require org admin auth.")
+    return token
+
+@pytest.fixture(scope="session")
+def org_user_token():
+    """Get the organization user authentication token for API requests.
+
+    This fixture gets the token from the RELEX_ORG_USER_TEST_JWT environment variable.
+    If it's not available, it skips tests that require organization user authentication.
+    This token is for a user with staff role in an organization.
+
+    Returns:
+        str: The organization user authentication token.
+    """
+    token = os.environ.get("RELEX_ORG_USER_TEST_JWT")
+    if not token:
+        pytest.skip("RELEX_ORG_USER_TEST_JWT environment variable is not set. Skipping integration tests that require org user auth.")
+    return token
+
+def create_api_client(api_base_url, token):
     """Create an API client for making HTTP requests to the API.
 
-    This fixture creates a wrapper around requests.Session that:
-    1. Sets the Authorization header with the auth token
+    This function creates a wrapper around requests.Session that:
+    1. Sets the Authorization header with the provided token
     2. Provides convenience methods for making requests to the API
     3. Handles URL construction with the base URL
     4. Disables SSL verification for development environments
 
     Args:
         api_base_url: The base URL for the API.
-        auth_token: The authentication token.
+        token: The authentication token.
 
     Returns:
         APIClient: A client for making HTTP requests to the API.
@@ -274,7 +298,7 @@ def api_client(api_base_url, auth_token):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     session = requests.Session()
-    session.headers.update({"Authorization": f"Bearer {auth_token}"})
+    session.headers.update({"Authorization": f"Bearer {token}"})
     # Disable SSL verification for development environments
     session.verify = False
 
@@ -357,3 +381,48 @@ def api_client(api_base_url, auth_token):
             return self.session.request(method, f"{self.base_url}{endpoint}", **kwargs)
 
     return APIClient(session, api_base_url)
+
+@pytest.fixture(scope="session")
+def api_client(api_base_url, auth_token):
+    """Create an API client for making HTTP requests to the API using the standard user token.
+
+    This fixture creates a client authenticated with the regular user token (RELEX_TEST_JWT).
+
+    Args:
+        api_base_url: The base URL for the API.
+        auth_token: The standard authentication token.
+
+    Returns:
+        APIClient: A client for making HTTP requests to the API.
+    """
+    return create_api_client(api_base_url, auth_token)
+
+@pytest.fixture(scope="session")
+def org_admin_api_client(api_base_url, org_admin_token):
+    """Create an API client for making HTTP requests to the API using the organization admin token.
+
+    This fixture creates a client authenticated with the organization admin token (RELEX_ORG_ADMIN_TEST_JWT).
+
+    Args:
+        api_base_url: The base URL for the API.
+        org_admin_token: The organization admin authentication token.
+
+    Returns:
+        APIClient: A client for making HTTP requests to the API.
+    """
+    return create_api_client(api_base_url, org_admin_token)
+
+@pytest.fixture(scope="session")
+def org_user_api_client(api_base_url, org_user_token):
+    """Create an API client for making HTTP requests to the API using the organization user token.
+
+    This fixture creates a client authenticated with the organization user token (RELEX_ORG_USER_TEST_JWT).
+
+    Args:
+        api_base_url: The base URL for the API.
+        org_user_token: The organization user authentication token.
+
+    Returns:
+        APIClient: A client for making HTTP requests to the API.
+    """
+    return create_api_client(api_base_url, org_user_token)

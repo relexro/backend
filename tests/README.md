@@ -34,52 +34,68 @@ python -m pytest tests/path/to/test_file.py::test_function_name
 
 ## Setting Up Test Environment
 
-To set up the test environment, create a virtual environment and install the required dependencies:
+To set up the test environment, create a virtual environment with Python 3.10 (the same version used in Cloud Functions) and install the required dependencies:
 
 ```bash
-python -m venv test_venv
+# Create a virtual environment with Python 3.10
+python3.10 -m venv test_venv
 source test_venv/bin/activate  # On Windows: test_venv\Scripts\activate
+
+# Install dependencies
 pip install -r functions/src/requirements-dev.txt
 pip install -r functions/requirements.txt
 ```
 
+Using Python 3.10 ensures compatibility with the Cloud Functions runtime and avoids deprecation warnings that occur with newer Python versions.
+
 ### Authentication for Integration Tests
 
-Integration tests that interact with the deployed API require a Firebase JWT token for authentication. Follow these steps to obtain and use a token:
+Integration tests that interact with the deployed API require Firebase JWT tokens for authentication. The system uses three different token types for different test scenarios:
 
-1. **Obtain a Firebase JWT token**:
+1. **Regular User Token (`RELEX_TEST_JWT`)**: For testing endpoints as a regular user without organization membership
+2. **Organization Admin Token (`RELEX_ORG_ADMIN_TEST_JWT`)**: For testing endpoints as an organization administrator
+3. **Organization User Token (`RELEX_ORG_USER_TEST_JWT`)**: For testing endpoints as an organization staff member
+
+Follow these steps to obtain and use these tokens:
+
+1. **Obtain Firebase JWT tokens**:
    - Navigate to the `tests/` directory
    - Start a local web server: `python3 -m http.server 8080`
    - Open `http://localhost:8080/test-auth.html` in your browser
-   - Click "Sign in with Google" and authenticate with your Google account
-   - After successful authentication, click "Show/Hide Token" to reveal your JWT token
-   - Copy the entire token
+   - For each token type:
+     - Sign in with the appropriate user account
+     - After successful authentication, click "Show/Hide Token" to reveal the JWT token
+     - Copy the entire token and set the corresponding environment variable
 
-2. **Make the token available to tests** (choose one method):
-   - **Method 1**: Set the `RELEX_TEST_JWT` environment variable:
-     ```bash
-     # Linux/macOS
-     export RELEX_TEST_JWT="your_token_here"
+2. **Make the tokens available to tests**:
+   Set the appropriate environment variables:
+   ```bash
+   # For regular user tests (Linux/macOS)
+   export RELEX_TEST_JWT="your_regular_user_token_here"
 
-     # Windows (Command Prompt)
-     set RELEX_TEST_JWT=your_token_here
+   # For organization admin tests (Linux/macOS)
+   export RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
 
-     # Windows (PowerShell)
-     $env:RELEX_TEST_JWT="your_token_here"
-     ```
+   # For organization user tests (Linux/macOS)
+   export RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
 
-   - **Method 2**: Create a file named `tests/temp_api_token.txt` and paste the token into it:
-     ```bash
-     echo "your_token_here" > tests/temp_api_token.txt
-     ```
-     Note: This file is gitignored and should not be committed to the repository.
+   # Windows (Command Prompt) equivalents
+   set RELEX_TEST_JWT=your_regular_user_token_here
+   set RELEX_ORG_ADMIN_TEST_JWT=your_org_admin_token_here
+   set RELEX_ORG_USER_TEST_JWT=your_org_user_token_here
+
+   # Windows (PowerShell) equivalents
+   $env:RELEX_TEST_JWT="your_regular_user_token_here"
+   $env:RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
+   $env:RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
+   ```
 
 3. **Run integration tests**:
    ```bash
    python -m pytest tests/integration/
    ```
 
-If neither the environment variable nor the token file is available, integration tests that require authentication will be skipped.
+If any of the required environment variables are not available, tests that require those specific tokens will be skipped.
 
 ## Writing Tests
 

@@ -21,7 +21,7 @@ Before deployment, ensure you have the following:
 - **Google Cloud SDK** (latest version)
 - **Firebase CLI** (latest version)
 - **Node.js** and npm (for OpenAPI validation)
-- **Python 3.10 or higher** (for local function development)
+- **Python 3.10** (for local function development and Cloud Functions runtime)
 - **Redocly CLI**: `npm install -g @redocly/cli` (for validating OpenAPI specifications)
 
 ## Authentication Setup
@@ -294,17 +294,29 @@ After deployment, verify the following:
    - Note: Health checks use the `X-Google-Health-Check` header rather than specific paths like `/_ah/health`
 
 3. **Authentication**:
-   - Obtain a Firebase JWT token using the test utility:
+   - Obtain Firebase JWT tokens using the test utility:
      ```bash
      cd tests
      python3 -m http.server 8080
      # Open http://localhost:8080/test-auth.html in your browser
-     # Sign in and copy the token
-     export RELEX_TEST_JWT="your_token_here"
+     # Sign in with the appropriate user account and copy the token
+
+     # For regular user tests
+     export RELEX_TEST_JWT="your_regular_user_token_here"
+
+     # For organization admin tests
+     export RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
+
+     # For organization user tests
+     export RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
      ```
    - Test authentication with the token:
      ```bash
+     # Test with regular user token
      curl -H "Authorization: Bearer $RELEX_TEST_JWT" https://YOUR_API_GATEWAY_URL/v1/users/me
+
+     # Test with organization admin token
+     curl -H "Authorization: Bearer $RELEX_ORG_ADMIN_TEST_JWT" https://YOUR_API_GATEWAY_URL/v1/users/me
      ```
 
 4. **API Endpoints**: Test key endpoints using curl or Postman with the correct API Gateway URL and authentication token

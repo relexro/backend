@@ -42,17 +42,32 @@ Currently, the original end-user's Firebase UID is not automatically propagated 
 
 ### Testing Authentication
 
-For testing purposes, you can obtain a Firebase JWT token using the provided utility:
+For testing purposes, you can obtain Firebase JWT tokens using the provided utility. The system uses three different token types for different test scenarios:
+
+1. **Regular User Token (`RELEX_TEST_JWT`)**: For testing endpoints as a regular user without organization membership
+2. **Organization Admin Token (`RELEX_ORG_ADMIN_TEST_JWT`)**: For testing endpoints as an organization administrator
+3. **Organization User Token (`RELEX_ORG_USER_TEST_JWT`)**: For testing endpoints as an organization staff member
+
+Follow these steps to obtain and use these tokens:
 
 1. Navigate to the `tests/` directory
 2. Start a local web server: `python3 -m http.server 8080`
 3. Open `http://localhost:8080/test-auth.html` in your browser
-4. Sign in with your Google account
-5. Click "Show/Hide Token" to reveal your JWT token
-6. Set the environment variable for testing:
-   ```bash
-   export RELEX_TEST_JWT="your_token_here"
-   ```
+4. For each token type:
+   - Sign in with the appropriate user account
+   - After successful authentication, click "Show/Hide Token" to reveal the JWT token
+   - Copy the entire token and set the corresponding environment variable:
+
+```bash
+# For regular user tests
+export RELEX_TEST_JWT="your_regular_user_token_here"
+
+# For organization admin tests
+export RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
+
+# For organization user tests
+export RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
+```
 
 ### Token Format
 

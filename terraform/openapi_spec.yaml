@@ -13,7 +13,14 @@ produces:
 consumes:
   - application/json
 securityDefinitions:
-  firebase: {type: apiKey, name: Authorization, in: header, description: 'Firebase Authentication JWT. Use format ''Bearer {token}''', x-google-issuer: 'https://securetoken.google.com/${project_id}', x-google-jwks_uri: 'https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com', x-google-audiences: '${project_id}'}
+  firebase:
+    authorizationUrl: ""
+    flow: "implicit"
+    type: "oauth2"
+    x-google-issuer: "https://securetoken.google.com/${project_id}"
+    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    x-google-audiences: "${project_id}"
+    description: "Firebase ID token in the Authorization header with format 'Bearer <token>'."
 
 # Add global security requirement
 security:

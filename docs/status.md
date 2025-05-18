@@ -141,6 +141,9 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Latest Updates
 ---
+**Date:** 2025-05-20
+**Update:** Standardized Python runtime to version 3.10 for all Cloud Functions. Updated all documentation to consistently specify Python 3.10 as the required runtime. This ensures compatibility with Google Cloud Functions and eliminates deprecation warnings that were occurring with Python 3.12+. All tests now run successfully with Python 3.10 without any warnings.
+---
 **Date:** 2025-05-18
 **Update:** End-user identity propagation and user profile creation-on-demand via /v1/users/me endpoint is now fully implemented and tested. The endpoint creates the user profile if missing and returns it, ensuring idempotent and robust user onboarding. This closes the previous gap in user creation and profile retrieval. All related authentication flows are now working as intended.
 ---
@@ -150,12 +153,15 @@ This document tracks the implementation status of the Relex backend components.
 - **Custom Domain Status**: The custom domain `api-dev.relex.ro` is NOT currently the active endpoint for the API Gateway
 
 ### Test Authentication
-- **Authentication Method**: Requires a Firebase JWT token
+- **Authentication Method**: Requires Firebase JWT tokens
 - **Token Acquisition**: Use `tests/test-auth.html` (served locally from the `tests/` directory via `python3 -m http.server 8080`)
-- **Environment Variable**: Set the obtained token as the `RELEX_TEST_JWT` environment variable for use in `curl` or test scripts
+- **Environment Variables**: Set the obtained tokens as environment variables based on the user role:
+  - `RELEX_TEST_JWT`: For regular user tests (no organization membership)
+  - `RELEX_ORG_ADMIN_TEST_JWT`: For organization admin tests
+  - `RELEX_ORG_USER_TEST_JWT`: For organization staff member tests
 
 ### Authentication Flow
-1. Client sends Firebase JWT (`RELEX_TEST_JWT`) to API Gateway
+1. Client sends Firebase JWT token to API Gateway
 2. API Gateway validates this Firebase JWT
 3. API Gateway passes end-user claims in the `X-Endpoint-API-Userinfo` header (base64-encoded JSON) to the backend
 4. API Gateway generates a new Google OIDC ID Token (using `relex-functions-dev@relexro.iam.gserviceaccount.com` SA identity) to authenticate itself to the backend Cloud Run function
@@ -214,7 +220,7 @@ This document tracks the implementation status of the Relex backend components.
 ## Development Environment
 
 ### Required Tools
-- Python 3.10+
+- Python 3.10 (required for Cloud Functions runtime)
 - Node.js 18+ (required for Firebase CLI and Emulator Suite)
 - Terraform 1.0+
 - Firebase CLI

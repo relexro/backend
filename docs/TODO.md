@@ -30,7 +30,7 @@
             * Test `GET /organizations` (or `/users/me/organizations`) to list user's organizations.
             * **Executor Prompt:** "Develop integration tests for: 1. Creating an organization (`POST /v1/organizations`) with payload `{\"name\": \"Test Org Integration\"}`. 2. Retrieving the created org by its ID. 3. Listing organizations for the test user. Use a valid test JWT. Assert appropriate status codes and response data. Store in `tests/integration/test_organization.py`. Report execution results."
         * 1.3.3. **Run Core Integration Tests:**
-            * **Executor Prompt:** "Execute integration tests: `test_user.py` and `test_organization.py` from `tests/integration/` against the deployed dev environment. Ensure `RELEX_API_BASE_URL` (e.g., `https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/`) and `RELEX_TEST_JWT` are set as environment variables for the test execution environment. Report failures with request/response details."
+            * **Executor Prompt:** "Execute integration tests: `test_user.py` and `test_organization.py` from `tests/integration/` against the deployed dev environment. Ensure `RELEX_API_BASE_URL` (e.g., `https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/`) and the appropriate authentication tokens (`RELEX_TEST_JWT`, `RELEX_ORG_ADMIN_TEST_JWT`, and `RELEX_ORG_USER_TEST_JWT`) are set as environment variables for the test execution environment. Report failures with request/response details."
 
 ## Phase 2: Expanding Test Coverage & API Functionality
 

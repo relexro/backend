@@ -88,7 +88,7 @@ By following this onboarding process, the Lead Planner will be equipped to analy
 
 - Firebase CLI
 - Terraform
-- Python 3.10 or higher
+- Python 3.10 (required for Cloud Functions runtime)
 - Google Cloud SDK
 - Cloudflare account with access to relex.ro domain
 - Node.js and npm (for OpenAPI validation)
@@ -266,16 +266,26 @@ To test the API endpoints:
    - Click "Show/Hide Token" to reveal your JWT token
    - Copy the entire token
 
-3. **Set the authentication token environment variable**:
+3. **Set the authentication token environment variables**:
    ```bash
-   # Linux/macOS
-   export RELEX_TEST_JWT="your_token_here"
+   # For regular user tests (Linux/macOS)
+   export RELEX_TEST_JWT="your_regular_user_token_here"
 
-   # Windows (Command Prompt)
-   set RELEX_TEST_JWT=your_token_here
+   # For organization admin tests (Linux/macOS)
+   export RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
 
-   # Windows (PowerShell)
-   $env:RELEX_TEST_JWT="your_token_here"
+   # For organization user tests (Linux/macOS)
+   export RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
+
+   # Windows (Command Prompt) equivalents
+   set RELEX_TEST_JWT=your_regular_user_token_here
+   set RELEX_ORG_ADMIN_TEST_JWT=your_org_admin_token_here
+   set RELEX_ORG_USER_TEST_JWT=your_org_user_token_here
+
+   # Windows (PowerShell) equivalents
+   $env:RELEX_TEST_JWT="your_regular_user_token_here"
+   $env:RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
+   $env:RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
    ```
 
 4. **Make authenticated API requests**:

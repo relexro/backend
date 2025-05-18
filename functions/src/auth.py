@@ -273,17 +273,9 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
                 # Successfully authenticated via Gateway SA token
                 logging.info(f"Authenticated via Gateway SA: {gateway_sa_subject}")
                 
-                # The Gateway SA token doesn't contain the Firebase user ID.
-                # We would expect this in the X-Endpoint-API-Userinfo header, which was missing.
-                # In a real system, you might extract it from a custom claim or reject the request.
-                auth_context = AuthContext(
-                    is_authenticated_call_from_gateway=True,
-                    firebase_user_id="gateway-call-missing-user-id",  # Placeholder - in a real system, we'd reject
-                    firebase_user_email="",
-                    gateway_sa_subject=gateway_sa_subject
-                )
-                
-                return auth_context, 200, None
+                # Gateway SA token doesn't contain the Firebase user ID directly, so
+                # we should reject the request if we're missing the userinfo header
+                return None, 401, "Missing required X-Endpoint-API-Userinfo or X-Apigateway-Api-Userinfo header"
                 
             except Exception as gateway_err:
                 # Both validations failed
@@ -572,14 +564,6 @@ def validate_user(request: Request):
         # At this point auth_context is valid
         user_id = auth_context.firebase_user_id
         logging.info(f"validate_user: original user_id={user_id}")
-        
-        # Special handling for the gateway placeholder user ID
-        if user_id == "gateway-call-missing-user-id":
-            logging.info("Gateway call without end-user info. Creating a test user profile.")
-            # In a real-world scenario, you might extract some identifier from the token claims
-            # For the test, we'll use a fixed test user ID
-            user_id = "test-user-id-123"
-            logging.info(f"validate_user: updated to test user_id={user_id}")
         
         email = auth_context.firebase_user_email
         

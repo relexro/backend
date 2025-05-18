@@ -27,17 +27,24 @@ Before running the tests, ensure you have:
    pip install -r requirements-test.txt
    ```
 
-2. Update the auth token:
-   - Obtain a fresh token using the `test-auth.html` utility:
+2. Update the auth tokens:
+   - Obtain fresh tokens using the `test-auth.html` utility:
      ```bash
      cd tests
      python3 -m http.server 8080
      # Open http://localhost:8080/test-auth.html in your browser
-     # Sign in and copy the token
+     # Sign in with the appropriate user accounts and copy the tokens
      ```
-   - Set the environment variable:
+   - Set the environment variables:
      ```bash
-     export RELEX_TEST_JWT="your_token_here"
+     # For regular user tests
+     export RELEX_TEST_JWT="your_regular_user_token_here"
+
+     # For organization admin tests
+     export RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
+
+     # For organization user tests
+     export RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
      ```
 
 ## Running the Test
@@ -62,7 +69,7 @@ A successful test will show "All tests passed successfully!" at the end.
 
 ### Authentication Token Expired
 
-If you see an "Unauthorized" response, your token might have expired. Get a new token from the `test-auth.html` utility and update the `RELEX_TEST_JWT` environment variable.
+If you see an "Unauthorized" response, your token might have expired. Get a new token from the `test-auth.html` utility and update the appropriate environment variable (`RELEX_TEST_JWT`, `RELEX_ORG_ADMIN_TEST_JWT`, or `RELEX_ORG_USER_TEST_JWT`) depending on which user role you're testing with.
 
 ### API Gateway URL
 

@@ -178,7 +178,7 @@ The system is deployed and managed using Infrastructure as Code (IaC) with Terra
 ## Technology Stack
 
 1. **Backend**
-   - Python 3.10+ for Cloud Functions
+   - Python 3.10 for Cloud Functions (specified in Terraform configuration)
    - Firestore for database
    - Cloud Storage for document storage
 
