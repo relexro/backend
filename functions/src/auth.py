@@ -196,7 +196,13 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
         return None, 200, "Health check request"
         
     # Check for the userinfo header from API Gateway
-    userinfo_header = request.headers.get("X-Endpoint-API-Userinfo")
+    userinfo_header = None
+    for header_key, header_val in request.headers.items():
+        key_lower = header_key.lower()
+        if key_lower in ("x-endpoint-api-userinfo", "x-apigateway-api-userinfo"):
+            userinfo_header = header_val
+            break
+    
     if userinfo_header:
         try:
             # API Gateway passes user info in a base64-encoded header after validating the Firebase token
@@ -786,14 +792,7 @@ def get_user_profile(request: Request):
         
         # At this point auth_context is valid
         user_id = auth_context.firebase_user_id
-        logging.info(f"get_user_profile: original user_id={user_id}")
-        
-        # Special handling for the gateway placeholder user ID
-        if user_id == "gateway-call-missing-user-id":
-            logging.info("Gateway call without end-user info. Using test user profile.")
-            # Use the same test user ID as in validate_user
-            user_id = "test-user-id-123"
-            logging.info(f"get_user_profile: updated to test user_id={user_id}")
+        logging.info(f"get_user_profile: user_id={user_id}")
         
         if not user_id:
             return jsonify({"error": "Bad Request", "message": "Missing user identification"}), 400
