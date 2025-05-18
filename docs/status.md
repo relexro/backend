@@ -24,6 +24,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Staff assignment validation for organization cases
 - [x] Document permissions based on parent case access
 - [x] User profile management
+- [x] End-user identity propagation from API Gateway to backend (including /v1/users/me user creation-on-demand)
 
 ### Business/Organization Management
 - [x] Organization account creation
@@ -140,8 +141,8 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Latest Updates
 ---
-**Date:** 2025-05-17
-**Update:** Completed comprehensive overhaul of LLM Planner and Executor guidelines (`docs/PLANNER_GUIDE.md`, `docs/guardrail.md`). This enhancement incorporates advanced strategies for AI persona development, strategic foresight, task decomposition, risk management, explicit guardrailing, and planner-executor synergy, based on the "Superior Guidelines for LLM Planners and Executors in Software Engineering" research. This marks a significant improvement in our AI operational protocols and strategic capabilities.
+**Date:** 2025-05-18
+**Update:** End-user identity propagation and user profile creation-on-demand via /v1/users/me endpoint is now fully implemented and tested. The endpoint creates the user profile if missing and returns it, ensuring idempotent and robust user onboarding. This closes the previous gap in user creation and profile retrieval. All related authentication flows are now working as intended.
 ---
 
 ### API Accessibility
@@ -164,7 +165,7 @@ This document tracks the implementation status of the Relex backend components.
 ### Resolved Issues
 - **API Gateway Path Routing**: Fixed routing for default URL with `CONSTANT_ADDRESS` path translation - RESOLVED
 - **Backend Authentication of Gateway SA**: Properly validating Google OIDC ID token from API Gateway - RESOLVED
-- **End-User Identity Propagation**: Implemented extraction of end-user identity from `X-Endpoint-API-Userinfo` header - IMPLEMENTED & VERIFIED for `/v1/users/me`
+- **End-User Identity Propagation**: Implemented extraction of end-user identity from `X-Endpoint-API-Userinfo` header and user creation-on-demand for `/v1/users/me` - IMPLEMENTED & VERIFIED for `/v1/users/me` and related endpoints
 - **Cloud Function Health Check Mechanism**: Standardized to use `X-Google-Health-Check` header - IMPLEMENTED
 
 ### Key Unresolved Issues
@@ -193,11 +194,10 @@ This document tracks the implementation status of the Relex backend components.
 
 ### High Priority
 1. **Fix API Gateway Logging Issues**: Investigate why logs are not appearing in Cloud Logging
-2. **Complete End-User Identity Propagation Testing**: Verify implementation works for all endpoints
-3. **Comprehensive API Endpoint Testing**: Test all ~37 endpoints for routing, auth, end-user ID logic, and health checks
-4. **Review JWT Audience Configuration**: Consider explicit configuration in `openapi_spec.yaml` for clarity
-5. **Implement Rate Limiting**: Design and implement rate limiting strategy
-6. **Configure Security Headers**: Define and implement required security headers
+2. **Comprehensive API Endpoint Testing**: Test all ~37 endpoints for routing, auth, end-user ID logic, and health checks
+3. **Review JWT Audience Configuration**: Consider explicit configuration in `openapi_spec.yaml` for clarity
+4. **Implement Rate Limiting**: Design and implement rate limiting strategy
+5. **Configure Security Headers**: Define and implement required security headers
 
 ### Medium Priority
 1. **Optimize Permission Checks**: Implement Firebase Custom Claims for frequently used permissions

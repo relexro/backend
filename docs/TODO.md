@@ -4,20 +4,6 @@
 
 ## Phase 1: Urgent - Establish Baseline API Functionality & Core Testing
 
-### 1.1. Initial API Health Check & Authentication Debugging
-    * **Objective:** Verify and fix basic API accessibility and core authentication mechanisms. The previous test of `/v1/users/me` returned a 403 error: `{"error":"Unauthorized: End-user identity not available for this operation."}`. This must be the first issue addressed.
-    * **Sub-Tasks:**
-        * 1.1.1. **Investigate `/v1/users/me` 403 Error:**
-            * **Hypothesis:** Issue with JWT validation, user record lookup after token validation, or IAM permissions on the Cloud Function.
-            * **Executor Prompt (Log Analysis):** "Query Cloud Function logs for the `Relex_backend_get_user_profile` function (associated with `GET /v1/users/me`) for the timeframe of the last failed test. Filter for errors or warnings. Also, query API Gateway logs (`resource.type=api AND logName:apigateway`) for the same request, focusing on the `jsonPayload.responseCode` and any error messages. Report relevant log snippets."
-            * **Executor Prompt (Code Review - `auth.py`):** "Review `functions/src/auth.py`, specifically the Firebase JWT verification logic (`_verify_firebase_jwt` or equivalent) and how the user identity is extracted and passed to the main function. Identify potential points of failure if a valid token is provided but the system still deems the user unauthorized for their own profile."
-            * **Executor Prompt (Code Review - `user.py`):** "Review `functions/src/user.py` (handler for `/users/me`). Check how it receives user identity from the auth layer and fetches user data. Ensure it correctly handles the case where an authenticated user requests their own profile."
-        * 1.1.2. **Fix `/v1/users/me` Authentication Issue:**
-            * Based on findings from 1.1.1.
-            * **Executor Prompt (Code Modification):** "Based on the root cause identified for the `/v1/users/me` 403 error (e.g., incorrect user lookup in `user.py` after successful auth), provide the exact code modification for `[file_path.py]`. Replace the problematic code block `[old code snippet]` with `[new complete code snippet]`."
-        * 1.1.3. **Re-test `/v1/users/me`:**
-            * **Executor Prompt (Integration Test Execution):** "Using a known valid Firebase Test JWT (Operator to provide as `RELEX_TEST_JWT`), execute the following `curl` command. Report the full output: `curl -H \"Authorization: Bearer $RELEX_TEST_JWT\" https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/users/me`. If successful (200 OK), proceed. If still failing, revert to 1.1.1 with new findings."
-
 ### 1.2. Core Unit Testing Implementation
     * **Objective:** Establish foundational unit tests for critical business logic, ensuring functions behave as expected in isolation within the `tests/unit` directory.
     * **Sub-Tasks:**
