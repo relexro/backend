@@ -42,6 +42,7 @@ def mock_google_auth_requests(mocker):
 @pytest.fixture
 def mock_firestore_client(mocker):
     """Mocks the Firestore client and its methods."""
+    # Create a basic mock Firestore client
     mock_db = MagicMock(spec=auth_module.firestore.Client)
     mock_doc_ref = MagicMock()
     mock_doc_snapshot = MagicMock()
@@ -59,7 +60,69 @@ def mock_firestore_client(mocker):
     # Mock the Client constructor instead of client function
     mocker.patch('functions.src.auth.firestore.Client', return_value=mock_db)
     mocker.patch('functions.src.auth._get_firestore_client', return_value=mock_db)
+
+    # Create more sophisticated mocks for get_document_data and get_membership_data
+    # that can be configured per test
+
+    # Default implementation for get_document_data
+    def default_get_document_data(db, collection, doc_id):
+        return None  # Default to document not found
+
+    # Default implementation for get_membership_data
+    def default_get_membership_data(db, user_id, org_id):
+        return None  # Default to no membership
+
+    # Create the mocks with default implementations
+    mock_get_document_data = mocker.patch('functions.src.auth.get_document_data',
+                                         side_effect=default_get_document_data)
+    mock_get_membership_data = mocker.patch('functions.src.auth.get_membership_data',
+                                           side_effect=default_get_membership_data)
+
+    # Add the mocks to the mock_db object for easy access in tests
+    mock_db.mock_get_document_data = mock_get_document_data
+    mock_db.mock_get_membership_data = mock_get_membership_data
+
     return mock_db
+
+@pytest.fixture
+def configure_mock_document_data():
+    """Helper fixture to configure document data responses for specific collection/doc_id combinations."""
+    def _configure(document_data_map):
+        """
+        Configure mock responses for get_document_data.
+
+        Args:
+            document_data_map: A dictionary mapping (collection, doc_id) tuples to document data.
+                Example: {('cases', 'case1'): {'userId': 'user1', 'organizationId': 'org1'}}
+        """
+        def mock_get_document_data(db, collection, doc_id):
+            key = (collection, doc_id)
+            return document_data_map.get(key)
+
+        # Replace the side_effect of the mock
+        auth_module.get_document_data = MagicMock(side_effect=mock_get_document_data)
+
+    return _configure
+
+@pytest.fixture
+def configure_mock_membership_data():
+    """Helper fixture to configure membership data responses for specific user_id/org_id combinations."""
+    def _configure(membership_data_map):
+        """
+        Configure mock responses for get_membership_data.
+
+        Args:
+            membership_data_map: A dictionary mapping (user_id, org_id) tuples to membership data.
+                Example: {('user1', 'org1'): {'role': 'administrator', 'userId': 'user1', 'organizationId': 'org1'}}
+        """
+        def mock_get_membership_data(db, user_id, org_id):
+            key = (user_id, org_id)
+            return membership_data_map.get(key)
+
+        # Replace the side_effect of the mock
+        auth_module.get_membership_data = MagicMock(side_effect=mock_get_membership_data)
+
+    return _configure
 
 @pytest.fixture
 def mock_request_builder(mocker):
@@ -419,3 +482,448 @@ class TestPermissionChecking:
         # Should return False with an error message
         assert allowed is False
         assert "An internal error occurred during permission check" in message
+
+
+class TestCheckOrganizationPermissions:
+    def test_admin_all_org_permissions(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that admin users have all permissions defined in PERMISSIONS map."""
+        user_id = "admin_user"
+        org_id = "org_1"
+
+        # Configure membership data for this test
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_ADMIN, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Test all actions defined for admin in PERMISSIONS map
+        actions_to_test = auth_module.PERMISSIONS[auth_module.TYPE_ORGANIZATION][auth_module.ROLE_ADMIN]
+        for action in actions_to_test:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=org_id,
+                action=action,
+                resourceType=auth_module.TYPE_ORGANIZATION,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"Admin should be allowed action '{action}', msg: {msg}"
+
+    def test_staff_allowed_org_permissions(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that staff users have the correct subset of permissions."""
+        user_id = "staff_user"
+        org_id = "org_1"
+
+        # Configure membership data for this test
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Explicitly list staff allowed actions from PERMISSIONS map
+        staff_allowed_actions = ["read", "create_case", "list_cases", "listMembers"]
+
+        for action in staff_allowed_actions:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=org_id,
+                action=action,
+                resourceType=auth_module.TYPE_ORGANIZATION,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"Staff should be allowed action '{action}', msg: {msg}"
+
+    def test_staff_disallowed_org_permissions(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that staff users are denied permissions not in their role."""
+        user_id = "staff_user"
+        org_id = "org_1"
+
+        # Configure membership data for this test
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Actions that staff should not be allowed to perform
+        disallowed_actions = ["update", "delete", "assign_case", "addMember", "setMemberRole", "removeMember"]
+
+        for action in disallowed_actions:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=org_id,
+                action=action,
+                resourceType=auth_module.TYPE_ORGANIZATION,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+            assert allowed is False, f"Staff should NOT be allowed action '{action}', msg: {msg}"
+
+    def test_non_member_org_permissions(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that non-members are denied all permissions."""
+        user_id = "non_member_user"
+        org_id = "org_1"
+
+        # Configure empty membership data map (get_membership_data will return None)
+        configure_mock_membership_data({})
+
+        # Test a representative set of actions
+        actions_to_test = ["read", "update", "manage_members"]
+
+        for action in actions_to_test:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=org_id,
+                action=action,
+                resourceType=auth_module.TYPE_ORGANIZATION,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+            assert allowed is False, f"Non-member should NOT be allowed action '{action}', msg: {msg}"
+            assert f"User {user_id} is not a member of organization {org_id}" in msg
+
+    def test_no_org_id_provided(self, mock_firestore_client):
+        """Test that requests without an organization ID are rejected."""
+        user_id = "any_user"
+
+        # Test with resourceId=None and organizationId=None
+        req = auth_module.PermissionCheckRequest(
+            action="read",
+            resourceType=auth_module.TYPE_ORGANIZATION
+        )
+        allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert "organizationId is required" in msg
+
+    def test_user_in_org_no_role(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that users with membership but no role are denied permissions."""
+        user_id = "user_no_role"
+        org_id = "org_1"
+
+        # Configure membership data with no role
+        membership_data = {
+            (user_id, org_id): {"role": None, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=org_id,
+            action="read",
+            resourceType=auth_module.TYPE_ORGANIZATION,
+            organizationId=org_id
+        )
+        allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert f"User {user_id} has no role assigned" in msg
+
+    def test_admin_manage_members_sub_actions(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that admin users can perform all member management sub-actions."""
+        user_id = "admin_user_manage"
+        org_id = "org_manage"
+
+        # Configure membership data for admin
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_ADMIN, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        # These actions should be allowed if "manage_members" is allowed for admin
+        sub_actions = ["addMember", "setMemberRole", "removeMember", "listMembers"]
+
+        for action in sub_actions:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=org_id,
+                action=action,
+                resourceType=auth_module.TYPE_ORGANIZATION,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"Admin should be allowed sub-action '{action}' via manage_members, msg: {msg}"
+
+
+class TestCheckCasePermissions:
+    # === Individual Case Scenarios ===
+    def test_individual_case_owner_allowed_actions(self, mock_firestore_client, configure_mock_document_data):
+        """Test that case owners can perform all owner-allowed actions on individual cases."""
+        user_id = "owner_user_case"
+        case_id = "individual_case_1"
+
+        # Configure document data for this test
+        document_data = {
+            ('cases', case_id): {"userId": user_id, "organizationId": None}  # Individual case owned by user_id
+        }
+        configure_mock_document_data(document_data)
+
+        # Test a representative set of owner-allowed actions for cases
+        owner_allowed_actions = auth_module.PERMISSIONS[auth_module.TYPE_CASE][auth_module.ROLE_OWNER]
+        for action in owner_allowed_actions:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=case_id,
+                action=action,
+                resourceType=auth_module.TYPE_CASE
+            )
+            allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"Owner should be allowed action '{action}' on individual case, msg: {msg}"
+
+    def test_individual_case_non_owner_denied(self, mock_firestore_client, configure_mock_document_data):
+        """Test that non-owners are denied access to individual cases."""
+        owner_id = "actual_owner_id"
+        user_id = "non_owner_user"  # Current user
+        case_id = "individual_case_2"
+
+        # Configure document data for this test
+        document_data = {
+            ('cases', case_id): {"userId": owner_id, "organizationId": None}
+        }
+        configure_mock_document_data(document_data)
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=case_id,
+            action="read",
+            resourceType=auth_module.TYPE_CASE
+        )
+        allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False, f"Non-owner should NOT be allowed action 'read', msg: {msg}"
+        assert f"User {user_id} is not the owner" in msg
+
+    def test_individual_case_creation_listing_allowed(self, mock_firestore_client):
+        """Test that any user can create or list individual cases."""
+        user_id = "any_user_creating_case"
+
+        # For 'create' and 'list', resourceId is None
+        for action in ["create", "list"]:
+            req = auth_module.PermissionCheckRequest(
+                action=action,
+                resourceType=auth_module.TYPE_CASE,
+                organizationId=None  # No orgId for individual
+            )
+            allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"User should be allowed '{action}' for individual cases, msg: {msg}"
+
+    # === Organization Case Scenarios ===
+    def test_org_case_admin_member_allowed(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that org admins can perform all admin-allowed actions on org cases."""
+        user_id = "org_admin_user_case"
+        org_id = "org_for_case_1"
+        case_id = "org_case_1"
+
+        # Configure document and membership data for this test
+        document_data = {
+            ('cases', case_id): {"userId": "creator_user", "organizationId": org_id}  # Case belongs to org_id
+        }
+        configure_mock_document_data(document_data)
+
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_ADMIN, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Admin should be allowed all actions defined for ROLE_ADMIN in PERMISSIONS[TYPE_CASE]
+        admin_case_actions = auth_module.PERMISSIONS[auth_module.TYPE_CASE][auth_module.ROLE_ADMIN]
+        for action in admin_case_actions:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=case_id,
+                action=action,
+                resourceType=auth_module.TYPE_CASE,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"Org admin should be allowed action '{action}' on org case, msg: {msg}"
+
+    def test_org_case_staff_member_assigned_allowed(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that assigned staff members can perform update actions on org cases."""
+        user_id = "org_staff_user_case_assigned"
+        org_id = "org_for_case_2"
+        case_id = "org_case_2"
+
+        # Configure document and membership data for this test
+        document_data = {
+            ('cases', case_id): {"userId": "creator_user", "organizationId": org_id, "assignedUserId": user_id}
+        }
+        configure_mock_document_data(document_data)
+
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Staff assigned can typically update, attach_party etc.
+        staff_assigned_actions = ["update", "upload_file", "attach_party"]
+        for action in staff_assigned_actions:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=case_id,
+                action=action,
+                resourceType=auth_module.TYPE_CASE,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"Assigned staff should be allowed action '{action}', msg: {msg}"
+
+    def test_org_case_staff_member_assigned_read_list_create(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that staff members can read, list, and create cases in their org."""
+        user_id = "org_staff_user_case_assigned"
+        org_id = "org_for_case_2a"
+        case_id = "org_case_2a"
+
+        # Configure document and membership data for this test
+        document_data = {
+            ('cases', case_id): {"userId": "creator_user", "organizationId": org_id, "assignedUserId": user_id}
+        }
+        configure_mock_document_data(document_data)
+
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        read_list_create_actions = ["read", "list", "create"]  # List/Create here implies context of the org.
+        for action in read_list_create_actions:
+            if action in ["list", "create"]:  # resourceId will be None
+                req = auth_module.PermissionCheckRequest(
+                    action=action,
+                    resourceType=auth_module.TYPE_CASE,
+                    organizationId=org_id
+                )
+            else:  # "read" requires resourceId
+                req = auth_module.PermissionCheckRequest(
+                    resourceId=case_id,
+                    action=action,
+                    resourceType=auth_module.TYPE_CASE,
+                    organizationId=org_id
+                )
+            allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+            assert allowed is True, f"Assigned staff should be allowed action '{action}', msg: {msg}"
+
+    def test_org_case_staff_member_unassigned_denied_modify(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that unassigned staff members cannot modify cases."""
+        user_id = "org_staff_user_case_unassigned"
+        org_id = "org_for_case_3"
+        case_id = "org_case_3"
+
+        # Configure document and membership data for this test
+        document_data = {
+            ('cases', case_id): {"userId": "creator_user", "organizationId": org_id, "assignedUserId": "another_staff_user"}
+        }
+        configure_mock_document_data(document_data)
+
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        modifying_actions = ["update", "delete", "archive", "attach_party"]
+        for action in modifying_actions:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=case_id,
+                action=action,
+                resourceType=auth_module.TYPE_CASE,
+                organizationId=org_id
+            )
+            allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+            assert allowed is False, f"Unassigned staff should NOT be allowed action '{action}', msg: {msg}"
+
+    def test_org_case_staff_member_unassigned_allowed_read(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that unassigned staff members can still read cases in their org."""
+        user_id = "org_staff_user_case_unassigned_read"
+        org_id = "org_for_case_3a"
+        case_id = "org_case_3a"
+
+        # Configure document and membership data for this test
+        document_data = {
+            ('cases', case_id): {"userId": "creator_user", "organizationId": org_id, "assignedUserId": "another_staff_user"}
+        }
+        configure_mock_document_data(document_data)
+
+        membership_data = {
+            (user_id, org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=case_id,
+            action="read",
+            resourceType=auth_module.TYPE_CASE,
+            organizationId=org_id
+        )
+        allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+        assert allowed is True, f"Unassigned staff should be allowed to 'read' cases in their org, msg: {msg}"
+
+    def test_org_case_non_member_denied(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that non-members cannot access org cases."""
+        user_id = "non_org_member_case"
+        org_id = "org_for_case_4"
+        case_id = "org_case_4"
+
+        # Configure document data and ensure membership data returns None
+        document_data = {
+            ('cases', case_id): {"userId": "creator_user", "organizationId": org_id}
+        }
+        configure_mock_document_data(document_data)
+
+        # Empty membership_data map means get_membership_data will return None
+        configure_mock_membership_data({})
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=case_id,
+            action="read",
+            resourceType=auth_module.TYPE_CASE,
+            organizationId=org_id
+        )
+        allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert "not owner or member of org" in msg
+
+    def test_org_case_owner_privileges(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that case creators have owner privileges even if they're staff."""
+        user_id_creator = "case_creator_in_org"
+        org_id = "org_for_case_5"
+        case_id = "org_case_5"
+
+        # Configure document and membership data for this test
+        document_data = {
+            ('cases', case_id): {"userId": user_id_creator, "organizationId": org_id, "assignedUserId": "another_staff"}
+        }
+        configure_mock_document_data(document_data)
+
+        membership_data = {
+            (user_id_creator, org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id_creator, "organizationId": org_id}
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Even if staff and unassigned, owner permissions should apply for owner-specific actions
+        owner_specific_actions = ["delete", "archive"]  # Actions typically granted to owner
+        for action in owner_specific_actions:
+            if action in auth_module.PERMISSIONS[auth_module.TYPE_CASE][auth_module.ROLE_OWNER]:
+                req = auth_module.PermissionCheckRequest(
+                    resourceId=case_id,
+                    action=action,
+                    resourceType=auth_module.TYPE_CASE,
+                    organizationId=org_id
+                )
+                allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id_creator, req)
+                assert allowed is True, f"Org case creator (owner) should be allowed owner-specific action '{action}', msg: {msg}"
+
+    def test_case_not_found(self, mock_firestore_client, configure_mock_document_data):
+        """Test that non-existent cases return appropriate error."""
+        user_id = "any_user_case_not_found"
+        case_id = "non_existent_case"
+
+        # Configure document data to return None for this case
+        configure_mock_document_data({})  # Empty map means get_document_data will return None
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=case_id,
+            action="read",
+            resourceType=auth_module.TYPE_CASE
+        )
+        allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert f"Case {case_id} not found" in msg
+
+    def test_case_missing_resourceid_for_read(self, mock_firestore_client):
+        """Test that read actions require a resourceId."""
+        user_id = "any_user_missing_id"
+
+        req = auth_module.PermissionCheckRequest(
+            action="read",
+            resourceType=auth_module.TYPE_CASE
+        )  # No resourceId
+        allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert "resourceId is required" in msg

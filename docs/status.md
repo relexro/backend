@@ -105,8 +105,8 @@ This document tracks the implementation status of the Relex backend components.
 ## Testing Status
 
 ### Unit Tests
-- [x] Authentication tests
-- [x] Permission tests
+- [PARTIAL] Authentication logic in `auth.py` (56% coverage: token validation, user extraction, core auth functions tested; HTTP endpoints and detailed permission helper coverage pending)
+- [PARTIAL] Permission checking logic in `auth.py` (foundational tests for org and case permissions; party, document, and more edge cases pending)
 - [x] Business logic tests
 - [x] Agent workflow tests
 - [x] User profile logic in `user.py` (including language preference)
@@ -153,6 +153,9 @@ This document tracks the implementation status of the Relex backend components.
 ## Current System Status
 
 ### Latest Updates
+---
+**Date:** 2025-05-26
+**Update:** Implemented comprehensive unit tests for `functions/src/auth.py`, achieving 56% code coverage. Tests cover token validation (`validate_firebase_id_token`, `validate_gateway_sa_token`), user extraction (`get_authenticated_user`), the `requires_auth` decorator, `PermissionCheckRequest` model validation, and foundational permission checking logic (`_check_organization_permissions`, `_check_case_permissions`). Enhanced test fixtures for mocking Firestore interactions with complex scenarios. Remaining coverage gaps include HTTP endpoint functions, `add_cors_headers` decorator, and more detailed permission helper tests.
 ---
 **Date:** 2025-05-24
 **Update:** Implemented UI language preference feature in user profiles. User profiles now store `languagePreference` ('en'/'ro') with auto-detection from OAuth `locale` on initial user creation. The preference is returned via `GET /v1/users/me` and can be updated via `PUT /v1/users/me`. Comprehensive unit tests added in `tests/unit/test_user.py`. Also completed review of `response_templates.py` and `draft_templates.py` for Romanian language compliance (no changes needed per language policy).
