@@ -4,6 +4,25 @@
 
 ## Phase 1: Urgent - Establish Baseline API Functionality & Core Testing
 
+### 1.0. Implement Agent Language Configuration
+    * **Objective:** Configure the legal agent's language capabilities as per requirements, ensuring users can interact in multiple languages while internal operations and UI maintain specified language standards.
+    * **Sub-Tasks:**
+        * 1.0.1. **Document Supported User Languages & Configure Agent Constants:**
+            * Action: Document the 30 user-facing languages in `docs/product_overview.md`. Create Python constants for supported user languages, UI languages, and the internal operational language in `functions/src/agent_config.py`.
+            * **Status:** In Progress (Addressed by current Executor prompt).
+        * 1.0.2. **Ensure Internal Operations & Prompts are Exclusively in Romanian:**
+            * Action: Review and update all system prompts (e.g., in `functions/src/agent-config/`), enrichment prompts, predefined responses, and any LLM-to-LLM communication configurations to use only Romanian. Inspect `functions/src/response_templates.py` and `functions/src/draft_templates.py` for hardcoded strings.
+            * **Status:** Pending.
+        * 1.0.3. **Implement UI Language Preference (EN/RO) in User Profile:**
+            * Action: Modify user profile model (`functions/src/user.py` and Firestore structure) and API endpoints to store and manage a `languagePreference` field ('en' or 'ro'). Implement logic in `functions/src/auth.py` or `functions/src/user.py` to auto-set this preference from Google OAuth `locale` data on initial user creation. Ensure `GET /v1/users/me` returns this preference. Add relevant unit tests in `tests/unit/test_user.py`.
+            * **Status:** Pending.
+        * 1.0.4. **(Future Task) Translation Layer for User Input/Output:**
+            * Action: Plan for integrating a translation service.
+            * **Status:** Deferred.
+        * 1.0.5. **(Future Task) UI Elements Translation:**
+            * Action: Note requirement for UI text element translation (frontend).
+            * **Status:** Deferred.
+
 ### 1.2. Core Unit Testing Implementation
     * **Objective:** Establish foundational unit tests for critical business logic, ensuring functions behave as expected in isolation within the `tests/unit` directory.
     * **Sub-Tasks:**

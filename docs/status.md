@@ -90,6 +90,15 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] File versioning
 - [ ] Batch uploads
 
+## Localization / Internationalization
+- [ ] **Agent Language Configuration**
+  - [ ] **Supported User Languages**: Define and document the list of 30 allowed interaction languages (Romanian, English, French, German, Italian, Spanish, Swedish, Norwegian, Danish, Ukrainian, Polish, Hungarian, Greek, Turkish, Hebrew, Arabic, Portuguese, Dutch, Estonian, Finnish, Czech, Slovak, Lithuanian, Icelandic, Latvian, Bulgarian, Serbian, Macedonian, Albanian).
+  - [ ] **Internal Language**: Ensure all internal system prompts and LLM communications are exclusively in Romanian.
+  - [ ] **UI Language**: User interface to support English and Romanian.
+  - [ ] **User Language Preference**: Store and retrieve user's preferred UI language ('en'/'ro') in their profile, with auto-detection from Google OAuth on first login.
+  - [ ] **Translation Layer**: (Future) Implement for user input to Romanian and agent output from Romanian to user's language.
+  - [ ] **UI Elements Translation**: (Future) Implement for UI text elements in EN/RO.
+
 ## Testing Status
 
 ### Unit Tests

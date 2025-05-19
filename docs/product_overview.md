@@ -116,4 +116,39 @@ Relex is an AI-driven legal assistance platform designed to simplify legal case 
 - Secure handling of personally identifiable information
 - Encryption for data at rest and in transit
 - Compliance with GDPR and Romanian data protection regulations
-- Strict permission checking for all operations 
+- Strict permission checking for all operations
+
+## Supported User Interaction Languages
+
+The Relex legal agent is designed to allow users to interact in a wide range of languages to ensure accessibility. These languages include:
+* Romanian
+* English
+* French
+* German
+* Italian
+* Spanish
+* Swedish
+* Norwegian
+* Danish
+* Ukrainian
+* Polish
+* Hungarian
+* Greek
+* Turkish
+* Hebrew
+* Arabic
+* Portuguese
+* Dutch
+* Estonian
+* Finnish
+* Czech
+* Slovak
+* Lithuanian
+* Icelandic
+* Latvian
+* Bulgarian
+* Serbian
+* Macedonian
+* Albanian
+
+While user interaction is supported in these languages (requiring translation to/from Romanian internally for core processing), the User Interface (UI) itself will be available in English and Romanian. The core internal processing, system prompts, and communication between AI components (Gemini and Grok) will be conducted exclusively in Romanian.
