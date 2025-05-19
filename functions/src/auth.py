@@ -4,7 +4,7 @@ import firebase_admin
 from firebase_admin import auth as firebase_auth_admin
 from firebase_admin import firestore
 import flask
-from pydantic import BaseModel, ValidationError, validator, Field
+from pydantic import BaseModel, ValidationError, field_validator, Field
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_auth_requests  # Alias to avoid confusion with http 'requests'
 import base64
@@ -98,8 +98,9 @@ class PermissionCheckRequest(BaseModel):
     resourceType: str
     organizationId: Optional[str] = None
 
-    # Changed field_validator to validator and removed @classmethod
-    @validator('resourceType')
+    # Updated to use field_validator with mode='before'
+    @field_validator('resourceType', mode='before')
+    @classmethod
     def validate_resource_type(cls, v: str) -> str:
         if v not in VALID_RESOURCE_TYPES:
             raise ValueError(f"Invalid resourceType. Must be one of: {', '.join(VALID_RESOURCE_TYPES)}")
@@ -112,7 +113,8 @@ class AuthContext:
     firebase_user_email: str
     gateway_sa_subject: Optional[str] = None
     additional_headers: Optional[dict] = None
-    
+    firebase_user_locale: Optional[str] = None
+
 
 # Constants
 EXPECTED_HEALTH_CHECK_HEADER = "X-Google-Health-Check"
@@ -130,21 +132,21 @@ def add_cors_headers(f):
     def wrapped_function(*args, **kwargs):
         # Get the response from the wrapped function
         response = f(*args, **kwargs)
-        
+
         # If the response is a tuple (data, status_code), add headers as the third element
         if isinstance(response, tuple):
             if len(response) == 2:
                 data, status_code = response
                 headers = {
-                    'Access-Control-Allow-Origin': '*', 
+                    'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
                 }
                 return data, status_code, headers
-        
+
         # If it's just the response data, return it as is
         return response
-    
+
     return wrapped_function
 
 def _get_firestore_client() -> firestore.Client:
@@ -181,11 +183,11 @@ def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Opti
 
 def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int, Optional[str]]:
     """Authenticate the user.
-    
+
     Handles both:
     1. Gateway-forwarded auth (JWT validated by API gateway, forwarded as X-Endpoint-API-Userinfo)
     2. Direct auth (validate Firebase JWT directly) - used in local dev or direct-to-function calls
-    
+
     Returns a tuple of (auth_context, status_code, error_message)
     where auth_context is None if authentication failed.
     """
@@ -194,7 +196,7 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
         logging.info("Health check request, skipping authentication.")
         # Return tuple with None, 200, and None as placeholders
         return None, 200, "Health check request"
-        
+
     # Check for the userinfo header from API Gateway
     userinfo_header = None
     for header_key, header_val in request.headers.items():
@@ -202,87 +204,91 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
         if key_lower in ("x-endpoint-api-userinfo", "x-apigateway-api-userinfo"):
             userinfo_header = header_val
             break
-    
+
     if userinfo_header:
         try:
             # API Gateway passes user info in a base64-encoded header after validating the Firebase token
             decoded_userinfo = json.loads(base64.b64decode(userinfo_header).decode("utf-8"))
             firebase_uid = decoded_userinfo.get("sub")
             email = decoded_userinfo.get("email")
-            
+            locale = decoded_userinfo.get("locale")
+
             if not firebase_uid:
                 return None, 401, "Missing subject (user ID) in userinfo header"
-                
+
             # Successfully authenticated via API Gateway-forwarded user info
             auth_context = AuthContext(
                 is_authenticated_call_from_gateway=True,
                 firebase_user_id=firebase_uid,
-                firebase_user_email=email or ""
+                firebase_user_email=email or "",
+                firebase_user_locale=locale
             )
-            
+
             return auth_context, 200, None
-            
+
         except Exception as e:
             logging.error(f"Error decoding X-Endpoint-API-Userinfo header: {str(e)}")
             return None, 500, "Error processing authentication information"
-    
+
     # If we reach here, there was no userinfo header, so we check for a direct Firebase token
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None, 401, "Missing or invalid Authorization header"
-    
+
     token = auth_header[7:]  # Remove "Bearer " prefix
-    
+
     try:
         # First, try to validate as a Firebase token
         try:
             firebase_claims = validate_firebase_id_token(token)
             firebase_uid = firebase_claims.get("sub")
             email = firebase_claims.get("email", "")
-            
+            locale = firebase_claims.get("locale")
+
             if not firebase_uid:
                 return None, 401, "Invalid Firebase token: missing subject claim"
-                
+
             # Successfully authenticated directly using Firebase token
             logging.info(f"Authenticated user {firebase_uid} directly using Firebase token")
             auth_context = AuthContext(
                 is_authenticated_call_from_gateway=False,  # Direct Firebase token
                 firebase_user_id=firebase_uid,
-                firebase_user_email=email
+                firebase_user_email=email,
+                firebase_user_locale=locale
             )
-            
+
             return auth_context, 200, None
-            
+
         except Exception as firebase_err:
             # If Firebase validation fails, try Google SA token validation instead
             # This will only succeed for tokens from the Gateway SA
             try:
                 gateway_claims = validate_gateway_sa_token(token)
-                
+
                 # We need to extract the end-user ID from the Gateway token
                 # This is usually stored in custom claims
                 if "sub" not in gateway_claims:
                     return None, 401, "Invalid Gateway token: missing subject claim"
-                    
+
                 gateway_sa_subject = gateway_claims.get("sub")
-                
+
                 # Accept any service account in production
                 # We're being called through the API Gateway, and the token has been validated,
                 # so we can trust it regardless of the exact service account being used
-                
+
                 # Successfully authenticated via Gateway SA token
                 logging.info(f"Authenticated via Gateway SA: {gateway_sa_subject}")
-                
+
                 # Gateway SA token doesn't contain the Firebase user ID directly, so
                 # we should reject the request if we're missing the userinfo header
                 return None, 401, "Missing required X-Endpoint-API-Userinfo or X-Apigateway-Api-Userinfo header"
-                
+
             except Exception as gateway_err:
                 # Both validations failed
                 logging.error(f"Firebase token validation error: {firebase_err}")
                 logging.error(f"Gateway token validation error: {gateway_err}")
                 return None, 401, "Invalid authentication token"
-                
+
     except Exception as e:
         logging.error(f"Unexpected error in authentication: {str(e)}")
         return None, 500, f"Authentication error: {str(e)}"
@@ -526,8 +532,8 @@ def check_permissions(request: flask.Request):
         user_id = user_data.user_id
 
         try:
-            # Changed model_validate to parse_obj for Pydantic v1
-            req_data = PermissionCheckRequest.parse_obj(data)
+            # Use model_validate for Pydantic v2
+            req_data = PermissionCheckRequest.model_validate(data)
             logging.info(f"Validated permission check request for user {user_id}")
         except ValidationError as e:
             logging.error(f"Bad Request: Validation failed: {e}")
@@ -556,26 +562,26 @@ def validate_user(request: Request):
 
         auth_context, status_code, error_message = get_authenticated_user(request)
         logging.info(f"validate_user auth result: context={auth_context}, status={status_code}, error={error_message}")
-        
+
         # Handle auth failures
         if error_message or not auth_context:
             return jsonify({"error": "Unauthorized", "message": error_message or "Authentication failed"}), status_code or 401
-        
+
         # At this point auth_context is valid
         user_id = auth_context.firebase_user_id
         logging.info(f"validate_user: original user_id={user_id}")
-        
+
         email = auth_context.firebase_user_email
-        
+
         if not user_id:
             return jsonify({"error": "Bad Request", "message": "Missing user identification"}), 400
-            
+
         # Create or update user record in Firestore
         db = firestore.Client()
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
         logging.info(f"validate_user: Firestore lookup for user_id={user_id}, exists={user_doc.exists}")
-        
+
         if not user_doc.exists:
             # Create new user
             user_data = {
@@ -595,12 +601,12 @@ def validate_user(request: Request):
             }
             user_ref.update(update_data)
             logging.info(f"Updated existing user record for {user_id}: {update_data}")
-        
+
         return jsonify({
             "user_id": user_id,
             "is_authenticated": True
         })
-        
+
     except Exception as e:
         logging.error(f"Error in validate_user: {str(e)}")
         return jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred."}), 500
@@ -658,55 +664,55 @@ def get_user_role(request: flask.Request):
 
 def validate_firebase_id_token(token: str) -> dict:
     """Validate a Firebase ID token.
-    
+
     Args:
         token: The Firebase ID token to validate
-        
+
     Returns:
         The decoded token payload if valid
-        
+
     Raises:
         ValueError: If the token is invalid
     """
     # Use Google's firebase token verification
     request = google_auth_requests.Request()
-    
+
     # Get the project ID from the environment
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "relexro")
-    
+
     # Verify the token
     decoded_token = google_id_token.verify_firebase_token(
-        token, 
-        request, 
+        token,
+        request,
         audience=project_id
     )
-    
+
     if not decoded_token:
         raise ValueError("Invalid Firebase token")
-        
+
     # Verify that the token is from the expected issuer
     issuer = decoded_token.get("iss")
     expected_issuer = f"{EXPECTED_FIREBASE_ISSUER_PREFIX}{project_id}"
-    
+
     if not issuer or issuer != expected_issuer:
         raise ValueError(f"Invalid token issuer: {issuer}")
-        
+
     return decoded_token
 
 def validate_gateway_sa_token(token: str) -> dict:
     """Validate a token issued by the API Gateway service account.
-    
+
     Args:
         token: The ID token to validate
-        
+
     Returns:
         The decoded token payload if valid
-        
+
     Raises:
         ValueError: If the token is invalid
     """
     request = google_auth_requests.Request()
-    
+
     # For Google-issued tokens, we don't have a fixed audience like with Firebase.
     # First, we need to extract the audience claim from the token to use it for validation.
     token_parts = token.split('.')
@@ -717,20 +723,20 @@ def validate_gateway_sa_token(token: str) -> dict:
     padded_payload = token_parts[1] + '=' * (-len(token_parts[1]) % 4)
     payload_json = json.loads(base64.urlsafe_b64decode(padded_payload).decode('utf-8'))
     token_audience = payload_json.get('aud')
-    
+
     if not token_audience:
         raise ValueError("Token missing 'aud' claim")
-    
+
     # Now verify the token with the audience extracted above
     decoded_token = google_id_token.verify_oauth2_token(
-        token, 
-        request, 
+        token,
+        request,
         audience=token_audience
     )
-    
+
     if not decoded_token:
         raise ValueError("Invalid OAuth2 token")
-        
+
     return decoded_token
 
 def requires_auth(func):
@@ -743,16 +749,16 @@ def requires_auth(func):
         # Handle OPTIONS request for CORS
         if request.method == 'OPTIONS':
             return '', 204
-        
+
         auth_context, status_code, error_message = get_authenticated_user(request)
-        
+
         # If authentication failed, return an error
         if error_message or not auth_context:
             return jsonify({"error": "Unauthorized", "message": error_message or "Authentication failed"}), status_code or 401
-            
+
         # Call the decorated function with the authenticated user context
         return func(request, auth_context, *args, **kwargs)
-    
+
     return wrapper
 
 @functions_framework.http
@@ -769,39 +775,39 @@ def get_user_profile(request: Request):
 
         auth_context, status_code, error_message = get_authenticated_user(request)
         logging.info(f"get_user_profile auth result: context={auth_context}, status={status_code}, error={error_message}")
-        
+
         # Handle auth failures
         if error_message or not auth_context:
             return jsonify({"error": "Unauthorized", "message": error_message or "Authentication failed"}), status_code or 401
-        
+
         # At this point auth_context is valid
         user_id = auth_context.firebase_user_id
         logging.info(f"get_user_profile: user_id={user_id}")
-        
+
         if not user_id:
             return jsonify({"error": "Bad Request", "message": "Missing user identification"}), 400
-            
+
         # Get user from Firestore
         db = firestore.Client()
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
-        
+
         logging.info(f"get_user_profile: Firestore lookup for user_id={user_id}, exists={user_doc.exists}")
-        
+
         if not user_doc.exists:
             return jsonify({"error": "Not Found", "message": "User profile not found"}), 404
-            
+
         user_data = user_doc.to_dict()
         logging.info(f"get_user_profile: user_data={user_data}")
-        
+
         # Remove any sensitive fields before returning
         sensitive_fields = []
         for field in sensitive_fields:
             if field in user_data:
                 del user_data[field]
-                
+
         return jsonify(user_data)
-        
+
     except Exception as e:
         logging.error(f"Error in get_user_profile: {str(e)}")
         return jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred."}), 500

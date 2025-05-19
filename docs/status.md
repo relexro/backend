@@ -96,9 +96,9 @@ This document tracks the implementation status of the Relex backend components.
 ## Localization / Internationalization
 - [x] **Agent Language Configuration**
   - [x] **Supported User Languages**: Define and document the list of 30 allowed interaction languages. (Constants in `agent_config.py` and doc in `product_overview.md`).
-  - [-] **Internal Language**: Core agent prompts in `functions/src/agent-config/` (`agent_loop.txt`, `modules.txt`) updated by Operator (Romanian confirmed); obsolete `prompt.txt` confirmed deleted. All internal system prompts & LLM communications to be exclusively in Romanian. (Partially complete: `response_templates.py` & `draft_templates.py` pending review; final `agent_loop.txt` polish deferred).
+  - [x] **Internal Language**: Core agent prompts in `functions/src/agent-config/` (`agent_loop.txt`, `modules.txt`) updated by Operator (Romanian confirmed); obsolete `prompt.txt` confirmed deleted. All internal system prompts & LLM communications to be exclusively in Romanian. (`response_templates.py` & `draft_templates.py` reviewed, no changes needed per language policy; final `agent_loop.txt` polish deferred).
   - [ ] **UI Language**: User interface to support English and Romanian.
-  - [ ] **User Language Preference**: Store and retrieve user's preferred UI language ('en'/'ro') in their profile, with auto-detection from Google OAuth on first login.
+  - [x] **User Language Preference**: User profile (`users` collection) stores `languagePreference` ('en'/'ro'). Auto-set from OAuth `locale` on initial user creation via `/v1/users/me`. `GET /v1/users/me` returns this preference. Logic implemented in `functions/src/auth.py` and `functions/src/user.py`, and unit tested in `tests/unit/test_user.py`.
   - [ ] **Translation Layer**: (Future) Implement for user input to Romanian and agent output from Romanian to user's language.
   - [ ] **UI Elements Translation**: (Future) Implement for UI text elements in EN/RO.
 
@@ -109,6 +109,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Permission tests
 - [x] Business logic tests
 - [x] Agent workflow tests
+- [x] User profile logic in `user.py` (including language preference)
 - [ ] Payment processing tests
 - [ ] File management tests
 
@@ -152,6 +153,9 @@ This document tracks the implementation status of the Relex backend components.
 ## Current System Status
 
 ### Latest Updates
+---
+**Date:** 2025-05-24
+**Update:** Implemented UI language preference feature in user profiles. User profiles now store `languagePreference` ('en'/'ro') with auto-detection from OAuth `locale` on initial user creation. The preference is returned via `GET /v1/users/me` and can be updated via `PUT /v1/users/me`. Comprehensive unit tests added in `tests/unit/test_user.py`. Also completed review of `response_templates.py` and `draft_templates.py` for Romanian language compliance (no changes needed per language policy).
 ---
 **Date:** 2025-05-22
 **Update:** Agent prompting strategy refactored. Consolidated system prompts into `functions/src/agent-config/agent_loop.txt` (content iteratively refined by Operator), implementing SoT/CoT/ToT methodologies, defined personas, Gemini-Grok protocol, and explicit tool/module usage, all in Romanian. Obsolete `prompt.txt` in `functions/src/agent-config/` confirmed deleted. All relevant documentation updated to reflect this architecture.

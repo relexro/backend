@@ -88,6 +88,16 @@ def get_user_profile(request: Request, user_id_for_profile):
         # Try to get email and displayName from request context (set by auth)
         email = getattr(request, 'end_user_email', None)
         display_name = getattr(request, 'end_user_display_name', None)
+        # Attempt to get locale from request context; this assumes the auth middleware populates it.
+        user_locale = getattr(request, 'end_user_locale', None)
+
+        preferred_language = "en"  # Default language
+        if user_locale and isinstance(user_locale, str) and user_locale.lower().startswith("ro"):
+            preferred_language = "ro"
+            logging.info(f"Setting language preference to 'ro' based on user locale: {user_locale}")
+        else:
+            logging.info(f"Setting default language preference 'en'. User locale: {user_locale}")
+
         now = datetime.datetime.utcnow()
         user_data = {
             "userId": user_id_for_profile,
@@ -97,7 +107,7 @@ def get_user_profile(request: Request, user_id_for_profile):
             "updatedAt": now,
             "role": "user",
             "subscriptionStatus": None,
-            "languagePreference": "en"
+            "languagePreference": preferred_language # Set based on locale or default
         }
         user_ref.set(user_data)
         logging.info(f"Created new user profile for {user_id_for_profile}: {user_data}")
@@ -136,7 +146,7 @@ def update_user_profile(request: Request, user_id_for_profile):
 
         # Define fields allowed for update and any validation rules
         updatable_fields = {"displayName", "photoURL", "languagePreference"}
-        valid_languages = ["en", "ro", "fr", "de", "es"] # Example list, adjust as needed
+        valid_languages = ["en", "ro"] # Restricted to only English and Romanian
 
         update_data = {} # Dictionary to hold validated fields for Firestore update
         ignored_fields = [] # Track fields that were requested but not allowed

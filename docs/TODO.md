@@ -12,14 +12,14 @@
             * **Status:** DONE.
         * 1.0.2. **Ensure Internal Operations & Prompts are Exclusively in Romanian:**
             * Action: Ensure all system prompts, predefined responses, and LLM-to-LLM communications use only Romanian. Inspect `functions/src/response_templates.py` and `functions/src/draft_templates.py` for hardcoded strings.
-            * **Status:** In Progress.
+            * **Status:** DONE.
             * **Sub-bullets:**
-                * [-] Core agent prompts in `functions/src/agent-config/` (`agent_loop.txt`, `modules.txt`) updated by Operator to new strategy; Romanian language confirmed. Obsolete `prompt.txt` in `functions/src/agent-config/` confirmed deleted. (Iterative refinement of `agent_loop.txt` content deferred by Operator).
-                * [ ] Review `functions/src/response_templates.py` for hardcoded strings and ensure Romanian language or prepare for i18n.
-                * [ ] Review `functions/src/draft_templates.py` for hardcoded strings and ensure Romanian language or prepare for i18n.
+                * [DONE] Core agent prompts in `functions/src/agent-config/` (`agent_loop.txt`, `modules.txt`) updated by Operator to new strategy; Romanian language confirmed. Obsolete `prompt.txt` in `functions/src/agent-config/` confirmed deleted. (Iterative refinement of `agent_loop.txt` content deferred by Operator).
+                * [DONE] Review `functions/src/response_templates.py` for hardcoded strings and ensure Romanian language or prepare for i18n. (No code changes needed per language policy)
+                * [DONE] Review `functions/src/draft_templates.py` for hardcoded strings and ensure Romanian language or prepare for i18n. (No code changes needed per language policy)
         * 1.0.3. **Implement UI Language Preference (EN/RO) in User Profile:**
             * Action: Modify user profile model (`functions/src/user.py` and Firestore structure) and API endpoints to store and manage a `languagePreference` field ('en' or 'ro'). Implement logic in `functions/src/auth.py` or `functions/src/user.py` to auto-set this preference from Google OAuth `locale` data on initial user creation. Ensure `GET /v1/users/me` returns this preference. Add relevant unit tests in `tests/unit/test_user.py`.
-            * **Status:** Pending.
+            * **Status:** DONE.
         * 1.0.4. **(Future Task) Translation Layer for User Input/Output:**
             * Action: Plan for integrating a translation service.
             * **Status:** Deferred.

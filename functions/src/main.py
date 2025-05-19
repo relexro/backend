@@ -110,10 +110,11 @@ def _authenticate_and_call(request: Request, logic_function, *, needs_end_user_i
         # Make end-user info available on the request object for general use or decorators
         request.end_user_id = auth_context.firebase_user_id
         request.end_user_email = auth_context.firebase_user_email
+        request.end_user_locale = getattr(auth_context, "firebase_user_locale", None)
         request.gateway_sa_subject = getattr(auth_context, "gateway_sa_subject", None)
 
         logging.info(
-            f"Request authenticated. End-user ID: {request.end_user_id}, Email: {request.end_user_email}"
+            f"Request authenticated. End-user ID: {request.end_user_id}, Email: {request.end_user_email}, Locale: {request.end_user_locale}"
         )
         if request.gateway_sa_subject:
             logging.info(f"Request from Gateway SA: {request.gateway_sa_subject}")
