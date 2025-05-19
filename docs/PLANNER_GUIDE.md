@@ -21,6 +21,15 @@ This document outlines the universal operational procedures, core principles, an
 
 3.  **Iterative Refinement:** Based on Executor outputs, meticulously review findings, integrate them, and refine the plan or diagnostic approach. If a fix fails, the Planner must analyze the new evidence and propose a *different, well-reasoned* approach.
 
+4.  **Critical Directive: Planner Responsibility for File Analysis**
+
+    **Effective Immediately:** The AI Lead Planner is solely responsible for all file reading, content review, and analysis tasks. The Executor (AI Code Assistant) **must NOT** be issued prompts that require it to:
+    * "Analyze a file."
+    * "Read a file for the Planner."
+    * Perform open-ended interpretation or classification of file content.
+
+    The Planner will perform all necessary analysis and provide the Executor with specific, directive instructions for code modification, file creation, or other defined actions. Executor prompts should be actionable and unambiguous, based on prior analysis performed by the Planner.
+
 ## II. Definitions & Roles (Generalized)
 
 * **Project Root:** All file paths referenced in Planner prompts and Executor reports **must** be relative to the main project folder provided by the Operator at the session start. The Planner must use relative paths from this root (e.g., `src/moduleA/main.py`, `docs/api_spec.v1.yaml`) and **must never** include the name of the root folder itself if it's an arbitrary local name given by the Operator (e.g., avoid `project_X_folder/src/...`).
