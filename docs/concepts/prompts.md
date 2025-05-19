@@ -2,26 +2,40 @@
 
 ## Overview
 
-The Relex AI Agent uses carefully designed prompts to interact with its underlying Large Language Models (LLMs). These prompts are critical for ensuring the agent operates effectively in Romanian legal contexts while maintaining consistency, accuracy, and appropriate behavior.
+The Relex AI Agent utilizes a single, comprehensive system prompt, defined in `functions/src/agent-config/agent_loop.txt`, to guide its interactions with underlying Large Language Models (LLMs) and orchestrate its behavior. This prompt is critical for ensuring the agent operates effectively in Romanian legal contexts, maintaining consistency, accuracy, and role-appropriate conduct for its dual LLM architecture (Gemini as Paralegal, Grok as Lawyer).
 
-## Runtime Configuration
+## Core Prompting Philosophy: Single System Prompt (`agent_loop.txt`)
 
-The agent's prompts are defined in external configuration files loaded at runtime by the `agent_config.py` module:
+The agent's core prompting logic is consolidated into `agent_loop.txt`. This file serves as the central directive for the agent and is meticulously structured to guide its reasoning and actions. It includes:
 
-1. **Configuration Files Location**: All prompt files are stored in the `functions/src/agent-config/` directory, which is a critical runtime directory that must be deployed with the agent.
+* **Defined Personas & Roles**: Specific personas for "Gemini (Paralegal)" and "Grok (Avocat Expert)" are outlined, detailing their traits, primary responsibilities, and behavioral guidelines.
+* **Core Mission**: The agent's overarching objective.
+* **Operational Guide (Skeleton of Thought - SoT)**: The main workflow is structured using a Skeleton of Thought, outlining distinct phases of case processing (e.g., Initialization, Intent Determination, Complexity/Resource Check, Information Gathering, Grok Consultation, Instruction Execution, Review/Refinement, Response Generation, Finalization).
+* **Reasoning Techniques**:
+    * **Chain of Thought (CoT)**: Mandated for detailed, step-by-step reasoning within SoT phases by Gemini.
+    * **Tree of Thoughts (ToT)**: Utilized by Grok for evaluating multiple legal strategies or complex decision points.
+* **Gemini-Grok Interaction Protocol (PIGG)**: Defines the structured format for information exchange between Gemini and Grok, ensuring clarity and efficiency. Gemini provides context summaries and specific questions; Grok provides reasoned answers, strategic plans, and actionable instructions.
+* **Tool Usage Protocol (PUU)**: Specifies how and when Gemini should use the tools defined in `functions/src/agent-config/tools.json`.
+* **Proactive Risk & Assumption Management**: Instructs both personas to identify and communicate key assumptions and potential risks.
+* **Response Formatting Guidelines**: Directives for structuring user-facing responses.
+* **Error Handling & Escalation Protocol**: Guidelines for managing errors and escalating issues.
+* **Romanian Language**: The entire `agent_loop.txt` is written in Romanian.
 
-2. **Primary Configuration Files**:
-   - `prompt.txt`: Contains the core system prompts and templates used by different LLMs
-   - `modules.txt`: Contains modular components that can be assembled into the final prompts
-   - `agent_loop.txt`: Describes the agent's operational flow
+## Supporting Configuration Files in `functions/src/agent-config/`
 
-3. **Loading Mechanism**: The `agent_config.py` module contains specialized functions to load these files:
-   - `load_prompts()`: Parses `prompt.txt` into a dictionary of named prompt sections
-   - `load_modules()`: Parses `modules.txt` into a dictionary of modular components
-   - `load_agent_loop()`: Loads the agent loop description
-   - `get_system_prompt()`: Assembles a complete system prompt using both prompts and modules
+* **`agent_loop.txt`**: The primary, consolidated system prompt (as described above).
+* **`modules.txt`**: Contains reusable blocks of Romanian text (e.g., disclaimers, standard greeting/closing phrases, explanations of standard procedures). `agent_loop.txt` instructs the agent on when to incorporate these modules, often referenced by unique keys (e.g., `[DISCLAIMER_GENERAL_ASSISTANT]`).
+* **`tools.json`**: Defines the schema, parameters, and descriptions for all tools available to the agent, using the OpenAI function calling JSON schema format.
 
-4. **Dynamic Assembly**: The `get_system_prompt()` function can assemble different types of prompts based on the requested `prompt_type` parameter, enhancing reusability.
+## Loading Mechanism (`agent_config.py`)
+
+The `functions/src/agent_config.py` module is responsible for loading these runtime configurations:
+* It loads `agent_loop.txt` as the main system prompt.
+* It parses `modules.txt` into a dictionary of modular text components.
+* It loads `tools.json` for tool definitions.
+* The `get_system_prompt()` function (or equivalent logic) in `agent_config.py` now primarily returns or constructs the prompt based on `agent_loop.txt`, potentially integrating snippets from `modules.txt` as directed by the main loop logic.
+
+The `prompt.txt` file is no longer used as it has been consolidated into `agent_loop.txt`.
 
 ## Prompt Design Principles
 
@@ -39,44 +53,46 @@ The agent's prompts are defined in external configuration files loaded at runtim
 
 The following sections describe the general structure and purpose of prompts stored in the runtime configuration files. For the most up-to-date and complete prompt content, refer to the actual files in `functions/src/agent-config/`.
 
-### System Prompt
+### System Prompt Structure
 
-The core system prompt establishes the agent's identity and capabilities. This is loaded from sections of `prompt.txt` and enhanced with content from `modules.txt` via the `get_system_prompt()` function in `agent_config.py`.
-
-The system prompt covers:
+The consolidated system prompt in `agent_loop.txt` establishes the agent's identity and capabilities, covering:
 - Agent identity and purpose
-- Dual LLM collaboration approach
+- Dual LLM collaboration approach with defined personas
 - Romanian language requirements
-- Tool usage guidelines
+- Tool usage guidelines through the Protocol for Tool Usage (PUU)
 - Legal domain specialization
+- Structured workflow phases (SoT)
+- Error handling protocols
 
-### Role-Specific Prompts
+### Role-Specific Definitions
 
-The configuration files define separate prompts for each LLM role:
+The `agent_loop.txt` file clearly defines the distinct roles for each LLM:
 
-#### Gemini (Assistant) Role
+#### Gemini (Paralegal) Role
 
-The Gemini role is defined in specific sections of the prompt files and focuses on:
+The Gemini role is defined in specific sections of `agent_loop.txt` and focuses on:
 - User interaction and communication
 - Tool usage and implementation
 - Document drafting and formatting
 - Information gathering and organization
+- Coordinating with Grok for legal expertise
 
-#### Grok (Reasoner) Role
+#### Grok (Lawyer) Role
 
-The Grok role is defined in dedicated sections and focuses on:
+The Grok role is defined in dedicated sections of `agent_loop.txt` and focuses on:
 - Legal analysis and reasoning
 - Strategy development
-- Validation of the Assistant's work
+- Validation of Gemini's work
 - Identification of information gaps
+- Providing expert legal guidance
 
-## Prompt Templates and Placeholders
+## Modular Text Components
 
-The runtime configuration files include templates with placeholders that are populated dynamically during agent operation:
+The `modules.txt` file contains reusable text components that can be incorporated into agent responses:
 
-1. **Template Storage**: Templates are stored in specific sections of `prompt.txt`
-2. **Placeholder Format**: Templates use `{{placeholder}}` syntax for dynamic content
-3. **Template Processing**: Templates are processed at runtime with case-specific data
+1. **Component Storage**: Text modules are stored in `modules.txt` with unique identifiers
+2. **Reference Format**: Components are referenced using keys like `[DISCLAIMER_GENERAL_ASSISTANT]`
+3. **Component Integration**: The agent incorporates these components as directed by `agent_loop.txt`
 
 ## Implementation Details
 
@@ -94,4 +110,4 @@ The prompts are continuously refined based on:
 1. **Effectiveness Analysis**: Reviewing agent performance to identify prompt weaknesses
 2. **Legal Accuracy**: Ensuring prompts lead to legally correct and precise responses
 3. **Efficiency**: Optimizing prompts to reduce token usage and response time
-4. **User Experience**: Adjusting prompts to improve clarity and helpfulness of responses 
+4. **User Experience**: Adjusting prompts to improve clarity and helpfulness of responses

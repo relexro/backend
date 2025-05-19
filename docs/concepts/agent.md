@@ -39,22 +39,18 @@ The agent implementation follows a clean separation of concerns across several l
 
 The agent relies on several critical runtime configuration files stored in the `functions/src/agent-config/` directory:
 
-1. **`prompt.txt`**
-   - Contains system prompts and templates for different LLM interactions
-   - Parsed into sections by `agent_config.py::load_prompts()`
+1. **`agent_loop.txt`**
+   - Describes the agent's comprehensive operational flow, core logic, persona definitions, inter-LLM communication protocols, and tool usage strategies. This is the primary system prompt.
+   - Loaded by `agent_config.py::load_agent_loop()`
 
 2. **`modules.txt`**
-   - Contains modular components that can be assembled into complete prompts
+   - Contains reusable Romanian text snippets (e.g., disclaimers, standard phrases) that can be incorporated into agent responses or internal processing as directed by `agent_loop.txt`.
    - Parsed by `agent_config.py::load_modules()`
 
 3. **`tools.json`**
    - Defines the schema, parameters, and descriptions for all available tools
    - Uses OpenAI function calling JSON schema format
    - Loaded by `agent_config.py::load_tools()`
-
-4. **`agent_loop.txt`**
-   - Describes the agent's operational flow
-   - Loaded by `agent_config.py::load_agent_loop()`
 
 These configuration files are critical for the agent's operation and must be deployed with the functions code.
 
@@ -114,7 +110,7 @@ The agent operates in an iterative loop with distinct phases:
 8. **Select Action/Tool**: Based on user input and Grok's guidance, choose the next action:
    - `get_case_details`: To refresh context
    - `update_case_details`: To save progress/findings
-   - `query_bigquery`: To research legislation/jurisprudence 
+   - `query_bigquery`: To research legislation/jurisprudence
    - `get_party_id_by_name`: To resolve party references for drafts
    - `generate_draft_pdf`: To create and store official documents
    - Ask User: Formulate clarifying questions
@@ -188,4 +184,4 @@ The agent implements a robust error handling strategy:
 
 3. **Multi-language Support**: Extending beyond Romanian to support additional languages.
 
-4. **Advanced Document Analysis**: Implementing more sophisticated document parsing and understanding capabilities. 
+4. **Advanced Document Analysis**: Implementing more sophisticated document parsing and understanding capabilities.

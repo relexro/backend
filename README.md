@@ -31,10 +31,9 @@ Backend for Relex, an AI-powered legal assistant platform built using Google Clo
   - `user.py`: User profile management
 
 - `functions/src/agent-config/`: **CRITICAL RUNTIME DIRECTORY** containing configuration files
-  - `prompt.txt`: System prompts and templates for LLM interactions
-  - `modules.txt`: Modular components used in prompts
+  - `agent_loop.txt`: The primary and consolidated system prompt detailing the agent's operational flow, logic, personas, and protocols. (Romanian)
+  - `modules.txt`: Reusable Romanian text snippets and components for agent use.
   - `tools.json`: Tool definitions and schemas using OpenAI function format
-  - `agent_loop.txt`: Description of the agent's operational flow
 
 - `terraform/`: Contains Terraform configuration files
   - `main.tf`: Main Terraform configuration
