@@ -11,10 +11,10 @@
             * Action: Document the 30 user-facing languages in `docs/product_overview.md`. Create Python constants for supported user languages, UI languages, and the internal operational language in `functions/src/agent_config.py`.
             * **Status:** DONE.
         * 1.0.2. **Ensure Internal Operations & Prompts are Exclusively in Romanian:**
-            * Action: Review and update all system prompts, enrichment prompts, predefined responses, and any LLM-to-LLM communication configurations to use only Romanian. Inspect `functions/src/response_templates.py` and `functions/src/draft_templates.py` for hardcoded strings.
+            * Action: Ensure all system prompts, predefined responses, and LLM-to-LLM communications use only Romanian. Inspect `functions/src/response_templates.py` and `functions/src/draft_templates.py` for hardcoded strings.
             * **Status:** In Progress.
             * **Sub-bullets:**
-                * [-] `agent-config` files (`agent_loop.txt`, `modules.txt`) have been refactored into a new prompting strategy and are in Romanian. `prompt.txt` has been deleted. (Manual update by Operator + this Executor action).
+                * [-] Core agent prompts in `functions/src/agent-config/` (`agent_loop.txt`, `modules.txt`) updated by Operator to new strategy; Romanian language confirmed. Obsolete `prompt.txt` in `functions/src/agent-config/` confirmed deleted. (Iterative refinement of `agent_loop.txt` content deferred by Operator).
                 * [ ] Review `functions/src/response_templates.py` for hardcoded strings and ensure Romanian language or prepare for i18n.
                 * [ ] Review `functions/src/draft_templates.py` for hardcoded strings and ensure Romanian language or prepare for i18n.
         * 1.0.3. **Implement UI Language Preference (EN/RO) in User Profile:**

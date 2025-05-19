@@ -39,20 +39,19 @@ The agent implementation follows a clean separation of concerns across several l
 
 The agent relies on several critical runtime configuration files stored in the `functions/src/agent-config/` directory:
 
-1. **`agent_loop.txt`**
-   - Describes the agent's comprehensive operational flow, core logic, persona definitions, inter-LLM communication protocols, and tool usage strategies. This is the primary system prompt.
-   - Loaded by `agent_config.py::load_agent_loop()`
+1.  **`agent_loop.txt`**
+    * The primary, consolidated system prompt detailing the agent's operational flow, core logic, persona definitions, inter-LLM communication protocols, and tool usage strategies. All content is in Romanian. (Content iteratively refined by Operator).
+    * Loaded by `agent_config.py`.
 
-2. **`modules.txt`**
-   - Contains reusable Romanian text snippets (e.g., disclaimers, standard phrases) that can be incorporated into agent responses or internal processing as directed by `agent_loop.txt`.
-   - Parsed by `agent_config.py::load_modules()`
+2.  **`modules.txt`**
+    * Contains reusable Romanian text snippets (e.g., disclaimers, standard phrases) that can be incorporated into agent responses or internal processing as directed by `agent_loop.txt`. (Content iteratively refined by Operator).
+    * Parsed by `agent_config.py`.
 
-3. **`tools.json`**
-   - Defines the schema, parameters, and descriptions for all available tools
-   - Uses OpenAI function calling JSON schema format
-   - Loaded by `agent_config.py::load_tools()`
+3.  **`tools.json`**
+    * Defines the schema, parameters, and descriptions for all available tools using the OpenAI function calling JSON schema format.
+    * Loaded by `agent_config.py`.
 
-These configuration files are critical for the agent's operation and must be deployed with the functions code.
+These configuration files are critical for the agent's operation and must be deployed with the functions code. The file `prompt.txt` was previously used but is now obsolete and has been removed, its functions being consolidated into `agent_loop.txt`.
 
 ## LLM Collaboration
 
@@ -65,6 +64,8 @@ This dual-LLM approach enables:
 - Task specialization based on each model's strengths
 - Critical validation and verification of legal reasoning
 - Enhanced reliability through cross-checking
+
+The collaboration follows the PIGG protocol defined in `agent_loop.txt`, where Gemini provides structured, concise input to Grok, and Grok returns strategic directives and reasoning.
 
 ## Language and Localization
 

@@ -16,7 +16,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Custom domain setup with Cloudflare DNS (direct CNAME, unproxied)
 
 ### Agent System
-- [x] **Agent Prompting Strategy Refactor**: Consolidated system prompts into `agent_loop.txt`, implementing SoT/CoT/ToT, defined personas, Gemini-Grok protocol, and explicit tool/module usage, all in Romanian.
+- [x] **Agent Prompting Strategy Refactor**: Consolidated system prompts into `functions/src/agent-config/agent_loop.txt` (content iteratively refined by Operator), implementing SoT/CoT/ToT methodologies, defined personas, Gemini-Grok protocol, and explicit tool/module usage, all in Romanian. Obsolete `prompt.txt` from `functions/src/agent-config/` removed. (Final `agent_loop.txt` polish deferred).
 
 ### Authentication & Authorization
 - [x] Firebase Authentication integration
@@ -95,8 +95,8 @@ This document tracks the implementation status of the Relex backend components.
 
 ## Localization / Internationalization
 - [x] **Agent Language Configuration**
-  - [x] **Supported User Languages**: Define and document the list of 30 allowed interaction languages.
-  - [x] **Internal Language**: `agent-config` core prompts (`agent_loop.txt`, `modules.txt`) refactored to new strategy and are in Romanian; `prompt.txt` deleted. All internal system prompts and LLM communications to be exclusively in Romanian. (Partially complete: `response_templates.py` and `draft_templates.py` pending review).
+  - [x] **Supported User Languages**: Define and document the list of 30 allowed interaction languages. (Constants in `agent_config.py` and doc in `product_overview.md`).
+  - [-] **Internal Language**: Core agent prompts in `functions/src/agent-config/` (`agent_loop.txt`, `modules.txt`) updated by Operator (Romanian confirmed); obsolete `prompt.txt` confirmed deleted. All internal system prompts & LLM communications to be exclusively in Romanian. (Partially complete: `response_templates.py` & `draft_templates.py` pending review; final `agent_loop.txt` polish deferred).
   - [ ] **UI Language**: User interface to support English and Romanian.
   - [ ] **User Language Preference**: Store and retrieve user's preferred UI language ('en'/'ro') in their profile, with auto-detection from Google OAuth on first login.
   - [ ] **Translation Layer**: (Future) Implement for user input to Romanian and agent output from Romanian to user's language.
@@ -154,7 +154,7 @@ This document tracks the implementation status of the Relex backend components.
 ### Latest Updates
 ---
 **Date:** 2025-05-22
-**Update:** Agent prompting strategy refactored. Consolidated system prompts into `agent_loop.txt`, implementing SoT/CoT/ToT, defined personas, Gemini-Grok protocol, and explicit tool/module usage, all in Romanian. Deleted obsolete `prompt.txt` file and updated all relevant documentation.
+**Update:** Agent prompting strategy refactored. Consolidated system prompts into `functions/src/agent-config/agent_loop.txt` (content iteratively refined by Operator), implementing SoT/CoT/ToT methodologies, defined personas, Gemini-Grok protocol, and explicit tool/module usage, all in Romanian. Obsolete `prompt.txt` in `functions/src/agent-config/` confirmed deleted. All relevant documentation updated to reflect this architecture.
 ---
 **Date:** 2025-05-20
 **Update:** Standardized Python runtime to version 3.10 for all Cloud Functions. Updated all documentation to consistently specify Python 3.10 as the required runtime. This ensures compatibility with Google Cloud Functions and eliminates deprecation warnings that were occurring with Python 3.12+. All tests now run successfully with Python 3.10 without any warnings.
