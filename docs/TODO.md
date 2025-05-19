@@ -13,7 +13,11 @@
         * 1.2.2. **Unit Tests for `functions/src/user.py` (Core Functions):**
             * Focus: User profile creation (if applicable), retrieval, update logic. Mock Firestore calls.
             * **Executor Prompt:** "Create unit tests for `get_user_profile_logic` and `update_user_profile_logic` (or equivalent functions) in `functions/src/user.py`. Mock Firestore client interactions (`db.collection(...).document(...).get()`, etc.). Store tests in `tests/unit/test_user.py`. Report test execution results."
-        * 1.2.3. **Run All New Unit Tests:**
+        * 1.2.3. **Unit Tests for Auth Permission Helpers:**
+            * [ ] Create dedicated unit tests for `_check_organization_permissions` and `_check_case_permissions` (for org cases) in `functions/src/auth.py`, mocking Firestore calls to isolate permission logic.
+            * [ ] Test all permission scenarios for organization admins, staff, and non-members.
+            * [ ] Test cross-organization security (users from one org cannot affect another org's resources).
+        * 1.2.4. **Run All New Unit Tests:**
             * **Executor Prompt:** "Execute all unit tests in the `tests/unit/` directory using `python -m pytest tests/unit/`. Report any failures with full tracebacks."
 
 ### 1.3. Basic Integration Tests for Core User & Organization Flows
@@ -37,14 +41,47 @@
 ### 2.1. Comprehensive Unit Testing
     * **Objective:** Achieve >80% unit test coverage for all modules in `functions/src/`, with tests residing in `tests/unit/`.
     * **Sub-Tasks:** (For each `.py` file in `functions/src/` not yet covered)
-        * 2.1.1. **Module: `[module_name.py]`**
+        * 2.1.1. **Module: `functions/src/organization.py`**
+            * [ ] Create comprehensive unit tests for all functions in `organization.py`, mocking Firestore and `check_permission`.
+            * [ ] Test `create_organization` with valid and invalid inputs, verifying transaction logic.
+            * [ ] Test `get_organization` with various permission scenarios.
+            * [ ] Test `update_organization` with valid and invalid inputs, verifying field validation.
+            * [ ] Test `delete_organization` including subscription checks and transaction logic for deletion.
+        * 2.1.2. **Module: `functions/src/organization_membership.py`**
+            * [ ] Create comprehensive unit tests for all functions in `organization_membership.py`, mocking Firestore and `check_permission`.
+            * [ ] Test `add_organization_member` with valid and invalid inputs.
+            * [ ] Test `set_organization_member_role` with various role transitions.
+            * [ ] Test `list_organization_members` with different permission scenarios.
+            * [ ] Test `remove_organization_member` including last admin checks.
+            * [ ] Test `get_user_organization_role` with various user/org combinations.
+            * [ ] Test `list_user_organizations` with users belonging to multiple organizations.
+        * 2.1.3. **Module: `[module_name.py]`**
             * **Executor Prompt:** "Analyze `functions/src/[module_name.py]`. Identify all functions and classes. Create comprehensive unit tests covering main logic paths, edge cases, and error handling. Mock all external dependencies (Firestore, other GCP services, external APIs). Store tests in `tests/unit/test_[module_name].py`. Report execution results and estimated coverage."
-            * Modules to cover: `cases.py`, `payments.py`, `organization_membership.py`, `party.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
+            * Modules to cover: `cases.py`, `payments.py`, `party.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
 
 ### 2.2. Comprehensive Integration Testing
     * **Objective:** Ensure all API endpoints defined in `terraform/openapi_spec.yaml` are covered by integration tests located in `tests/integration/`.
     * **Sub-Tasks:** (For each endpoint/flow not yet covered)
-        * 2.2.1. **Endpoint/Flow: `[HTTP Method] [path]` (e.g., `POST /cases/{caseId}/parties`)**
+        * 2.2.1. **Organization Management Integration Tests**
+            * [ ] **Organization Update (`PUT /organizations/{organizationId}`):** Verify org admin can update, staff cannot, non-member cannot.
+            * [ ] **Organization Deletion (`DELETE /organizations/{organizationId}`):** Verify org admin can delete (and cannot with active subscription), staff cannot, non-member cannot.
+        * 2.2.2. **Organization Membership Integration Tests**
+            * [ ] Enhance existing tests to verify role-based access control for all membership operations.
+            * [ ] Test that staff members cannot add/remove/change roles of other members.
+            * [ ] Test that the last administrator cannot be removed or downgraded.
+        * 2.2.3. **Case Management in Organization Context**
+            * [ ] **Create Case (`POST /organizations/{organizationId}/cases`):** Test for admin (can create), staff (can create), non-member (cannot).
+            * [ ] **Assign Case (`POST /cases/{caseId}/assign`):** Test for admin (can assign), staff (cannot), non-member (cannot); test invalid assignments.
+            * [ ] **List Organization Cases (`GET /organizations/{organizationId}/cases`):** Test for admin, staff, and non-member.
+        * 2.2.4. **File & Party Management for Organization Cases**
+            * [ ] Test file upload/download for organization cases using `org_admin_api_client` and `org_user_api_client`.
+            * [ ] Test party creation/update/deletion for organization cases using `org_admin_api_client` and `org_user_api_client`.
+            * [ ] Verify non-members cannot access files or parties for organization cases.
+        * 2.2.5. **Cross-Organization Security Tests**
+            * [ ] Test that users from one organization cannot access resources from another organization.
+            * [ ] Test that organization admins cannot modify members of other organizations.
+            * [ ] Test that organization cases are properly isolated between organizations.
+        * 2.2.6. **Endpoint/Flow: `[HTTP Method] [path]` (e.g., `POST /cases/{caseId}/parties`)**
             * **Executor Prompt:** "Develop integration tests for the `[HTTP Method] [path]` endpoint. Cover successful scenarios, common error conditions (invalid input, unauthorized, not found), and data validation. Store tests in `tests/integration/test_[resource_name].py`. Report execution results."
             * Endpoints/Flows to cover: All CRUD operations for Cases, Parties, Organization Memberships, Payments (including webhook simulation if possible), Agent invocations.
 
