@@ -97,6 +97,48 @@ Follow these steps to obtain and use these tokens:
 
 If any of the required environment variables are not available, tests that require those specific tokens will be skipped.
 
+#### Preparing `RELEX_TEST_JWT` for User Creation Tests
+
+Certain integration tests, such as `test_get_me_creates_user_profile_after_operator_manual_delete` in `test_user.py`, are designed to verify the automatic creation of a user profile when a user first interacts with the system (e.g., via `GET /v1/users/me`).
+
+To ensure these specific tests accurately cover the *creation path* using the standard `RELEX_TEST_JWT`, the Operator must manually delete the corresponding user profile from Firestore *before running such a test*.
+
+Here's how to do it:
+
+1.  **Obtain the `userId` (Firebase UID) from the `RELEX_TEST_JWT`**:
+    If the user profile already exists, you can get its `userId` by making an authenticated request to the `/v1/users/me` endpoint. Ensure `RELEX_TEST_JWT` is set as an environment variable.
+
+    ```bash
+    # Make sure RELEX_TEST_JWT is set in your current shell session
+    # Example: export RELEX_TEST_JWT="your_actual_jwt_token_here"
+
+    USER_ID=$(curl -s -H "Authorization: Bearer $RELEX_TEST_JWT" \
+    "https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/users/me" | jq -r .userId)
+
+    echo "Captured USER_ID: ${USER_ID}"
+    # If the user doesn't exist yet, USER_ID might be null or the command might error.
+    # In such a case, if you need the UID to ensure deletion of a non-existent user (which is fine),
+    # you might need to decode the JWT locally to find the UID (often in the 'sub' or 'user_id' claim).
+    ```
+
+2.  **Delete the User from Firestore**:
+    Once you have the `USER_ID` (Firebase UID), use the Firebase CLI to delete the user document from the `users` collection. This command forcibly deletes the document without further prompts due to the `-f` flag.
+
+    ```bash
+    # Ensure you are authenticated with Firebase CLI and have selected the correct project (relexro)
+    # Example: firebase login; firebase use relexro
+
+    if [ -n "$USER_ID" ] && [ "$USER_ID" != "null" ]; then
+      echo "Attempting to delete user document: users/${USER_ID} from project relexro..."
+      firebase firestore:delete "users/${USER_ID}" --project=relexro -f --yes
+      echo "Deletion command executed for users/${USER_ID}."
+    else
+      echo "USER_ID is empty or null. Skipping Firestore deletion. If a user profile for RELEX_TEST_JWT needs deletion, obtain its UID and run the delete command manually."
+    fi
+    ```
+
+By performing these steps before running tests like `test_get_me_creates_user_profile_after_operator_manual_delete`, you ensure the test accurately verifies the profile creation logic. For other tests that expect the user associated with `RELEX_TEST_JWT` to exist, this deletion step should not be performed.
+
 ## Writing Tests
 
 When writing tests, follow these guidelines:

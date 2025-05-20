@@ -17,6 +17,7 @@ import firebase_admin
 from firebase_admin import firestore
 import auth  # Import the mock auth module
 from functions.src import user
+from tests.conftest import create_api_client
 
 @pytest.fixture(autouse=True)
 def patch_user_auth(monkeypatch):
@@ -280,3 +281,46 @@ class TestUserProfile:
         assert updated_data["role"] == "user"  # This should still be the original value
         assert updated_data["email"] == test_email  # This should still be the original value
         assert updated_data["subscriptionStatus"] is None  # This should still be the original value
+
+
+def test_get_me_creates_user_profile_after_operator_manual_delete(api_base_url):
+    """
+    Tests that GET /v1/users/me creates a user profile if one doesn't exist.
+
+    PRE-CONDITION: The Operator must MANUALLY DELETE the user associated
+    with RELEX_TEST_JWT from Firestore before running this specific test
+    to ensure the creation path is tested. Refer to tests/README.md for commands.
+    """
+    test_user_jwt = os.environ.get("RELEX_TEST_JWT")
+    if not test_user_jwt:
+        pytest.skip("RELEX_TEST_JWT environment variable not set. Skipping test.")
+
+    client = create_api_client(api_base_url, test_user_jwt)
+
+    response = client.get("/users/me")
+
+    assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}. Response: {response.text}"
+    profile_data = response.json()
+
+    assert "userId" in profile_data
+    assert profile_data["userId"] is not None
+    assert "email" in profile_data  # Email should be derived from the JWT
+    assert "languagePreference" in profile_data
+    assert profile_data["languagePreference"] in ["en", "ro"]
+    assert "createdAt" in profile_data
+    assert profile_data["createdAt"] is not None
+    assert "updatedAt" in profile_data
+    assert profile_data["updatedAt"] is not None
+    # For a newly created profile, createdAt and updatedAt should be identical or very close.
+    assert "role" in profile_data
+    assert profile_data["role"] == "user"
+    assert "subscriptionStatus" in profile_data
+    assert profile_data["subscriptionStatus"] is None
+    assert "displayName" in profile_data
+
+    # Verify a subsequent call retrieves the same created profile
+    response_again = client.get("/users/me")
+    assert response_again.status_code == 200
+    profile_data_again = response_again.json()
+    assert profile_data_again["userId"] == profile_data["userId"]
+    assert profile_data_again["createdAt"] == profile_data["createdAt"]
