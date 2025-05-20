@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch, mock_open
 import base64
 import json
 import os
+import datetime
 from flask import Request, jsonify
 from pydantic import ValidationError
 
@@ -636,6 +637,140 @@ class TestCheckOrganizationPermissions:
             allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
             assert allowed is True, f"Admin should be allowed sub-action '{action}' via manage_members, msg: {msg}"
 
+    def test_cross_org_access_denied_for_org_resource(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that users cannot access organization resources from a different organization."""
+        user_id = "user_from_org_A"
+        org_A_id = "org_A"
+        org_B_id = "org_B"  # Target resource is in Org B
+
+        # Configure membership data: User is a member (admin) of Org A
+        membership_data = {
+            (user_id, org_A_id): {"role": auth_module.ROLE_ADMIN, "userId": user_id, "organizationId": org_A_id}
+            # User is NOT a member of Org B (no entry for this combination)
+        }
+        configure_mock_membership_data(membership_data)
+
+        # User from Org A attempts to read Org B's details
+        req = auth_module.PermissionCheckRequest(
+            resourceId=org_B_id,  # Attempting to access Org B
+            action="read",
+            resourceType=auth_module.TYPE_ORGANIZATION,
+            organizationId=org_B_id  # Context is Org B
+        )
+
+        allowed, msg = auth_module._check_organization_permissions(mock_firestore_client, user_id, req)
+
+        assert allowed is False, f"User {user_id} from {org_A_id} should not access {org_B_id}, msg: {msg}"
+        assert f"User {user_id} is not a member of organization {org_B_id}" in msg
+
+
+class TestCheckPartyPermissions:
+    """Tests for the _check_party_permissions function."""
+
+    @pytest.mark.parametrize("action", ["create", "list"])
+    def test_party_create_list_actions_allowed(self, mock_firestore_client, action):
+        """Test that 'create' and 'list' actions are always allowed for parties."""
+        user_id = "test_user_party_create_list"
+        req = auth_module.PermissionCheckRequest(
+            action=action,
+            resourceType=auth_module.TYPE_PARTY
+        )
+
+        allowed, msg = auth_module._check_party_permissions(mock_firestore_client, user_id, req)
+
+        assert allowed is True, f"User should be allowed action '{action}' for parties, msg: {msg}"
+        assert msg == ""
+
+    def test_party_owner_allowed_actions(self, mock_firestore_client):
+        """Test that party owners can perform all owner-allowed actions."""
+        user_id = "party_owner"
+        party_id = "party_123"
+
+        # Mock the party data to show this user as owner
+        auth_module.get_document_data = MagicMock(return_value={"userId": user_id})
+
+        # Test all actions defined for party owners
+        owner_allowed_actions = auth_module.PERMISSIONS[auth_module.TYPE_PARTY][auth_module.ROLE_OWNER]
+        for action in owner_allowed_actions:
+            if action not in ["create", "list"]:  # These are tested separately
+                req = auth_module.PermissionCheckRequest(
+                    resourceId=party_id,
+                    action=action,
+                    resourceType=auth_module.TYPE_PARTY
+                )
+                allowed, msg = auth_module._check_party_permissions(mock_firestore_client, user_id, req)
+                assert allowed is True, f"Owner should be allowed action '{action}' on their party, msg: {msg}"
+
+    def test_party_owner_invalid_action_for_resource(self, mock_firestore_client):
+        """Test that even party owners cannot perform invalid actions."""
+        user_id = "party_owner_invalid_action"
+        party_id = "party_124"
+
+        # Mock the party data to show this user as owner
+        auth_module.get_document_data = MagicMock(return_value={"userId": user_id})
+
+        # Example of an action not defined for TYPE_PARTY in PERMISSIONS
+        invalid_action = "archive"
+        req = auth_module.PermissionCheckRequest(
+            resourceId=party_id,
+            action=invalid_action,
+            resourceType=auth_module.TYPE_PARTY
+        )
+        allowed, msg = auth_module._check_party_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False, f"Owner should NOT be allowed invalid action '{invalid_action}', msg: {msg}"
+        assert f"Action '{invalid_action}' is invalid for resource type '{auth_module.TYPE_PARTY}'" in msg
+
+    def test_party_non_owner_denied(self, mock_firestore_client):
+        """Test that non-owners are denied access to parties."""
+        actual_owner_id = "actual_party_owner"
+        user_id = "non_owner_user_party"  # Current user trying to access
+        party_id = "party_456"
+
+        # Mock the party data to show a different user as owner
+        auth_module.get_document_data = MagicMock(return_value={"userId": actual_owner_id})
+
+        # Test a representative set of actions
+        actions_to_test = ["read", "update", "delete"]
+        for action in actions_to_test:
+            req = auth_module.PermissionCheckRequest(
+                resourceId=party_id,
+                action=action,
+                resourceType=auth_module.TYPE_PARTY
+            )
+            allowed, msg = auth_module._check_party_permissions(mock_firestore_client, user_id, req)
+            assert allowed is False, f"Non-owner should NOT be allowed action '{action}', msg: {msg}"
+            assert f"User {user_id} is not the owner of party {party_id}" in msg
+
+    def test_party_not_found(self, mock_firestore_client):
+        """Test that non-existent parties return appropriate error."""
+        user_id = "any_user_party_not_found"
+        party_id = "non_existent_party"
+
+        # Mock get_document_data to return None (party not found)
+        auth_module.get_document_data = MagicMock(return_value=None)
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=party_id,
+            action="read",
+            resourceType=auth_module.TYPE_PARTY
+        )
+        allowed, msg = auth_module._check_party_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert f"Party {party_id} not found" in msg
+
+    def test_party_missing_resourceid_for_read(self, mock_firestore_client):
+        """Test that read actions require a resourceId."""
+        user_id = "any_user_party_missing_id"
+
+        # No resourceId provided
+        req = auth_module.PermissionCheckRequest(
+            action="read",
+            resourceType=auth_module.TYPE_PARTY
+        )
+        allowed, msg = auth_module._check_party_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert "resourceId is required" in msg
+
 
 class TestCheckCasePermissions:
     # === Individual Case Scenarios ===
@@ -927,3 +1062,744 @@ class TestCheckCasePermissions:
         allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
         assert allowed is False
         assert "resourceId is required" in msg
+
+
+class TestCheckDocumentPermissions:
+    """Tests for the _check_document_permissions function."""
+
+    @patch('functions.src.auth._check_case_permissions')
+    def test_doc_permission_granted_via_case_permission(self, mock_check_case_perms, mock_firestore_client):
+        """Test that document permissions are granted when parent case permissions are granted."""
+        user_id = "user_with_case_perms"
+        doc_id = "doc_1"
+        case_id = "case_for_doc_1"
+
+        # Mock document data with a caseId
+        def side_effect_get_doc_data(db, collection, doc_id_param):
+            if collection == "documents" and doc_id_param == doc_id:
+                return {"caseId": case_id}
+            if collection == "cases" and doc_id_param == case_id:
+                return {"organizationId": "some_org_id"}  # Minimal case data
+            return None
+        auth_module.get_document_data = MagicMock(side_effect=side_effect_get_doc_data)
+
+        # Mock the case document reference and snapshot
+        mock_case_doc = MagicMock()
+        mock_case_doc.exists = True
+        mock_case_doc.to_dict.return_value = {"organizationId": "some_org_id"}
+
+        mock_case_ref = MagicMock()
+        mock_case_ref.get.return_value = mock_case_doc
+
+        mock_firestore_client.collection.return_value.document.return_value = mock_case_ref
+
+        # Mock _check_case_permissions to return success
+        mock_check_case_perms.return_value = (True, "Permissions granted on parent case")
+
+        # Test document read permission
+        req = auth_module.PermissionCheckRequest(
+            resourceId=doc_id,
+            action="read",
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+        allowed, msg = auth_module._check_document_permissions(mock_firestore_client, user_id, req)
+
+        assert allowed is True
+        assert msg == "Permissions granted on parent case"
+
+        # Verify _check_case_permissions was called with correct parameters
+        mock_check_case_perms.assert_called_once()
+        call_args = mock_check_case_perms.call_args[0]
+        assert call_args[1] == user_id  # user_id
+        assert call_args[2].resourceId == case_id  # case_id
+        assert call_args[2].action == "read"  # Mapped action
+        assert call_args[2].resourceType == auth_module.TYPE_CASE  # resource type
+
+    @patch('functions.src.auth._check_case_permissions')
+    def test_doc_permission_denied_via_case_permission(self, mock_check_case_perms, mock_firestore_client):
+        """Test that document permissions are denied when parent case permissions are denied."""
+        user_id = "user_without_case_perms"
+        doc_id = "doc_2"
+        case_id = "case_for_doc_2"
+
+        # Mock document data with a caseId
+        def side_effect_get_doc_data(db, collection, doc_id_param):
+            if collection == "documents" and doc_id_param == doc_id:
+                return {"caseId": case_id}
+            if collection == "cases" and doc_id_param == case_id:
+                return {"organizationId": "some_org_id"}
+            return None
+        auth_module.get_document_data = MagicMock(side_effect=side_effect_get_doc_data)
+
+        # Mock the case document reference and snapshot
+        mock_case_doc = MagicMock()
+        mock_case_doc.exists = True
+        mock_case_doc.to_dict.return_value = {"organizationId": "some_org_id"}
+
+        mock_case_ref = MagicMock()
+        mock_case_ref.get.return_value = mock_case_doc
+
+        mock_firestore_client.collection.return_value.document.return_value = mock_case_ref
+
+        # Mock _check_case_permissions to return failure
+        mock_check_case_perms.return_value = (False, "Permissions denied on parent case")
+
+        # Test document delete permission
+        req = auth_module.PermissionCheckRequest(
+            resourceId=doc_id,
+            action="delete",
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+        allowed, msg = auth_module._check_document_permissions(mock_firestore_client, user_id, req)
+
+        assert allowed is False
+        assert msg == "Permissions denied on parent case"
+
+        # Verify _check_case_permissions was called with correct parameters
+        mock_check_case_perms.assert_called_once()
+        call_args = mock_check_case_perms.call_args[0]
+        assert call_args[2].action == "delete"  # Mapped action for document delete
+
+    def test_doc_permission_doc_not_found(self, mock_firestore_client):
+        """Test that permissions are denied for non-existent documents."""
+        user_id = "any_user_doc_not_found"
+        doc_id = "non_existent_doc"
+
+        # Mock get_document_data to return None (document not found)
+        auth_module.get_document_data = MagicMock(return_value=None)
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=doc_id,
+            action="read",
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+        allowed, msg = auth_module._check_document_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert f"Document {doc_id} not found" in msg
+
+    def test_doc_permission_doc_no_caseid(self, mock_firestore_client):
+        """Test that permissions are denied for documents without a caseId."""
+        user_id = "any_user_doc_no_caseid"
+        doc_id = "doc_no_case_ref"
+
+        # Mock document data without a caseId
+        auth_module.get_document_data = MagicMock(return_value={"some_other_field": "value"})
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=doc_id,
+            action="read",
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+        allowed, msg = auth_module._check_document_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert "Document has no associated case ID" in msg
+
+    @patch('functions.src.auth._check_case_permissions')
+    def test_doc_permission_parent_case_not_found(self, mock_check_case_perms, mock_firestore_client):
+        """Test that permissions are denied when the parent case doesn't exist."""
+        user_id = "any_user_parent_case_not_found"
+        doc_id = "doc_3"
+        case_id = "non_existent_case_for_doc_3"
+
+        # Mock document data with a caseId
+        auth_module.get_document_data = MagicMock(return_value={"caseId": case_id})
+
+        # Mock the case document reference and snapshot to indicate case not found
+        mock_case_doc = MagicMock()
+        mock_case_doc.exists = False
+
+        mock_case_ref = MagicMock()
+        mock_case_ref.get.return_value = mock_case_doc
+
+        mock_firestore_client.collection.return_value.document.return_value = mock_case_ref
+
+        req = auth_module.PermissionCheckRequest(
+            resourceId=doc_id,
+            action="read",
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+        allowed, msg = auth_module._check_document_permissions(mock_firestore_client, user_id, req)
+
+        assert allowed is False
+        assert f"Parent case {case_id} for document {doc_id} not found" in msg
+
+        # Verify _check_case_permissions was not called
+        mock_check_case_perms.assert_not_called()
+
+    def test_doc_permission_invalid_action_mapping(self, mock_firestore_client):
+        """Test that permissions are denied for actions not mapped to case actions."""
+        user_id = "any_user_invalid_doc_action"
+        doc_id = "doc_4"
+        case_id = "case_for_doc_4"
+
+        # Mock document data with a caseId
+        auth_module.get_document_data = MagicMock(return_value={"caseId": case_id})
+
+        # Use an action that's not mapped in _check_document_permissions
+        invalid_action = "publish"
+        req = auth_module.PermissionCheckRequest(
+            resourceId=doc_id,
+            action=invalid_action,
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+        allowed, msg = auth_module._check_document_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert f"Action '{invalid_action}' on document type is not mapped" in msg
+
+    def test_doc_permission_missing_resourceid(self, mock_firestore_client):
+        """Test that permissions are denied when resourceId is missing."""
+        user_id = "any_user_doc_missing_id"
+
+        # No resourceId provided
+        req = auth_module.PermissionCheckRequest(
+            action="read",
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+        allowed, msg = auth_module._check_document_permissions(mock_firestore_client, user_id, req)
+        assert allowed is False
+        assert "resourceId is required" in msg
+
+
+class TestValidateUserEndpoint:
+    """Tests for the validate_user HTTP endpoint function."""
+
+    @patch('functions.src.auth.get_authenticated_user')
+    @patch('functions.src.auth.datetime')
+    def test_validate_user_new_user_creation(self, mock_datetime, mock_get_auth_user, mock_request_builder, mock_firestore_client):
+        """Test that a new user is created when they don't exist in the database."""
+        # Mock the current time
+        mock_now = datetime.datetime(2024, 1, 1, 12, 0, 0)
+        mock_datetime.datetime.now.return_value = mock_now
+
+        # Mock the authentication result
+        user_id = "new_validate_user"
+        user_email = "new_validate@example.com"
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=user_id,
+            firebase_user_email=user_email,
+            firebase_user_locale="en"
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock the Firestore document snapshot to indicate user doesn't exist
+        mock_doc_snapshot = mock_firestore_client.collection.return_value.document.return_value.get.return_value
+        mock_doc_snapshot.exists = False  # Simulate new user
+
+        # Create a mock request
+        request = mock_request_builder(method='POST')
+
+        # Call the function under test
+        response_tuple = auth_module.validate_user(request)
+        response_data = json.loads(response_tuple[0].get_data(as_text=True))
+        status_code = response_tuple[1]
+
+        # Verify the response
+        assert status_code == 200
+        assert response_data['user_id'] == user_id
+        assert response_data['is_authenticated'] is True
+
+        # Verify that a new user document was created in Firestore
+        mock_firestore_client.collection.assert_called_with('users')
+        mock_firestore_client.collection.return_value.document.assert_called_with(user_id)
+        mock_firestore_client.collection.return_value.document.return_value.set.assert_called_once_with({
+            'user_id': user_id,
+            'email': user_email,
+            'created_at': mock_now,
+            'updated_at': mock_now
+        })
+
+    @patch('functions.src.auth.get_authenticated_user')
+    @patch('functions.src.auth.datetime')
+    def test_validate_user_existing_user_update(self, mock_datetime, mock_get_auth_user, mock_request_builder, mock_firestore_client):
+        """Test that an existing user is updated when they already exist in the database."""
+        # Mock the current time
+        mock_now = datetime.datetime(2024, 1, 1, 13, 0, 0)
+        mock_datetime.datetime.now.return_value = mock_now
+
+        # Mock the authentication result
+        user_id = "existing_validate_user"
+        user_email = "existing_validate@example.com"
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=user_id,
+            firebase_user_email=user_email
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock the Firestore document snapshot to indicate user exists
+        mock_doc_snapshot = mock_firestore_client.collection.return_value.document.return_value.get.return_value
+        mock_doc_snapshot.exists = True
+        # Mock the existing email to be different from the new one
+        mock_doc_snapshot.get.return_value = "old_email@example.com"
+
+        # Create a mock request
+        request = mock_request_builder(method='POST')
+
+        # Call the function under test
+        response_tuple = auth_module.validate_user(request)
+        response_data = json.loads(response_tuple[0].get_data(as_text=True))
+        status_code = response_tuple[1]
+
+        # Verify the response
+        assert status_code == 200
+        assert response_data['user_id'] == user_id
+        assert response_data['is_authenticated'] is True
+
+        # Verify that the user document was updated in Firestore
+        mock_firestore_client.collection.assert_called_with('users')
+        mock_firestore_client.collection.return_value.document.assert_called_with(user_id)
+        mock_firestore_client.collection.return_value.document.return_value.update.assert_called_once_with({
+            'updated_at': mock_now,
+            'email': user_email  # Email should be updated since it's different
+        })
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_validate_user_auth_fails(self, mock_get_auth_user, mock_request_builder):
+        """Test that authentication failures are properly handled."""
+        # Mock authentication failure
+        mock_get_auth_user.return_value = (None, 401, "Auth error message")
+
+        # Create a mock request
+        request = mock_request_builder(method='POST')
+
+        # Call the function under test
+        response_tuple = auth_module.validate_user(request)
+        response_data = json.loads(response_tuple[0].get_data(as_text=True))
+        status_code = response_tuple[1]
+
+        # Verify the response
+        assert status_code == 401
+        assert response_data['error'] == "Unauthorized"
+        assert response_data['message'] == "Auth error message"
+
+    def test_validate_user_options_request(self, mock_request_builder):
+        """Test that OPTIONS requests are handled correctly for CORS."""
+        # Create a mock OPTIONS request
+        request = mock_request_builder(method='OPTIONS')
+
+        # Call the function under test
+        response_body, status_code, headers = auth_module.validate_user(request)
+
+        # Verify the response
+        assert status_code == 204  # Standard for OPTIONS preflight
+        assert response_body == ""
+        # CORS headers are added by add_cors_headers decorator
+
+
+class TestAuthGetUserProfileEndpoint:
+    """Tests for the get_user_profile HTTP endpoint function in auth.py."""
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_get_user_profile_success(self, mock_get_auth_user, mock_request_builder, mock_firestore_client):
+        """Test successful retrieval of a user profile."""
+        # Mock the authentication result
+        user_id = "auth_profile_user"
+        user_email = "auth_profile@example.com"
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=user_id,
+            firebase_user_email=user_email
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock the Firestore document snapshot to return user data
+        user_data_from_db = {"userId": user_id, "email": user_email, "displayName": "Auth Profile User"}
+        mock_doc_snapshot = mock_firestore_client.collection.return_value.document.return_value.get.return_value
+        mock_doc_snapshot.exists = True
+        mock_doc_snapshot.to_dict.return_value = user_data_from_db
+
+        # Create a mock request
+        request = mock_request_builder(method='GET')
+
+        # Call the function under test
+        response_tuple = auth_module.get_user_profile(request)
+        response_data = json.loads(response_tuple[0].get_data(as_text=True))
+        status_code = response_tuple[1]
+
+        # Verify the response
+        assert status_code == 200
+        assert response_data == user_data_from_db
+
+        # Verify Firestore interactions
+        mock_firestore_client.collection.assert_called_with('users')
+        mock_firestore_client.collection.return_value.document.assert_called_with(user_id)
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_get_user_profile_not_found(self, mock_get_auth_user, mock_request_builder, mock_firestore_client):
+        """Test handling of a user profile that doesn't exist."""
+        # Mock the authentication result
+        user_id = "auth_profile_notfound"
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=user_id,
+            firebase_user_email="notfound@example.com"
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock the Firestore document snapshot to indicate user doesn't exist
+        mock_doc_snapshot = mock_firestore_client.collection.return_value.document.return_value.get.return_value
+        mock_doc_snapshot.exists = False  # User not found in DB
+
+        # Create a mock request
+        request = mock_request_builder(method='GET')
+
+        # Call the function under test
+        response_tuple = auth_module.get_user_profile(request)
+        response_data = json.loads(response_tuple[0].get_data(as_text=True))
+        status_code = response_tuple[1]
+
+        # Verify the response
+        assert status_code == 404
+        assert response_data['error'] == "Not Found"
+        assert response_data['message'] == "User profile not found"
+
+        # Verify Firestore interactions
+        mock_firestore_client.collection.assert_called_with('users')
+        mock_firestore_client.collection.return_value.document.assert_called_with(user_id)
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_get_user_profile_auth_fails(self, mock_get_auth_user, mock_request_builder):
+        """Test handling of authentication failures."""
+        # Mock authentication failure
+        mock_get_auth_user.return_value = (None, 403, "Forbidden access")
+
+        # Create a mock request
+        request = mock_request_builder(method='GET')
+
+        # Call the function under test
+        response_tuple = auth_module.get_user_profile(request)
+        response_data = json.loads(response_tuple[0].get_data(as_text=True))
+        status_code = response_tuple[1]
+
+        # Verify the response
+        assert status_code == 403  # Should match the status code from get_authenticated_user
+        assert response_data['error'] == "Unauthorized"  # The endpoint wraps the error
+        assert response_data['message'] == "Forbidden access"
+
+    def test_get_user_profile_options_request(self, mock_request_builder):
+        """Test that OPTIONS requests are handled correctly for CORS."""
+        # Create a mock OPTIONS request
+        request = mock_request_builder(method='OPTIONS')
+
+        # Call the function under test
+        response_body, status_code, headers = auth_module.get_user_profile(request)
+
+        # Verify the response
+        assert status_code == 204
+        assert response_body == ""
+        # CORS headers are added by add_cors_headers decorator
+
+
+class TestGetUserRoleLogic:
+    """Tests for the get_user_role logic function."""
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_get_user_role_success(self, mock_get_auth_user, mock_request_builder, mock_firestore_client):
+        """Test successful retrieval of a user's role in an organization."""
+        # Mock the authentication result
+        requesting_user_id = "requester_admin"
+        target_user_id = "target_user_for_role"
+        org_id = "org_for_role_check"
+
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=requesting_user_id,
+            firebase_user_email="req@example.com"
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock the permission check (implicitly by not patching check_permission)
+        # For this test, we'll assume the requester has permission to view roles
+
+        # Mock the membership data for the target user
+        auth_module.get_membership_data = MagicMock(return_value={"role": "staff", "userId": target_user_id})
+
+        # Create a mock request with JSON data
+        request = mock_request_builder(json_data={"userId": target_user_id, "organizationId": org_id})
+
+        # Call the function under test
+        response_flask, status_code = auth_module.get_user_role(request)
+        response_data = json.loads(response_flask.get_data(as_text=True))
+
+        # Verify the response
+        assert status_code == 200
+        assert response_data['role'] == "staff"
+
+        # Verify that get_membership_data was called with the correct parameters
+        auth_module.get_membership_data.assert_called_once_with(mock_firestore_client, target_user_id, org_id)
+
+    @patch('functions.src.auth.get_authenticated_user')
+    @patch('functions.src.auth.check_permission')  # Mock internal permission check
+    def test_get_user_role_requester_lacks_permission(self, mock_check_perm, mock_get_auth_user, mock_request_builder):
+        """Test handling when the requester lacks permission to view roles."""
+        # Mock the authentication result
+        requesting_user_id = "requester_no_perms"
+        target_user_id = "target_user_other"
+        org_id = "org_for_role_check_no_perms"
+
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=requesting_user_id,
+            firebase_user_email="req_no@example.com"
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock the permission check to deny access
+        mock_check_perm.return_value = (False, "Permission denied to view roles")
+
+        # Create a mock request with JSON data
+        request = mock_request_builder(json_data={"userId": target_user_id, "organizationId": org_id})
+
+        # Call the function under test
+        response_flask, status_code = auth_module.get_user_role(request)
+        response_data = json.loads(response_flask.get_data(as_text=True))
+
+        # Verify the response
+        assert status_code == 403
+        assert response_data['error'] == "Forbidden"
+        assert "Permission denied" in response_data['message']
+
+        # Verify that check_permission was called
+        mock_check_perm.assert_called_once()
+        # Verify the permission check was for the correct action
+        call_args = mock_check_perm.call_args[0]
+        assert call_args[0] == requesting_user_id  # user_id
+        assert call_args[1].action == "listMembers"  # action
+        assert call_args[1].resourceType == auth_module.TYPE_ORGANIZATION  # resource type
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_get_user_role_self_check_allowed(self, mock_get_auth_user, mock_request_builder, mock_firestore_client):
+        """Test that users can always check their own role without permission checks."""
+        # Mock the authentication result - same user for requester and target
+        user_id = "self_check_user"
+        org_id = "org_for_self_check"
+
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=user_id,
+            firebase_user_email="self@example.com"
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock the membership data
+        auth_module.get_membership_data = MagicMock(return_value={"role": "staff", "userId": user_id})
+
+        # Create a mock request with JSON data - same userId as the authenticated user
+        request = mock_request_builder(json_data={"userId": user_id, "organizationId": org_id})
+
+        # Call the function under test
+        response_flask, status_code = auth_module.get_user_role(request)
+        response_data = json.loads(response_flask.get_data(as_text=True))
+
+        # Verify the response
+        assert status_code == 200
+        assert response_data['role'] == "staff"
+
+        # Verify that get_membership_data was called with the correct parameters
+        auth_module.get_membership_data.assert_called_once_with(mock_firestore_client, user_id, org_id)
+
+    def test_get_user_role_missing_params(self, mock_request_builder):
+        """Test handling of missing required parameters."""
+        # Test missing userId
+        request_no_userid = mock_request_builder(json_data={"organizationId": "org1"})
+        response_flask, status_code = auth_module.get_user_role(request_no_userid)
+        response_data = json.loads(response_flask.get_data(as_text=True))
+
+        assert status_code == 400
+        assert response_data['error'] == "Bad Request"
+        assert "userId is required" in response_data['message']
+
+        # Test missing organizationId
+        request_no_orgid = mock_request_builder(json_data={"userId": "user1"})
+        response_flask, status_code = auth_module.get_user_role(request_no_orgid)
+        response_data = json.loads(response_flask.get_data(as_text=True))
+
+        assert status_code == 400
+        assert response_data['error'] == "Bad Request"
+        assert "organizationId is required" in response_data['message']
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_get_user_role_auth_fails(self, mock_get_auth_user, mock_request_builder):
+        """Test handling of authentication failures."""
+        # Mock authentication failure
+        mock_get_auth_user.return_value = (None, 401, "Authentication failed")
+
+        # Create a mock request with valid JSON data
+        request = mock_request_builder(json_data={"userId": "user1", "organizationId": "org1"})
+
+        # Call the function under test
+        response_flask, status_code = auth_module.get_user_role(request)
+        response_data = json.loads(response_flask.get_data(as_text=True))
+
+        # Verify the response
+        assert status_code == 401
+        assert response_data['error'] == "Unauthorized"
+        assert response_data['message'] == "Authentication failed"
+
+    @patch('functions.src.auth.get_authenticated_user')
+    def test_get_user_role_user_not_member(self, mock_get_auth_user, mock_request_builder, mock_firestore_client):
+        """Test handling when the target user is not a member of the organization."""
+        # Mock the authentication result
+        requesting_user_id = "requester_admin_for_nonmember"
+        target_user_id = "target_nonmember"
+        org_id = "org_for_nonmember_check"
+
+        mock_auth_context = AuthContext(
+            is_authenticated_call_from_gateway=True,
+            firebase_user_id=requesting_user_id,
+            firebase_user_email="admin@example.com"
+        )
+        mock_get_auth_user.return_value = (mock_auth_context, 200, None)
+
+        # Mock get_membership_data to return None (user is not a member)
+        auth_module.get_membership_data = MagicMock(return_value=None)
+
+        # Create a mock request with JSON data
+        request = mock_request_builder(json_data={"userId": target_user_id, "organizationId": org_id})
+
+        # Call the function under test
+        response_flask, status_code = auth_module.get_user_role(request)
+        response_data = json.loads(response_flask.get_data(as_text=True))
+
+        # Verify the response
+        assert status_code == 200
+        assert response_data['role'] is None  # Role should be None for non-members
+
+
+class TestCheckPermissionDispatcher:
+    """Tests for the check_permission dispatcher function."""
+
+    @patch('functions.src.auth._check_case_permissions')
+    def test_check_permission_dispatches_to_case(self, mock_case_checker, mock_firestore_client):
+        """Test that check_permission correctly dispatches to the case checker function."""
+        user_id = "test_user_dispatch_case"
+        req_data = auth_module.PermissionCheckRequest(
+            resourceId="case1",
+            action="read",
+            resourceType=auth_module.TYPE_CASE,
+            organizationId="org1"
+        )
+
+        # Mock the case checker to return success
+        mock_case_checker.return_value = (True, "Case allowed")
+
+        # Call the function under test
+        allowed, msg = auth_module.check_permission(user_id, req_data)
+
+        # Verify the result
+        assert allowed is True
+        assert msg == "Case allowed"
+
+        # Verify that the case checker was called with the correct parameters
+        mock_case_checker.assert_called_once_with(db=mock_firestore_client, user_id=user_id, req=req_data)
+
+    @patch('functions.src.auth._check_organization_permissions')
+    def test_check_permission_dispatches_to_org(self, mock_org_checker, mock_firestore_client):
+        """Test that check_permission correctly dispatches to the organization checker function."""
+        user_id = "test_user_dispatch_org"
+        req_data = auth_module.PermissionCheckRequest(
+            resourceId="org1",
+            action="update",
+            resourceType=auth_module.TYPE_ORGANIZATION,
+            organizationId="org1"
+        )
+
+        # Mock the organization checker to return failure
+        mock_org_checker.return_value = (False, "Org denied")
+
+        # Call the function under test
+        allowed, msg = auth_module.check_permission(user_id, req_data)
+
+        # Verify the result
+        assert allowed is False
+        assert msg == "Org denied"
+
+        # Verify that the organization checker was called with the correct parameters
+        mock_org_checker.assert_called_once_with(db=mock_firestore_client, user_id=user_id, req=req_data)
+
+    @patch('functions.src.auth._check_party_permissions')
+    def test_check_permission_dispatches_to_party(self, mock_party_checker, mock_firestore_client):
+        """Test that check_permission correctly dispatches to the party checker function."""
+        user_id = "test_user_dispatch_party"
+        req_data = auth_module.PermissionCheckRequest(
+            resourceId="party1",
+            action="read",
+            resourceType=auth_module.TYPE_PARTY
+        )
+
+        # Mock the party checker to return success
+        mock_party_checker.return_value = (True, "Party allowed")
+
+        # Call the function under test
+        allowed, msg = auth_module.check_permission(user_id, req_data)
+
+        # Verify the result
+        assert allowed is True
+        assert msg == "Party allowed"
+
+        # Verify that the party checker was called with the correct parameters
+        mock_party_checker.assert_called_once_with(db=mock_firestore_client, user_id=user_id, req=req_data)
+
+    @patch('functions.src.auth._check_document_permissions')
+    def test_check_permission_dispatches_to_document(self, mock_doc_checker, mock_firestore_client):
+        """Test that check_permission correctly dispatches to the document checker function."""
+        user_id = "test_user_dispatch_doc"
+        req_data = auth_module.PermissionCheckRequest(
+            resourceId="doc1",
+            action="read",
+            resourceType=auth_module.TYPE_DOCUMENT
+        )
+
+        # Mock the document checker to return success
+        mock_doc_checker.return_value = (True, "Document allowed")
+
+        # Call the function under test
+        allowed, msg = auth_module.check_permission(user_id, req_data)
+
+        # Verify the result
+        assert allowed is True
+        assert msg == "Document allowed"
+
+        # Verify that the document checker was called with the correct parameters
+        mock_doc_checker.assert_called_once_with(db=mock_firestore_client, user_id=user_id, req=req_data)
+
+    def test_check_permission_invalid_resource_type(self, mock_firestore_client):
+        """Test handling of an invalid resource type."""
+        user_id = "test_user_invalid_type"
+
+        # Create a request with an invalid resource type
+        # Note: We can't use PermissionCheckRequest constructor directly with an invalid type
+        # because the validator would catch it, so we mock a request object
+        req_data = MagicMock()
+        req_data.resourceType = "unknown_type"  # Invalid resource type
+        req_data.action = "read"
+        req_data.resourceId = "id1"
+
+        # Call the function under test
+        allowed, msg = auth_module.check_permission(user_id, req_data)
+
+        # Verify the result
+        assert allowed is False
+        assert "No permission checker configured for resource type" in msg
+
+    @patch('functions.src.auth._check_case_permissions')
+    def test_check_permission_general_exception(self, mock_case_checker, mock_firestore_client):
+        """Test handling of a general exception during permission checking."""
+        user_id = "test_user_exception"
+        req_data = auth_module.PermissionCheckRequest(
+            resourceId="case1",
+            action="read",
+            resourceType=auth_module.TYPE_CASE
+        )
+
+        # Mock the case checker to raise an exception
+        mock_case_checker.side_effect = Exception("Firestore unavailable")
+
+        # Call the function under test
+        allowed, msg = auth_module.check_permission(user_id, req_data)
+
+        # Verify the result
+        assert allowed is False
+        assert "An internal error occurred during permission check" in msg
+        assert "Firestore unavailable" in msg
