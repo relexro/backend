@@ -98,9 +98,8 @@ class PermissionCheckRequest(BaseModel):
     resourceType: str
     organizationId: Optional[str] = None
 
-    # Updated to use field_validator with mode='before'
-    @field_validator('resourceType', mode='before')
-    @classmethod
+    # Using field_validator (Pydantic v2 style)
+    @field_validator('resourceType')
     def validate_resource_type(cls, v: str) -> str:
         if v not in VALID_RESOURCE_TYPES:
             raise ValueError(f"Invalid resourceType. Must be one of: {', '.join(VALID_RESOURCE_TYPES)}")
@@ -529,7 +528,7 @@ def check_permissions(request: flask.Request):
         user_data, status_code, error_message = get_authenticated_user(request)
         if status_code != 200:
             return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
-        user_id = user_data.user_id
+        user_id = user_data.firebase_user_id
 
         try:
             # Use model_validate for Pydantic v2
@@ -631,7 +630,7 @@ def get_user_role(request: flask.Request):
         requesting_user_data, status_code, error_message = get_authenticated_user(request)
         if status_code != 200:
             return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
-        requesting_user_id = requesting_user_data.user_id
+        requesting_user_id = requesting_user_data.firebase_user_id
 
         # Check if requesting user has permission to view roles in this org
         # (Unless they are checking their own role)

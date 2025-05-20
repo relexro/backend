@@ -16,7 +16,6 @@ _AGENT_CONFIG_DIR = os.path.join(_CURRENT_SCRIPT_DIR, 'agent-config')
 logger.info(f"Agent config calculated CONFIG_DIR: {os.path.abspath(_AGENT_CONFIG_DIR)}")
 AGENT_LOOP_PATH = os.path.join(_AGENT_CONFIG_DIR, 'agent_loop.txt')
 TOOLS_PATH = os.path.join(_AGENT_CONFIG_DIR, 'tools.json')
-PROMPT_PATH = os.path.join(_AGENT_CONFIG_DIR, 'prompt.txt')
 MODULES_PATH = os.path.join(_AGENT_CONFIG_DIR, 'modules.txt')
 
 class ConfigLoadError(Exception):
@@ -67,55 +66,7 @@ def load_tools() -> List[Dict[str, Any]]:
         logger.error(f"Error loading tool definitions from {file_path}: {str(e)}")
         raise ConfigLoadError(f"Failed to load tool definitions: {str(e)}")
 
-def load_prompts() -> Dict[str, str]:
-    """
-    Load prompt templates from prompt.txt.
 
-    Returns:
-        A dictionary of prompt templates with keys based on section names
-    """
-    file_path = PROMPT_PATH
-    logger.info(f"Attempting to load prompts from: {file_path}")
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            logger.info(f"Successfully read prompts file from: {file_path}")
-
-        # Parse the prompt file into sections
-        prompts = {}
-        current_section = None
-        current_content = []
-
-        for line in content.split('\n'):
-            if line.startswith('# ---') and '---' in line:
-                # New section header
-                if current_section and current_content:
-                    prompts[current_section] = '\n'.join(current_content).strip()
-                    current_content = []
-
-                # Extract section name
-                section_name = line.split('---')[1].strip()
-                current_section = section_name
-            elif line.startswith('"""') and current_section:
-                # Start or end of content block
-                continue
-            elif current_section:
-                # Content line
-                current_content.append(line)
-
-        # Add the last section
-        if current_section and current_content:
-            prompts[current_section] = '\n'.join(current_content).strip()
-
-        logger.info(f"Successfully parsed prompts from: {file_path}")
-        return prompts
-    except FileNotFoundError:
-        abs_path = os.path.abspath(file_path)
-        logger.error(f"FileNotFoundError: Could not find prompts config file at expected path: {abs_path}")
-        raise ConfigLoadError(f"Prompts configuration file not found at: {abs_path}")
-    except Exception as e:
-        logger.error(f"Error loading prompt templates from {file_path}: {str(e)}")
-        raise ConfigLoadError(f"Failed to load prompt templates: {str(e)}")
 
 def load_modules() -> Dict[str, str]:
     """
@@ -172,38 +123,32 @@ def load_modules() -> Dict[str, str]:
 
 def get_system_prompt(prompt_type: str = "main") -> str:
     """
-    Get the system prompt for the specified type.
+    Get the system prompt. Always uses agent_loop.txt as the primary source.
 
     Args:
-        prompt_type: The type of prompt to get (e.g., "legal_analysis", "expert_consultation")
+        prompt_type: The type of prompt to get. Currently only "main" is fully supported.
+                    Other values will return a generic fallback prompt.
 
     Returns:
-        The formatted system prompt for the specified type
+        The formatted system prompt
     """
+    logger.info(f"Generating system prompt for prompt_type: '{prompt_type}'")
     try:
-        prompts = load_prompts()
-
-        # First look for a specific prompt type
-        if prompt_type != "main" and f"{prompt_type.title()} Prompt" in prompts:
-            return prompts[f"{prompt_type.title()} Prompt"]
-
-        # Fallback to the Gemini System Prompt
-        system_prompt = prompts.get('Gemini System Prompt', '')
-
-        # For the main system prompt, enhance with modules content
         if prompt_type == "main":
-            modules = load_modules()
-            for module_name, module_content in modules.items():
-                if module_name in ['intro', 'language_settings', 'system_capability', 'agent_loop',
-                                  'llm_collaboration_rules', 'context_management_rules', 'tool_use_rules',
-                                  'legal_research_rules', 'drafting_rules', 'message_rules', 'error_handling']:
-                    system_prompt += f"\n\n# {module_name.replace('_', ' ').title()}\n{module_content}"
-
-        return system_prompt
+            # For the main prompt, use agent_loop.txt directly
+            main_prompt_content = load_agent_loop()
+            logger.info(f"Using agent_loop.txt content for 'main' system prompt.")
+            return main_prompt_content
+        else:
+            # For any other prompt type, use a generic fallback
+            logger.info(f"Requested prompt_type '{prompt_type}' is not specifically supported. Using generic fallback.")
+            return f"You are a helpful legal assistant specialized in {prompt_type}. Please provide detailed and structured assistance."
+    except ConfigLoadError as e:
+        logger.error(f"CRITICAL: ConfigLoadError generating system prompt for '{prompt_type}', likely from load_agent_loop(): {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error generating system prompt for {prompt_type}: {str(e)}")
-        # Return a simple fallback prompt if we can't load the configured one
-        return f"You are a legal assistant helping with {prompt_type}. Provide a detailed and structured response."
+        logger.error(f"Unexpected error generating system prompt for '{prompt_type}': {str(e)}")
+        raise ConfigLoadError(f"Unexpected error in get_system_prompt for '{prompt_type}': {str(e)}")
 
 def load_system_prompt() -> str:
     """
@@ -222,12 +167,8 @@ def get_grok_prompt_template() -> str:
     Returns:
         The formatted Grok prompt template
     """
-    try:
-        prompts = load_prompts()
-        return prompts.get('Grok Consultation Prompt Template', '')
-    except Exception as e:
-        logger.error(f"Error getting Grok prompt template: {str(e)}")
-        raise ConfigLoadError(f"Failed to get Grok prompt template: {str(e)}")
+    # Standard Grok consultation template in Romanian
+    return "Aceasta este o consultare pentru Grok. Te rog să analizezi următoarele informații și să oferi o perspectivă juridică strategică: {{context}}"
 
 def get_tool_by_name(tool_name: str) -> Optional[Dict[str, Any]]:
     """
@@ -257,12 +198,29 @@ def get_all_configs() -> Dict[str, Any]:
         A dictionary containing all configurations
     """
     try:
-        return {
-            'agent_loop': load_agent_loop(),
-            'tools': load_tools(),
-            'prompts': load_prompts(),
-            'modules': load_modules()
-        }
+        configs = {}
+
+        # Critical configurations that should raise errors if missing
+        try:
+            configs['agent_loop'] = load_agent_loop()
+        except Exception as e:
+            logger.error(f"Critical error loading agent_loop: {str(e)}")
+            raise
+
+        try:
+            configs['tools'] = load_tools()
+        except Exception as e:
+            logger.error(f"Critical error loading tools: {str(e)}")
+            raise
+
+        # Non-critical configurations that can return empty/default values
+        try:
+            configs['modules'] = load_modules()
+        except Exception as e:
+            logger.error(f"Error loading modules: {str(e)}")
+            configs['modules'] = {}
+
+        return configs
     except Exception as e:
         logger.error(f"Error loading all configurations: {str(e)}")
         raise ConfigLoadError(f"Failed to load all configurations: {str(e)}")

@@ -63,7 +63,7 @@ class Agent:
             if processing_state_doc.exists:
                 # Resume from existing state
                 state_dict = processing_state_doc.to_dict()
-                agent_state = AgentState.from_dict(state_dict)
+                agent_state = AgentState.model_validate(state_dict)
             else:
                 # Initialize new state
                 agent_state = AgentState(
@@ -87,7 +87,7 @@ class Agent:
             logger.info(f"LangGraph agent execution finished for case: {case_id}")
 
             # Save updated state
-            processing_state_ref.set(agent_state.to_dict())
+            processing_state_ref.set(agent_state.model_dump())
 
             # Save message to chat history
             chat_ref = case_ref.collection('chat').document()
