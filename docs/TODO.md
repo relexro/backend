@@ -32,15 +32,15 @@
     * **Sub-Tasks:**
         * 1.2.1. **Unit Tests for `functions/src/auth.py`:**
             * Focus: JWT validation (valid, invalid, expired tokens), user extraction from token, core permission logic, HTTP endpoints. Mock Firebase Admin SDK and other external calls.
-            * **Status:** In Progress (56% coverage achieved)
+            * **Status:** Substantially Complete (67% coverage achieved).
             * **Sub-bullets:**
                 * [DONE] Unit tests for `validate_firebase_id_token` and `validate_gateway_sa_token` covering various token states.
-                * [DONE] Unit tests for `get_authenticated_user` covering different auth paths (health check, API Gateway, direct Firebase token) and locale extraction.
-                * [DONE] Unit tests for `PermissionCheckRequest` model validation (basic).
-                * [DONE] Foundational unit tests for `requires_auth` decorator.
-                * [PARTIAL] Initial unit tests for core permission checking logic (e.g., `_check_organization_permissions`, `_check_case_permissions`). More detailed scenarios and other helpers (`_check_party_permissions`, `_check_document_permissions`) still pending.
-                * [PENDING] Comprehensive unit tests for HTTP endpoint functions in `auth.py` (`validate_user`, `get_user_profile`, `check_permissions` (HTTP), `get_user_role`).
-                * [PENDING] Unit tests for `add_cors_headers` decorator.
+                * [DONE] Unit tests for `get_authenticated_user` covering different auth paths and locale extraction.
+                * [DONE] Unit tests for `PermissionCheckRequest` model validation.
+                * [DONE] Unit tests for `requires_auth` decorator (basic coverage).
+                * [DONE] Unit tests for core permission checking logic helpers (`_check_organization_permissions`, `_check_case_permissions`, `_check_party_permissions`, `_check_document_permissions`), including cross-organization security scenarios.
+                * [DONE] Unit tests for `add_cors_headers` decorator.
+                * [DEFERRED] Comprehensive unit tests for HTTP endpoint functions in `auth.py` (`validate_user`, `get_user_profile`, `check_permissions` (HTTP wrapper), `get_user_role` logic function using `jsonify`). These unit tests were problematic due to Flask app context requirements and are deferred in favor of integration tests (Phase 1.3) as per Operator directive. (Relevant unit test classes in `tests/unit/test_auth.py` have been commented out).
             * **Original Executor Prompt (Reference for initial scope):** "Create comprehensive unit tests for all functions in `functions/src/auth.py`. Ensure `_verify_firebase_jwt` (or equivalent) is tested with various token states. Mock external calls (e.g., `firebase_admin.auth.verify_id_token`). Store tests in `tests/unit/test_auth.py`. Report test execution results."
         * 1.2.2. **Unit Tests for `functions/src/user.py` (Core Functions):**
             * Focus: User profile creation (if applicable), retrieval, update logic. Mock Firestore calls.
