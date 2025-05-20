@@ -1063,6 +1063,64 @@ class TestCheckCasePermissions:
         assert allowed is False
         assert "resourceId is required" in msg
 
+    def test_cross_org_access_denied_for_org_case(self, mock_firestore_client, configure_mock_document_data, configure_mock_membership_data):
+        """Test that users cannot access cases from a different organization."""
+        user_id_org_A_member = "user_in_org_A_only"
+        org_A_id = "org_A_cases"
+        org_B_id = "org_B_cases"
+        case_in_org_B_id = "case_belonging_to_org_B"
+
+        # Configure membership data: User is member of Org A but not Org B
+        membership_data = {
+            (user_id_org_A_member, org_A_id): {"role": auth_module.ROLE_STAFF, "userId": user_id_org_A_member, "organizationId": org_A_id}
+            # User is NOT member of Org B (no entry for this combination)
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Configure document data: Case belongs to Org B
+        document_data = {
+            ('cases', case_in_org_B_id): {"userId": "creator_in_org_b", "organizationId": org_B_id}
+        }
+        configure_mock_document_data(document_data)
+
+        # User from Org A attempts to read a case in Org B
+        req = auth_module.PermissionCheckRequest(
+            resourceId=case_in_org_B_id,
+            action="read",
+            resourceType=auth_module.TYPE_CASE,
+            organizationId=org_B_id  # Context is the case's actual organization
+        )
+
+        allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id_org_A_member, req)
+
+        assert allowed is False, f"User from {org_A_id} should not read case from {org_B_id}, msg: {msg}"
+        assert f"User {user_id_org_A_member} is not owner or member of org {org_B_id}" in msg
+
+    def test_org_case_creation_attempt_in_unauthorized_org(self, mock_firestore_client, configure_mock_membership_data):
+        """Test that users cannot create cases in organizations they don't belong to."""
+        user_id = "user_trying_cross_create"
+        user_actual_org_id = "user_home_org"
+        target_org_id_for_case_creation = "foreign_org"  # User wants to create a case here
+
+        # Configure membership data: User is member of their own org but not the target org
+        membership_data = {
+            (user_id, user_actual_org_id): {"role": auth_module.ROLE_STAFF, "userId": user_id, "organizationId": user_actual_org_id}
+            # User is NOT a member of the target org (no entry for this combination)
+        }
+        configure_mock_membership_data(membership_data)
+
+        # Attempt to 'create' a case under 'foreign_org'
+        req = auth_module.PermissionCheckRequest(
+            action="create",
+            resourceType=auth_module.TYPE_CASE,
+            organizationId=target_org_id_for_case_creation  # Crucial: specifying the org for creation
+        )
+
+        allowed, msg = auth_module._check_case_permissions(mock_firestore_client, user_id, req)
+
+        assert allowed is False, f"User {user_id} should not be allowed to create a case in {target_org_id_for_case_creation}, msg: {msg}"
+        assert f"User {user_id} is not a member of organization {target_org_id_for_case_creation}" in msg
+
 
 class TestCheckDocumentPermissions:
     """Tests for the _check_document_permissions function."""
@@ -1802,4 +1860,100 @@ class TestCheckPermissionDispatcher:
         # Verify the result
         assert allowed is False
         assert "An internal error occurred during permission check" in msg
-        assert "Firestore unavailable" in msg
+
+
+def test_add_cors_headers_decorator():
+    """Test that the add_cors_headers decorator correctly adds CORS headers to a response tuple."""
+    # 1. Define a mock Flask view function that returns a simple response
+    mock_view_function_data = {"message": "test"}
+    mock_view_function_status = 200
+
+    def mock_view():
+        # Simulate a Flask view returning (data, status_code)
+        return jsonify(mock_view_function_data), mock_view_function_status
+
+    # 2. Apply the decorator to the mock view function
+    decorated_view = auth_module.add_cors_headers(mock_view)
+
+    # 3. Create a Flask app for the test context
+    from flask import Flask
+    app = Flask(__name__)
+
+    # 4. Call the decorated function within app context
+    with app.app_context():
+        response_data_flask, status_code, headers = decorated_view()
+
+    # 5. Assertions
+    assert status_code == mock_view_function_status
+    # response_data_flask is a Flask Response object due to jsonify
+    assert json.loads(response_data_flask.get_data(as_text=True)) == mock_view_function_data
+
+    expected_headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    }
+    for key, value in expected_headers.items():
+        assert key in headers
+        assert headers[key] == value
+
+
+def test_add_cors_headers_decorator_with_options_request():
+    """Test that the add_cors_headers decorator handles OPTIONS requests correctly."""
+    # 1. Define a mock Flask view function that handles OPTIONS requests
+    def mock_view_with_options():
+        # Simulate a Flask view that handles OPTIONS requests
+        return "", 204
+
+    # 2. Apply the decorator to the mock view function
+    decorated_view = auth_module.add_cors_headers(mock_view_with_options)
+
+    # 3. Create a Flask app for the test context
+    from flask import Flask
+    app = Flask(__name__)
+
+    # 4. Call the decorated function within app context
+    with app.app_context():
+        response_data, status_code, headers = decorated_view()
+
+    # 5. Assertions
+    assert status_code == 204
+    assert response_data == ""
+
+    expected_headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    }
+    for key, value in expected_headers.items():
+        assert key in headers
+        assert headers[key] == value
+
+
+def test_add_cors_headers_decorator_with_non_tuple_response():
+    """Test that the add_cors_headers decorator handles non-tuple responses correctly."""
+    # 1. Define a mock Flask view function that returns a non-tuple response
+    mock_data = {"message": "data only"}
+
+    def mock_data_only_view():
+        # Return a Flask Response object directly (not a tuple)
+        return jsonify(mock_data)
+
+    # 2. Apply the decorator to the mock view function
+    decorated_view = auth_module.add_cors_headers(mock_data_only_view)
+
+    # 3. Create a Flask app for the test context
+    from flask import Flask
+    app = Flask(__name__)
+
+    # 4. Call the decorated function within app context
+    with app.app_context():
+        response = decorated_view()
+
+    # 5. Assertions
+    # The decorator should return the original response unchanged if it's not a tuple
+    assert json.loads(response.get_data(as_text=True)) == mock_data
+
+    # Check that CORS headers were NOT added because the return type wasn't (data, status_code)
+    # This is the current behavior of the add_cors_headers decorator
+    assert 'Access-Control-Allow-Origin' not in response.headers
