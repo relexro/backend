@@ -198,21 +198,60 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
 
     # Check for the userinfo header from API Gateway
     userinfo_header = None
+    logging.info("Checking for API Gateway userinfo headers...")
+
+    # Log all headers for debugging (excluding Authorization which might contain sensitive data)
+    safe_headers = {k: v for k, v in request.headers.items() if k.lower() != 'authorization'}
+    logging.info(f"Request headers: {safe_headers}")
+
     for header_key, header_val in request.headers.items():
         key_lower = header_key.lower()
         if key_lower in ("x-endpoint-api-userinfo", "x-apigateway-api-userinfo"):
             userinfo_header = header_val
+            logging.info(f"Found userinfo header with key: {header_key}")
             break
 
     if userinfo_header:
+        logging.info("Found userinfo_header. Attempting to process.")
         try:
+            # Log the raw header (truncated if too long)
+            if len(userinfo_header) > 100:
+                logging.debug(f"Raw userinfo_header (truncated): {userinfo_header[:50]}...{userinfo_header[-50:]}")
+            else:
+                logging.debug(f"Raw userinfo_header: {userinfo_header}")
+
             # API Gateway passes user info in a base64-encoded header after validating the Firebase token
-            decoded_userinfo = json.loads(base64.b64decode(userinfo_header).decode("utf-8"))
+            try:
+                decoded_userinfo_bytes = base64.b64decode(userinfo_header)
+                logging.info(f"Successfully base64 decoded userinfo_header. Length: {len(decoded_userinfo_bytes)} bytes")
+            except Exception as decode_err:
+                logging.error(f"Failed to base64 decode userinfo_header: {str(decode_err)}")
+                raise ValueError(f"Base64 decoding failed: {str(decode_err)}")
+
+            try:
+                decoded_userinfo_str = decoded_userinfo_bytes.decode("utf-8")
+                logging.info(f"Successfully UTF-8 decoded userinfo_header. Length: {len(decoded_userinfo_str)} chars")
+                logging.debug(f"Decoded userinfo_header (str): {decoded_userinfo_str[:100]}..." if len(decoded_userinfo_str) > 100 else f"Decoded userinfo_header (str): {decoded_userinfo_str}")
+            except Exception as utf8_err:
+                logging.error(f"Failed to UTF-8 decode userinfo_header: {str(utf8_err)}")
+                raise ValueError(f"UTF-8 decoding failed: {str(utf8_err)}")
+
+            try:
+                decoded_userinfo = json.loads(decoded_userinfo_str)
+                logging.info(f"Successfully JSON parsed decoded userinfo_header. Keys: {list(decoded_userinfo.keys())}")
+                logging.debug(f"Parsed userinfo_header (JSON): {decoded_userinfo}")
+            except Exception as json_err:
+                logging.error(f"Failed to JSON parse decoded userinfo_header: {str(json_err)}")
+                raise ValueError(f"JSON parsing failed: {str(json_err)}")
+
             firebase_uid = decoded_userinfo.get("sub")
             email = decoded_userinfo.get("email")
             locale = decoded_userinfo.get("locale")
 
+            logging.info(f"Extracted from userinfo: firebase_uid='{firebase_uid}', email='{email}', locale='{locale}'")
+
             if not firebase_uid:
+                logging.warning("Missing subject (user ID) in userinfo header after parsing.")
                 return None, 401, "Missing subject (user ID) in userinfo header"
 
             # Successfully authenticated via API Gateway-forwarded user info
@@ -223,28 +262,47 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
                 firebase_user_locale=locale
             )
 
+            logging.info(f"Successfully created AuthContext from userinfo_header for firebase_user_id: {firebase_uid}")
             return auth_context, 200, None
 
         except Exception as e:
-            logging.error(f"Error decoding X-Endpoint-API-Userinfo header: {str(e)}")
+            # Enhanced logging for the exception
+            logging.error(f"Error processing X-Endpoint-API-Userinfo header. Error: {str(e)}", exc_info=True)
+
+            # Try to log a sample of the header if it exists
+            if userinfo_header:
+                sample_length = min(30, len(userinfo_header))
+                logging.error(f"Header sample (first {sample_length} chars): {userinfo_header[:sample_length]}")
+
             return None, 500, "Error processing authentication information"
 
     # If we reach here, there was no userinfo header, so we check for a direct Firebase token
+    logging.info("No userinfo header found. Checking for direct Firebase token authentication.")
+
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
+        logging.warning("Missing or invalid Authorization header format (should start with 'Bearer ')")
         return None, 401, "Missing or invalid Authorization header"
 
     token = auth_header[7:]  # Remove "Bearer " prefix
+    logging.info("Found Bearer token in Authorization header. Attempting to validate.")
 
     try:
         # First, try to validate as a Firebase token
         try:
+            logging.info("Attempting to validate as Firebase ID token...")
             firebase_claims = validate_firebase_id_token(token)
+            logging.info(f"Firebase token validation successful. Claims keys: {list(firebase_claims.keys())}")
+            logging.debug(f"Firebase claims: {firebase_claims}")
+
             firebase_uid = firebase_claims.get("sub")
             email = firebase_claims.get("email", "")
             locale = firebase_claims.get("locale")
 
+            logging.info(f"Extracted from Firebase token: firebase_uid='{firebase_uid}', email='{email}', locale='{locale}'")
+
             if not firebase_uid:
+                logging.warning("Firebase token validation succeeded but missing subject claim")
                 return None, 401, "Invalid Firebase token: missing subject claim"
 
             # Successfully authenticated directly using Firebase token
@@ -260,16 +318,23 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
 
         except Exception as firebase_err:
             # If Firebase validation fails, try Google SA token validation instead
+            logging.warning(f"Firebase token validation failed: {str(firebase_err)}")
+            logging.info("Attempting to validate as Google Service Account token...")
+
             # This will only succeed for tokens from the Gateway SA
             try:
                 gateway_claims = validate_gateway_sa_token(token)
+                logging.info(f"Gateway SA token validation successful. Claims keys: {list(gateway_claims.keys())}")
+                logging.debug(f"Gateway claims: {gateway_claims}")
 
                 # We need to extract the end-user ID from the Gateway token
                 # This is usually stored in custom claims
                 if "sub" not in gateway_claims:
+                    logging.warning("Gateway token validation succeeded but missing subject claim")
                     return None, 401, "Invalid Gateway token: missing subject claim"
 
                 gateway_sa_subject = gateway_claims.get("sub")
+                logging.info(f"Gateway SA subject: {gateway_sa_subject}")
 
                 # Accept any service account in production
                 # We're being called through the API Gateway, and the token has been validated,
@@ -280,6 +345,7 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
 
                 # Gateway SA token doesn't contain the Firebase user ID directly, so
                 # we should reject the request if we're missing the userinfo header
+                logging.warning("Gateway SA token found but missing required userinfo header")
                 return None, 401, "Missing required X-Endpoint-API-Userinfo or X-Apigateway-Api-Userinfo header"
 
             except Exception as gateway_err:
@@ -289,7 +355,7 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
                 return None, 401, "Invalid authentication token"
 
     except Exception as e:
-        logging.error(f"Unexpected error in authentication: {str(e)}")
+        logging.error(f"Unexpected error in authentication: {str(e)}", exc_info=True)
         return None, 500, f"Authentication error: {str(e)}"
 
 def _is_action_allowed(
@@ -678,25 +744,48 @@ def validate_firebase_id_token(token: str) -> dict:
 
     # Get the project ID from the environment
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "relexro")
+    logging.info(f"Validating Firebase token using project_id: {project_id}")
 
-    # Verify the token
-    decoded_token = google_id_token.verify_firebase_token(
-        token,
-        request,
-        audience=project_id
-    )
+    try:
+        # Verify the token
+        logging.info("Calling verify_firebase_token...")
+        decoded_token = google_id_token.verify_firebase_token(
+            token,
+            request,
+            audience=project_id
+        )
 
-    if not decoded_token:
-        raise ValueError("Invalid Firebase token")
+        if not decoded_token:
+            logging.warning("verify_firebase_token returned None")
+            raise ValueError("Invalid Firebase token")
 
-    # Verify that the token is from the expected issuer
-    issuer = decoded_token.get("iss")
-    expected_issuer = f"{EXPECTED_FIREBASE_ISSUER_PREFIX}{project_id}"
+        logging.info(f"Firebase token verified successfully. Token keys: {list(decoded_token.keys())}")
 
-    if not issuer or issuer != expected_issuer:
-        raise ValueError(f"Invalid token issuer: {issuer}")
+        # Verify that the token is from the expected issuer
+        issuer = decoded_token.get("iss")
+        expected_issuer = f"{EXPECTED_FIREBASE_ISSUER_PREFIX}{project_id}"
+        logging.info(f"Checking token issuer. Found: '{issuer}', Expected: '{expected_issuer}'")
 
-    return decoded_token
+        if not issuer:
+            logging.warning("Token is missing 'iss' claim")
+            raise ValueError("Token is missing issuer claim")
+
+        if issuer != expected_issuer:
+            logging.warning(f"Token issuer mismatch. Expected: '{expected_issuer}', Got: '{issuer}'")
+            raise ValueError(f"Invalid token issuer: {issuer}")
+
+        logging.info("Firebase token issuer verification successful")
+        return decoded_token
+
+    except ValueError as ve:
+        # Re-raise ValueError with the same message
+        logging.warning(f"Firebase token validation failed with ValueError: {str(ve)}")
+        raise
+
+    except Exception as e:
+        # Convert other exceptions to ValueError with a message
+        logging.error(f"Firebase token validation failed with unexpected error: {str(e)}", exc_info=True)
+        raise ValueError(f"Firebase token validation error: {str(e)}")
 
 def validate_gateway_sa_token(token: str) -> dict:
     """Validate a token issued by the API Gateway service account.
@@ -711,32 +800,84 @@ def validate_gateway_sa_token(token: str) -> dict:
         ValueError: If the token is invalid
     """
     request = google_auth_requests.Request()
+    logging.info("Validating Gateway Service Account token")
 
-    # For Google-issued tokens, we don't have a fixed audience like with Firebase.
-    # First, we need to extract the audience claim from the token to use it for validation.
-    token_parts = token.split('.')
-    if len(token_parts) != 3:
-        raise ValueError("Malformed JWT token received in Authorization header")
+    try:
+        # For Google-issued tokens, we don't have a fixed audience like with Firebase.
+        # First, we need to extract the audience claim from the token to use it for validation.
+        token_parts = token.split('.')
+        logging.info(f"JWT token has {len(token_parts)} parts")
 
-    # Decode the payload (second segment) to read the audience
-    padded_payload = token_parts[1] + '=' * (-len(token_parts[1]) % 4)
-    payload_json = json.loads(base64.urlsafe_b64decode(padded_payload).decode('utf-8'))
-    token_audience = payload_json.get('aud')
+        if len(token_parts) != 3:
+            logging.warning("Malformed JWT token: does not have 3 parts")
+            raise ValueError("Malformed JWT token received in Authorization header")
 
-    if not token_audience:
-        raise ValueError("Token missing 'aud' claim")
+        try:
+            # Decode the payload (second segment) to read the audience
+            logging.info("Decoding JWT payload to extract audience")
+            padded_payload = token_parts[1] + '=' * (-len(token_parts[1]) % 4)
 
-    # Now verify the token with the audience extracted above
-    decoded_token = google_id_token.verify_oauth2_token(
-        token,
-        request,
-        audience=token_audience
-    )
+            try:
+                decoded_bytes = base64.urlsafe_b64decode(padded_payload)
+                logging.info(f"Successfully base64 decoded JWT payload. Length: {len(decoded_bytes)} bytes")
+            except Exception as decode_err:
+                logging.error(f"Failed to base64 decode JWT payload: {str(decode_err)}")
+                raise ValueError(f"Failed to decode JWT payload: {str(decode_err)}")
 
-    if not decoded_token:
-        raise ValueError("Invalid OAuth2 token")
+            try:
+                decoded_str = decoded_bytes.decode('utf-8')
+                logging.info(f"Successfully UTF-8 decoded JWT payload. Length: {len(decoded_str)} chars")
+            except Exception as utf8_err:
+                logging.error(f"Failed to UTF-8 decode JWT payload: {str(utf8_err)}")
+                raise ValueError(f"Failed to decode JWT payload as UTF-8: {str(utf8_err)}")
 
-    return decoded_token
+            try:
+                payload_json = json.loads(decoded_str)
+                logging.info(f"Successfully JSON parsed JWT payload. Keys: {list(payload_json.keys())}")
+            except Exception as json_err:
+                logging.error(f"Failed to JSON parse JWT payload: {str(json_err)}")
+                raise ValueError(f"Failed to parse JWT payload as JSON: {str(json_err)}")
+
+            token_audience = payload_json.get('aud')
+            logging.info(f"Extracted audience from token: '{token_audience}'")
+
+            if not token_audience:
+                logging.warning("Token is missing 'aud' claim")
+                raise ValueError("Token missing 'aud' claim")
+
+            # Now verify the token with the audience extracted above
+            logging.info(f"Calling verify_oauth2_token with audience: '{token_audience}'")
+            decoded_token = google_id_token.verify_oauth2_token(
+                token,
+                request,
+                audience=token_audience
+            )
+
+            if not decoded_token:
+                logging.warning("verify_oauth2_token returned None")
+                raise ValueError("Invalid OAuth2 token")
+
+            logging.info(f"Gateway SA token verified successfully. Token keys: {list(decoded_token.keys())}")
+            return decoded_token
+
+        except ValueError:
+            # Re-raise ValueError exceptions
+            raise
+
+        except Exception as inner_e:
+            # Convert other exceptions to ValueError with a message
+            logging.error(f"Error processing JWT payload: {str(inner_e)}", exc_info=True)
+            raise ValueError(f"Error processing JWT payload: {str(inner_e)}")
+
+    except ValueError as ve:
+        # Re-raise ValueError with the same message
+        logging.warning(f"Gateway SA token validation failed with ValueError: {str(ve)}")
+        raise
+
+    except Exception as e:
+        # Convert other exceptions to ValueError with a message
+        logging.error(f"Gateway SA token validation failed with unexpected error: {str(e)}", exc_info=True)
+        raise ValueError(f"Gateway SA token validation error: {str(e)}")
 
 def requires_auth(func):
     """
