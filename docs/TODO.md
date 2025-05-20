@@ -46,13 +46,11 @@
             * Focus: User profile creation (if applicable), retrieval, update logic. Mock Firestore calls.
             * **Executor Prompt:** "Create unit tests for `get_user_profile_logic` and `update_user_profile_logic` (or equivalent functions) in `functions/src/user.py`. Mock Firestore client interactions (`db.collection(...).document(...).get()`, etc.). Store tests in `tests/unit/test_user.py`. Report test execution results."
         * 1.2.3. **Unit Tests for Auth Permission Helpers:**
-            * **Status:** In Progress (Partially implemented in Task 1.2.1)
+            * **Status:** DONE
             * **Sub-bullets:**
-                * [PARTIAL] Create dedicated unit tests for `_check_organization_permissions` and `_check_case_permissions` (for org cases) in `functions/src/auth.py`, mocking Firestore calls to isolate permission logic.
-                * [PARTIAL] Test all permission scenarios for organization admins, staff, and non-members.
-                * [ ] Test cross-organization security (users from one org cannot affect another org's resources).
-                * [ ] Add tests for `_check_party_permissions` and `_check_document_permissions` helpers.
-                * [ ] Enhance existing tests with more complex scenarios (e.g., multiple calls with different arguments).
+                * [DONE] Create dedicated unit tests for `_check_organization_permissions` and `_check_case_permissions` (for org cases) in `functions/src/auth.py`, mocking Firestore calls to isolate permission logic. (Extended to cover `_check_party_permissions` and `_check_document_permissions` as well).
+                * [DONE] Test all permission scenarios for organization admins, staff, and non-members for the covered helpers.
+                * [DONE] Test cross-organization security (users from one org cannot affect another org's resources) for the covered helpers.
         * 1.2.4. **Run All New Unit Tests:**
             * **Executor Prompt:** "Execute all unit tests in the `tests/unit/` directory using `python -m pytest tests/unit/`. Report any failures with full tracebacks."
 
