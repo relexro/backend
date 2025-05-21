@@ -110,10 +110,11 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Comprehensive unit tests for `organization.py` (covering create, get, update, delete, transactions, permissions).
 - [x] Comprehensive unit tests for `organization_membership.py` (covering all member functions, role logic, permissions).
 - [x] Comprehensive unit tests for `party.py` (covering all functions, validation, permissions).
+- [x] Comprehensive unit tests for core logic in `cases.py` (covering create, get, list, archive, delete; permissions and error handling).
 - [x] Business logic tests (general placeholder - specific modules like agent_nodes, templates covered)
 - [x] Agent workflow tests (covered by agent_nodes, llm_integration, agent_tools tests acting as unit/integration)
 - [ ] Payment processing tests (core logic unit tests for `payments.py` still to be explicitly itemized/confirmed beyond integration coverage)
-- [ ] File management tests (core logic unit tests for `cases.py` file ops, beyond current integration coverage)
+- [ ] File management tests (file operations beyond current integration coverage)
 - [x] Test warnings (protobuf, InsecureRequestWarning) suppressed via `pytest.ini` and `conftest.py` updates
 
 ### Integration Tests

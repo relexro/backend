@@ -84,7 +84,8 @@
             * **Executor Prompt:** "Analyze `functions/src/[module_name.py]`. Identify all functions and classes. Create comprehensive unit tests covering main logic paths, edge cases, and error handling. Mock all external dependencies (Firestore, other GCP services, external APIs). Store tests in `tests/unit/test_[module_name].py`. Report execution results and estimated coverage."
             * **Sub-Tasks (Examples):**
                 * [x] **Module: `functions/src/party.py`**: Comprehensive unit tests implemented, covering all functions, validation (CNP, CUI, RegCom), permission checks, and edge cases.
-                * Modules to cover: `cases.py`, `payments.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
+                * [x] **Module: `functions/src/cases.py`**: Comprehensive unit tests implemented for core logic, covering `create_case` (individual and org), `get_case`, `list_cases` (user and org, with filtering/pagination), `archive_case`, and `delete_case` (soft delete). Permission checks and error handling are included. (Note: `update_case` function not present in current module version).
+                * Modules to cover: `payments.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
 
 ### 2.2. Comprehensive Integration Testing
     * **Objective:** Ensure all API endpoints defined in `terraform/openapi_spec.yaml` are covered by integration tests located in `tests/integration/`.
