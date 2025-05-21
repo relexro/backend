@@ -99,6 +99,11 @@ def _authenticate_and_call(request: Request, logic_function, *, needs_end_user_i
 
         # Otherwise perform the authentication flow.
         auth_context, status_code, error_message = get_authenticated_user(request)  # from auth.py
+        logging.info(f"DEBUG_MAIN: _authenticate_and_call: Immediately after get_authenticated_user call - status_code: {status_code}, error_message: '{error_message}'")
+        if auth_context:
+            logging.info(f"DEBUG_MAIN: _authenticate_and_call: auth_context IS present. firebase_user_id: {getattr(auth_context, 'firebase_user_id', 'N/A')}, is_gateway_call: {getattr(auth_context, 'is_authenticated_call_from_gateway', 'N/A')}")
+        else:
+            logging.warning("DEBUG_MAIN: _authenticate_and_call: auth_context IS None after call to get_authenticated_user.")
 
         if error_message:
             return flask.jsonify({"error": error_message}), status_code

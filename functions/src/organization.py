@@ -24,9 +24,12 @@ def create_organization(request: Request):
     logging.info("Logic function create_organization called")
     try:
         request_json = request.get_json(silent=True)
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id
+        logging.debug(f"create_organization: Checking for end_user_id on request object. Available attributes: {dir(request)}")
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             logging.warning(f"create_organization: end_user_id missing or empty on request object. Flask request object: {request}")
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id
+        logging.info(f"create_organization: Successfully retrieved end_user_id: {user_id} for organization creation.")
 
         if not request_json:
             return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
@@ -75,9 +78,9 @@ def create_organization(request: Request):
         org_data = create_org_in_transaction(transaction, organization_id, name, description, address, contact_info, user_id)
 
         # Convert timestamps for JSON response if needed
-        if isinstance(org_data.get("createdAt"), datetime.datetime):
+        if isinstance(org_data.get("createdAt"), datetime):
              org_data["createdAt"] = org_data["createdAt"].isoformat()
-        if isinstance(org_data.get("updatedAt"), datetime.datetime):
+        if isinstance(org_data.get("updatedAt"), datetime):
              org_data["updatedAt"] = org_data["updatedAt"].isoformat()
 
         return flask.jsonify(org_data), 201
@@ -91,9 +94,9 @@ def get_organization(request: Request):
         organization_id = request.args.get('organizationId')
         if not organization_id:
             return flask.jsonify({"error": "Bad Request", "message": "Organization ID query parameter is required"}), 400
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id
 
         org_ref = db.collection('organizations').document(organization_id)
         org_doc = org_ref.get()
@@ -113,13 +116,13 @@ def get_organization(request: Request):
 
         org_data = org_doc.to_dict()
         # Convert timestamps for JSON response if needed
-        if isinstance(org_data.get("createdAt"), datetime.datetime):
+        if isinstance(org_data.get("createdAt"), datetime):
              org_data["createdAt"] = org_data["createdAt"].isoformat()
-        if isinstance(org_data.get("updatedAt"), datetime.datetime):
+        if isinstance(org_data.get("updatedAt"), datetime):
              org_data["updatedAt"] = org_data["updatedAt"].isoformat()
-        if isinstance(org_data.get("billingCycleStart"), datetime.datetime):
+        if isinstance(org_data.get("billingCycleStart"), datetime):
              org_data["billingCycleStart"] = org_data["billingCycleStart"].isoformat()
-        if isinstance(org_data.get("billingCycleEnd"), datetime.datetime):
+        if isinstance(org_data.get("billingCycleEnd"), datetime):
              org_data["billingCycleEnd"] = org_data["billingCycleEnd"].isoformat()
 
         return flask.jsonify(org_data), 200
@@ -131,9 +134,9 @@ def update_organization(request: Request):
     logging.info("Logic function update_organization called")
     try:
         request_json = request.get_json(silent=True)
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id
 
         if not request_json: return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
 
@@ -175,20 +178,20 @@ def update_organization(request: Request):
             updated_org_data = updated_org_doc.to_dict()
 
             # Convert timestamps
-            if isinstance(updated_org_data.get("createdAt"), datetime.datetime):
+            if isinstance(updated_org_data.get("createdAt"), datetime):
                  updated_org_data["createdAt"] = updated_org_data["createdAt"].isoformat()
-            if isinstance(updated_org_data.get("updatedAt"), datetime.datetime):
+            if isinstance(updated_org_data.get("updatedAt"), datetime):
                  updated_org_data["updatedAt"] = updated_org_data["updatedAt"].isoformat()
-            if isinstance(updated_org_data.get("billingCycleStart"), datetime.datetime):
+            if isinstance(updated_org_data.get("billingCycleStart"), datetime):
                  updated_org_data["billingCycleStart"] = updated_org_data["billingCycleStart"].isoformat()
-            if isinstance(updated_org_data.get("billingCycleEnd"), datetime.datetime):
+            if isinstance(updated_org_data.get("billingCycleEnd"), datetime):
                  updated_org_data["billingCycleEnd"] = updated_org_data["billingCycleEnd"].isoformat()
 
             return flask.jsonify(updated_org_data), 200
         except Exception as e:
             logging.error(f"Firestore update operation failed: {str(e)}", exc_info=True)
             return flask.jsonify({"error": "Database Error", "message": f"Failed to update organization: {str(e)}"}), 500
-            
+
     except Exception as e:
         logging.error(f"Error updating organization: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
@@ -197,9 +200,9 @@ def delete_organization(request: Request):
     logging.info("Logic function delete_organization called")
     try:
         request_json = request.get_json(silent=True)
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id
 
         if not request_json:
             return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400

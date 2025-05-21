@@ -27,9 +27,9 @@ def add_organization_member(request: Request):
     logging.info("Logic function add_organization_member called")
     try:
         request_json = request.get_json(silent=True)
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id # User performing the action
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id # User performing the action
 
         if not request_json: return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
 
@@ -71,7 +71,7 @@ def add_organization_member(request: Request):
         }
         member_ref.set(member_data)
 
-        member_data['joinedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        member_data['joinedAt'] = datetime.now().isoformat()
         return flask.jsonify(member_data), 201
     except Exception as e:
         logging.error(f"Error adding member: {str(e)}", exc_info=True)
@@ -80,9 +80,9 @@ def set_organization_member_role(request: Request):
     logging.info("Logic function set_organization_member_role called")
     try:
         request_json = request.get_json(silent=True)
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id # User performing action
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id # User performing action
 
         if not request_json: return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
 
@@ -128,9 +128,9 @@ def set_organization_member_role(request: Request):
         })
 
         updated_member_data = member_ref.get().to_dict()
-        if isinstance(updated_member_data.get("joinedAt"), datetime.datetime):
+        if isinstance(updated_member_data.get("joinedAt"), datetime):
              updated_member_data["joinedAt"] = updated_member_data["joinedAt"].isoformat()
-        if isinstance(updated_member_data.get("updatedAt"), datetime.datetime):
+        if isinstance(updated_member_data.get("updatedAt"), datetime):
              updated_member_data["updatedAt"] = updated_member_data["updatedAt"].isoformat()
 
         return flask.jsonify(updated_member_data), 200
@@ -144,9 +144,9 @@ def list_organization_members(request: Request):
         organization_id = request.args.get('organizationId')
         if not organization_id:
             return flask.jsonify({"error": "Bad Request", "message": "Organization ID query parameter is required"}), 400
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id
 
         org_ref = db.collection('organizations').document(organization_id)
         if not org_ref.get().exists:
@@ -181,7 +181,7 @@ def list_organization_members(request: Request):
                  user_info['displayName'] = "Profile N/A"
                  user_info['email'] = "N/A"
 
-            if isinstance(member_data.get("joinedAt"), datetime.datetime):
+            if isinstance(member_data.get("joinedAt"), datetime):
                  user_info["joinedAt"] = member_data["joinedAt"].isoformat()
             else:
                  user_info["joinedAt"] = None
@@ -196,9 +196,9 @@ def remove_organization_member(request: Request):
     logging.info("Logic function remove_organization_member called")
     try:
         request_json = request.get_json(silent=True)
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        user_id = request.user_id # User performing action
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        user_id = request.end_user_id # User performing action
 
         if not request_json: return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
 
@@ -252,9 +252,9 @@ def get_user_organization_role(request: Request):
 
         if not organization_id:
             return flask.jsonify({"error": "Bad Request", "message": "Organization ID query parameter is required"}), 400
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        requesting_user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        requesting_user_id = request.end_user_id
 
         target_user_id = target_user_id_param if target_user_id_param else requesting_user_id
 
@@ -293,9 +293,9 @@ def list_user_organizations(request: Request):
     logging.info("Logic function list_user_organizations called")
     try:
         target_user_id_param = request.args.get('userId') # Optional param
-        if not hasattr(request, 'user_id'):
-             return flask.jsonify({"error": "Unauthorized", "message": "Authentication data missing"}), 401
-        requesting_user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+        requesting_user_id = request.end_user_id
 
         target_user_id = target_user_id_param if target_user_id_param else requesting_user_id
 
@@ -323,7 +323,7 @@ def list_user_organizations(request: Request):
                     'role': member_data.get('role'), # Role in this specific org
                 }
                 # Convert joinedAt timestamp
-                if isinstance(member_data.get("joinedAt"), datetime.datetime):
+                if isinstance(member_data.get("joinedAt"), datetime):
                      org_info["joinedAt"] = member_data["joinedAt"].isoformat()
                 else:
                      org_info["joinedAt"] = None

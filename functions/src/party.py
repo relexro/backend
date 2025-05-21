@@ -22,9 +22,9 @@ db = firestore.client() # Use firebase_admin's firestore client
 def create_party(request: Request):
     logging.info("Logic function create_party called")
     try:
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         request_data = request.get_json(silent=True)
         if not request_data:
@@ -101,9 +101,9 @@ def create_party(request: Request):
 
         result = party_ref.get().to_dict() # Read back data to include timestamps
         result["partyId"] = party_id
-        if isinstance(result.get("createdAt"), datetime.datetime): result["createdAt"] = result["createdAt"].isoformat()
-        if isinstance(result.get("updatedAt"), datetime.datetime): result["updatedAt"] = result["updatedAt"].isoformat()
-        if result.get("signatureData") and isinstance(result["signatureData"].get("capturedAt"), datetime.datetime):
+        if isinstance(result.get("createdAt"), datetime): result["createdAt"] = result["createdAt"].isoformat()
+        if isinstance(result.get("updatedAt"), datetime): result["updatedAt"] = result["updatedAt"].isoformat()
+        if result.get("signatureData") and isinstance(result["signatureData"].get("capturedAt"), datetime):
             result["signatureData"]["capturedAt"] = result["signatureData"]["capturedAt"].isoformat()
 
         return result, 201
@@ -114,9 +114,9 @@ def create_party(request: Request):
 def get_party(request: Request):
     logging.info("Logic function get_party called")
     try:
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         party_id = request.args.get("partyId") # Get ID from query param
         if not party_id:
@@ -141,9 +141,9 @@ def get_party(request: Request):
 
         result = party_data
         result["partyId"] = party_id
-        if isinstance(result.get("createdAt"), datetime.datetime): result["createdAt"] = result["createdAt"].isoformat()
-        if isinstance(result.get("updatedAt"), datetime.datetime): result["updatedAt"] = result["updatedAt"].isoformat()
-        if result.get("signatureData") and isinstance(result["signatureData"].get("capturedAt"), datetime.datetime):
+        if isinstance(result.get("createdAt"), datetime): result["createdAt"] = result["createdAt"].isoformat()
+        if isinstance(result.get("updatedAt"), datetime): result["updatedAt"] = result["updatedAt"].isoformat()
+        if result.get("signatureData") and isinstance(result["signatureData"].get("capturedAt"), datetime):
             result["signatureData"]["capturedAt"] = result["signatureData"]["capturedAt"].isoformat()
 
         return result, 200
@@ -155,9 +155,9 @@ def get_party(request: Request):
 def update_party(request: Request):
     logging.info("Logic function update_party called")
     try:
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         request_data = request.get_json(silent=True)
         if not request_data: return {"error": "Bad Request", "message": "Request body required"}, 400
@@ -245,9 +245,9 @@ def update_party(request: Request):
         updated_doc = party_ref.get()
         result = updated_doc.to_dict()
         result["partyId"] = party_id
-        if isinstance(result.get("createdAt"), datetime.datetime): result["createdAt"] = result["createdAt"].isoformat()
-        if isinstance(result.get("updatedAt"), datetime.datetime): result["updatedAt"] = result["updatedAt"].isoformat()
-        if result.get("signatureData") and isinstance(result["signatureData"].get("capturedAt"), datetime.datetime):
+        if isinstance(result.get("createdAt"), datetime): result["createdAt"] = result["createdAt"].isoformat()
+        if isinstance(result.get("updatedAt"), datetime): result["updatedAt"] = result["updatedAt"].isoformat()
+        if result.get("signatureData") and isinstance(result["signatureData"].get("capturedAt"), datetime):
             result["signatureData"]["capturedAt"] = result["signatureData"]["capturedAt"].isoformat()
 
         return result, 200
@@ -258,9 +258,9 @@ def update_party(request: Request):
 def delete_party(request: Request):
     logging.info("Logic function delete_party called")
     try:
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         party_id = request.args.get("partyId") # Get ID from query param
         if not party_id:
@@ -295,9 +295,9 @@ def delete_party(request: Request):
 def list_parties(request: Request):
     logging.info("Logic function list_parties called")
     try:
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         parties_query = db.collection("parties").where("userId", "==", user_id).order_by("createdAt", direction=firestore.Query.DESCENDING)
 
@@ -318,9 +318,9 @@ def list_parties(request: Request):
         for doc in parties_docs:
             party_data = doc.to_dict()
             party_data["partyId"] = doc.id
-            if isinstance(party_data.get("createdAt"), datetime.datetime): party_data["createdAt"] = party_data["createdAt"].isoformat()
-            if isinstance(party_data.get("updatedAt"), datetime.datetime): party_data["updatedAt"] = party_data["updatedAt"].isoformat()
-            if party_data.get("signatureData") and isinstance(party_data["signatureData"].get("capturedAt"), datetime.datetime):
+            if isinstance(party_data.get("createdAt"), datetime): party_data["createdAt"] = party_data["createdAt"].isoformat()
+            if isinstance(party_data.get("updatedAt"), datetime): party_data["updatedAt"] = party_data["updatedAt"].isoformat()
+            if party_data.get("signatureData") and isinstance(party_data["signatureData"].get("capturedAt"), datetime):
                  party_data["signatureData"]["capturedAt"] = party_data["signatureData"]["capturedAt"].isoformat()
             parties.append(party_data)
 

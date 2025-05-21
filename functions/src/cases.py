@@ -43,10 +43,10 @@ def create_case(request: Request):
             logging.error("Bad Request: No JSON data provided")
             return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
 
-        if not hasattr(request, 'user_id'):
-             logging.error("Authentication error: user_id not found on request")
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             logging.error("Authentication error: end_user_id not found on request")
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         title = data.get("title")
         description = data.get("description")
@@ -130,9 +130,9 @@ def get_case(request: Request):
 
         if not case_id:
             return ({"error": "Bad Request", "message": "Case ID missing in URL path"}, 400)
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         case_doc = db.collection("cases").document(case_id).get()
         if not case_doc.exists:
@@ -159,9 +159,9 @@ def get_case(request: Request):
 def list_cases(request: Request):
     logging.info("Logic function list_cases called")
     try:
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         organization_id = request.args.get("organizationId")
         status_filter = request.args.get("status")
@@ -242,9 +242,9 @@ def archive_case(request: Request):
         case_id = path_parts[-1] if path_parts else None
         if not case_id:
             return ({"error": "Bad Request", "message": "Case ID missing in URL path"}, 400)
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         case_ref = db.collection("cases").document(case_id)
         case_doc = case_ref.get()
@@ -279,9 +279,9 @@ def delete_case(request: Request):
         case_id = path_parts[-1] if path_parts else None
         if not case_id:
             return ({"error": "Bad Request", "message": "Case ID missing in URL path"}, 400)
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         case_ref = db.collection("cases").document(case_id)
         case_doc = case_ref.get()
@@ -323,9 +323,9 @@ def upload_file(request: Request):
         if not case_id:
             return ({"error": "Bad Request", "message": "Case ID missing in URL path (e.g., /cases/{case_id}/files)"}, 400)
 
-        if not hasattr(request, 'user_id'):
-            return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+            return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         # Read raw file data from the request body
         file_data = request.get_data()
@@ -421,9 +421,9 @@ def download_file(request: Request):
         document_id = path_parts[-2] if len(path_parts) >= 2 and path_parts[-1] == 'download' else None
         if not document_id:
             return ({"error": "Bad Request", "message": "Document ID missing in URL path (e.g., /documents/{document_id}/download)"}, 400)
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         document_ref = db.collection("documents").document(document_id)
         document_doc = document_ref.get()
@@ -488,9 +488,9 @@ def attach_party_to_case(request: Request):
         if not case_id:
             return ({"error": "Bad Request", "message": "Case ID missing in URL path (e.g., /cases/{case_id}/attach_party)"}, 400)
 
-        if not hasattr(request, 'user_id'):
-             return {"error": "Unauthorized", "message": "Authentication data missing"}, 401
-        user_id = request.user_id
+        if not hasattr(request, 'end_user_id') or not request.end_user_id:
+             return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
+        user_id = request.end_user_id
 
         data = request.get_json(silent=True)
         if not data:
