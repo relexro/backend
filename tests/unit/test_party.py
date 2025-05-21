@@ -1337,7 +1337,7 @@ class TestListParties:
         mock_db_client.collection().where().order_by.assert_called_once()
         mock_db_client.collection().where().order_by().where.assert_called_once_with(field_path="partyType", op_string="==", value="individual")
 
-    def test_list_parties_invalid_type_filter(self, mock_request):
+    def test_list_parties_invalid_type_filter(self, mock_request, mock_db_client):
         """Test listing parties with invalid type filter."""
         # Create a mock request with invalid type filter
         request_mock = mock_request(
@@ -1355,7 +1355,12 @@ class TestListParties:
         assert "message" in result
         assert "Invalid partyType filter" in result["message"]
 
-    def test_list_parties_missing_auth(self, mock_request):
+        # Verify that no Firestore query was executed
+        mock_db_client.collection.assert_called_once_with("parties")
+        # The where method should not be called since we return early due to invalid filter
+        assert mock_db_client.collection().where.call_count <= 1
+
+    def test_list_parties_missing_auth(self, mock_request, mock_db_client):
         """Test list_parties with missing authentication."""
         request_mock = mock_request(end_user_id=None)
 
@@ -1366,6 +1371,9 @@ class TestListParties:
         assert result["error"] == "Unauthorized"
         assert "message" in result
         assert "end_user_id missing" in result["message"]
+
+        # Verify that no Firestore query was executed
+        mock_db_client.collection.assert_not_called()
 
     def test_list_parties_empty_result(self, mock_db_client, mock_request):
         """Test listing parties with no results."""

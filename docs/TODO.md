@@ -44,6 +44,7 @@
             * **Original Executor Prompt (Reference for initial scope):** "Create comprehensive unit tests for all functions in `functions/src/auth.py`. Ensure `_verify_firebase_jwt` (or equivalent) is tested with various token states. Mock external calls (e.g., `firebase_admin.auth.verify_id_token`). Store tests in `tests/unit/test_auth.py`. Report test execution results."
         * 1.2.2. **Unit Tests for `functions/src/user.py` (Core Functions):**
             * Focus: User profile creation (if applicable), retrieval, update logic. Mock Firestore calls.
+            * **Status:** DONE.
             * **Executor Prompt:** "Create unit tests for `get_user_profile_logic` and `update_user_profile_logic` (or equivalent functions) in `functions/src/user.py`. Mock Firestore client interactions (`db.collection(...).document(...).get()`, etc.). Store tests in `tests/unit/test_user.py`. Report test execution results."
         * 1.2.3. **Unit Tests for Auth Permission Helpers:**
             * **Status:** DONE
@@ -78,13 +79,7 @@
         * 2.1.1. **Module: `functions/src/organization.py`**
             * [x] Create comprehensive unit tests for all functions in `organization.py`, mocking Firestore and `check_permission`. (Covers `create_organization`, `get_organization`, `update_organization`, `delete_organization` including transaction logic, validation, and permission scenarios).
         * 2.1.2. **Module: `functions/src/organization_membership.py`**
-            * [ ] Create comprehensive unit tests for all functions in `organization_membership.py`, mocking Firestore and `check_permission`.
-            * [ ] Test `add_organization_member` with valid and invalid inputs.
-            * [ ] Test `set_organization_member_role` with various role transitions.
-            * [ ] Test `list_organization_members` with different permission scenarios.
-            * [ ] Test `remove_organization_member` including last admin checks.
-            * [ ] Test `get_user_organization_role` with various user/org combinations.
-            * [ ] Test `list_user_organizations` with users belonging to multiple organizations.
+            * [x] Create comprehensive unit tests for all functions in `organization_membership.py`, mocking Firestore and `check_permission`. (Tests implemented in `tests/integration/test_organization_membership.py` cover unit-level logic for `add_organization_member`, `set_organization_member_role`, `list_organization_members`, `remove_organization_member`, `get_user_organization_role`, `list_user_organizations`).
         * 2.1.3. **Module: `[module_name.py]`**
             * **Executor Prompt:** "Analyze `functions/src/[module_name.py]`. Identify all functions and classes. Create comprehensive unit tests covering main logic paths, edge cases, and error handling. Mock all external dependencies (Firestore, other GCP services, external APIs). Store tests in `tests/unit/test_[module_name].py`. Report execution results and estimated coverage."
             * **Sub-Tasks (Examples):**
