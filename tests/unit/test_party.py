@@ -1294,7 +1294,7 @@ class TestListParties:
 
         # Verify the query was constructed correctly
         mock_db_client.collection.assert_called_once_with("parties")
-        mock_db_client.collection().where.assert_called_once_with("userId", "==", "test-user-123")
+        mock_db_client.collection().where.assert_called_once_with(field_path="userId", op_string="==", value="test-user-123")
         mock_db_client.collection().where().order_by.assert_called_once()
 
     def test_list_parties_with_type_filter(self, mock_db_client, mock_request):
@@ -1333,9 +1333,9 @@ class TestListParties:
 
         # Verify the query was constructed correctly with the filter
         mock_db_client.collection.assert_called_once_with("parties")
-        mock_db_client.collection().where.assert_called_once_with("userId", "==", "test-user-123")
+        mock_db_client.collection().where.assert_called_once_with(field_path="userId", op_string="==", value="test-user-123")
         mock_db_client.collection().where().order_by.assert_called_once()
-        mock_db_client.collection().where().order_by().where.assert_called_once_with("partyType", "==", "individual")
+        mock_db_client.collection().where().order_by().where.assert_called_once_with(field_path="partyType", op_string="==", value="individual")
 
     def test_list_parties_invalid_type_filter(self, mock_request):
         """Test listing parties with invalid type filter."""

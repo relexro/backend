@@ -282,7 +282,8 @@ def delete_party(request: Request):
             return {"error": message}, 403
 
         # Check if party is attached to any *active* cases?
-        cases_query = db.collection("cases").where("attachedPartyIds", "array_contains", party_id).where("status", "!=", "deleted").limit(1).stream()
+        # Use where() method with keyword arguments instead of positional arguments
+        cases_query = db.collection("cases").where(field_path="attachedPartyIds", op_string="array_contains", value=party_id).where(field_path="status", op_string="!=", value="deleted").limit(1).stream()
         if list(cases_query):
             return {"error": "Conflict", "message": "Cannot delete party attached to active cases"}, 409
 
@@ -299,13 +300,14 @@ def list_parties(request: Request):
              return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
         user_id = request.end_user_id
 
-        parties_query = db.collection("parties").where("userId", "==", user_id).order_by("createdAt", direction=firestore.Query.DESCENDING)
+        # Use where() method with keyword arguments instead of positional arguments
+        parties_query = db.collection("parties").where(field_path="userId", op_string="==", value=user_id).order_by("createdAt", direction=firestore.Query.DESCENDING)
 
         party_type_filter = request.args.get("partyType")
         if party_type_filter:
             if party_type_filter not in ["individual", "organization"]:
                 return {"error": "Bad Request", "message": "Invalid partyType filter"}, 400
-            parties_query = parties_query.where("partyType", "==", party_type_filter)
+            parties_query = parties_query.where(field_path="partyType", op_string="==", value=party_type_filter)
 
         # Add pagination?
         limit = int(request.args.get("limit", "100")) # Default limit
