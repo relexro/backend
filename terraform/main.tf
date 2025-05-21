@@ -20,6 +20,14 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.2" # Example constraint
     }
+    stripe = {
+      source  = "umisora/stripe"
+      version = "~> 1.3.8" # Latest version as of implementation
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2.0"
+    }
   }
 }
 
@@ -37,6 +45,11 @@ provider "google-beta" {
 # Configure Cloudflare provider
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
+}
+
+# Configure Stripe provider
+provider "stripe" {
+  api_key = var.stripe_secret_key
 }
 
 locals {
@@ -197,6 +210,55 @@ module "iam" {
 
   depends_on = [
     google_service_account.functions
+  ]
+}
+
+# Verify Stripe API key before creating resources
+resource "null_resource" "verify_stripe_api_key" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Verifying Stripe API key..."
+      curl -s -X GET "https://api.stripe.com/v1/account" \
+        -H "Authorization: Bearer ${var.stripe_secret_key}" \
+        -o /tmp/stripe_account_check.json
+
+      if grep -q "error" /tmp/stripe_account_check.json; then
+        echo "ERROR: Invalid Stripe API key or API key does not have access to this account"
+        cat /tmp/stripe_account_check.json
+        exit 1
+      else
+        echo "Stripe API key verification successful"
+        ACCOUNT_ID=$(grep -o '"id": "[^"]*' /tmp/stripe_account_check.json | head -1 | cut -d'"' -f4)
+        echo "Connected to Stripe account: $ACCOUNT_ID"
+        rm /tmp/stripe_account_check.json
+      fi
+    EOT
+  }
+}
+
+# Configure Stripe resources
+module "stripe" {
+  source      = "./modules/stripe"
+  environment = var.environment
+  webhook_url = "https://${module.api_gateway.gateway_hostname}/v1/webhooks/stripe"
+
+  providers = {
+    stripe = stripe
+    null   = null
+  }
+
+  depends_on = [
+    null_resource.verify_stripe_api_key
+  ]
+}
+
+# Add the Stripe webhook secret to Secret Manager
+resource "google_secret_manager_secret_version" "stripe_webhook_secret" {
+  secret      = "projects/${var.project_id}/secrets/stripe-webhook-secret"
+  secret_data = module.stripe.webhook_endpoint_secret
+
+  depends_on = [
+    module.stripe
   ]
 }
 /*
