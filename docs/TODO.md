@@ -76,11 +76,7 @@
     * **Objective:** Achieve >80% unit test coverage for all modules in `functions/src/`, with tests residing in `tests/unit/`.
     * **Sub-Tasks:** (For each `.py` file in `functions/src/` not yet covered)
         * 2.1.1. **Module: `functions/src/organization.py`**
-            * [ ] Create comprehensive unit tests for all functions in `organization.py`, mocking Firestore and `check_permission`.
-            * [x] Unit tests for `create_organization` implemented, verifying correct use of `request.end_user_id` and core logic. (Further tests for all valid/invalid inputs and full transaction logic may be pending).
-            * [ ] Test `get_organization` with various permission scenarios.
-            * [ ] Test `update_organization` with valid and invalid inputs, verifying field validation.
-            * [ ] Test `delete_organization` including subscription checks and transaction logic for deletion.
+            * [x] Create comprehensive unit tests for all functions in `organization.py`, mocking Firestore and `check_permission`. (Covers `create_organization`, `get_organization`, `update_organization`, `delete_organization` including transaction logic, validation, and permission scenarios).
         * 2.1.2. **Module: `functions/src/organization_membership.py`**
             * [ ] Create comprehensive unit tests for all functions in `organization_membership.py`, mocking Firestore and `check_permission`.
             * [ ] Test `add_organization_member` with valid and invalid inputs.
@@ -91,7 +87,9 @@
             * [ ] Test `list_user_organizations` with users belonging to multiple organizations.
         * 2.1.3. **Module: `[module_name.py]`**
             * **Executor Prompt:** "Analyze `functions/src/[module_name.py]`. Identify all functions and classes. Create comprehensive unit tests covering main logic paths, edge cases, and error handling. Mock all external dependencies (Firestore, other GCP services, external APIs). Store tests in `tests/unit/test_[module_name].py`. Report execution results and estimated coverage."
-            * Modules to cover: `cases.py`, `payments.py`, `party.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
+            * **Sub-Tasks (Examples):**
+                * [x] **Module: `functions/src/party.py`**: Comprehensive unit tests implemented, covering all functions, validation (CNP, CUI, RegCom), permission checks, and edge cases.
+                * Modules to cover: `cases.py`, `payments.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
 
 ### 2.2. Comprehensive Integration Testing
     * **Objective:** Ensure all API endpoints defined in `terraform/openapi_spec.yaml` are covered by integration tests located in `tests/integration/`.
