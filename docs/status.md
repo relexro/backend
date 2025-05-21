@@ -27,10 +27,10 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Staff assignment validation for organization cases
 - [x] Document permissions based on parent case access
 - [x] User profile management
-- [x] End-user identity propagation from API Gateway to backend (including /v1/users/me user creation-on-demand)
+- [x] End-user identity propagation from API Gateway to backend (robustness improved with `end_user_id` and `auth.py` client fixes)
 
 ### Business/Organization Management
-- [x] Organization account creation
+- [x] Organization account creation (robustness improved with `end_user_id`, datetime handling, and sentinel serialization fixes)
 - [x] Organization management
 - [x] Member management with roles
 - [x] Organization profile updates
@@ -105,16 +105,18 @@ This document tracks the implementation status of the Relex backend components.
 ## Testing Status
 
 ### Unit Tests
-- [PARTIAL] Authentication logic in `auth.py` (56% coverage: token validation, user extraction, core auth functions tested; HTTP endpoints and detailed permission helper coverage pending)
+- [PARTIAL] Authentication logic in `auth.py` (56% coverage: token validation, user extraction, core auth functions tested; HTTP endpoints and detailed permission helper coverage pending; Firestore client usage corrected)
 - [PARTIAL] Permission checking logic in `auth.py` (foundational tests for org and case permissions; party, document, and more edge cases pending)
 - [x] Business logic tests
 - [x] Agent workflow tests
 - [x] User profile logic in `user.py` (including language preference)
+- [NEW] Unit tests for `create_organization` in `organization.py` added (verifying correct use of `request.end_user_id` and core logic)
 - [ ] Payment processing tests
 - [ ] File management tests
+- [x] Test warnings (protobuf, InsecureRequestWarning) suppressed via `pytest.ini` and `conftest.py` updates
 
 ### Integration Tests
-- [x] API endpoint tests
+- [x] API endpoint tests (Organization creation and related flows now passing after critical bug fixes)
 - [x] Firebase integration tests
 - [x] LangGraph integration tests
 - [ ] Stripe integration tests
@@ -153,6 +155,17 @@ This document tracks the implementation status of the Relex backend components.
 ## Current System Status
 
 ### Latest Updates
+---
+**Date:** 2025-05-28
+**Update:** Successfully resolved several critical bugs and enhanced test robustness. Key changes include:
+* Corrected user identification by changing `request.user_id` to `request.end_user_id` in `functions/src/organization.py`, `functions/src/cases.py`, `functions/src/party.py`, and `functions/src/organization_membership.py`.
+* Standardized `datetime` usage in `functions/src/organization.py`, `functions/src/organization_membership.py`, and `functions/src/party.py`.
+* Fixed Firestore sentinel value serialization in `create_org_in_transaction`, `add_organization_member`, and `set_organization_member_role` functions.
+* Resolved Firestore client import issue in `functions/src/auth.py`.
+* Added detailed logging to `create_organization` and `_authenticate_and_call` in `main.py`.
+* Suppressed test warnings via `pytest.ini` and updated `tests/conftest.py` (SSL verification default, `RELEX_TEST_VERIFY_SSL` env var).
+* Implemented unit tests for `create_organization` in `tests/unit/test_organization.py`.
+As a result, all tests are now passing without warnings, confirming the stability of these fixes.
 ---
 **Date:** 2025-05-26
 **Update:** Implemented comprehensive unit tests for `functions/src/auth.py`, achieving 56% code coverage. Tests cover token validation (`validate_firebase_id_token`, `validate_gateway_sa_token`), user extraction (`get_authenticated_user`), the `requires_auth` decorator, `PermissionCheckRequest` model validation, and foundational permission checking logic (`_check_organization_permissions`, `_check_case_permissions`). Enhanced test fixtures for mocking Firestore interactions with complex scenarios. Remaining coverage gaps include HTTP endpoint functions, `add_cors_headers` decorator, and more detailed permission helper tests.
@@ -195,6 +208,11 @@ This document tracks the implementation status of the Relex backend components.
 - **Backend Authentication of Gateway SA**: Properly validating Google OIDC ID token from API Gateway - RESOLVED
 - **End-User Identity Propagation**: Implemented extraction of end-user identity from `X-Endpoint-API-Userinfo` header and user creation-on-demand for `/v1/users/me` - IMPLEMENTED & VERIFIED for `/v1/users/me` and related endpoints
 - **Cloud Function Health Check Mechanism**: Standardized to use `X-Google-Health-Check` header - IMPLEMENTED
+- **User ID Propagation in API Handlers**: Corrected propagation of `end_user_id` (formerly `user_id`) in core API handlers - RESOLVED
+- **Datetime Handling Inconsistencies**: Addressed `datetime.datetime` vs `datetime` inconsistencies across multiple modules - RESOLVED
+- **Firestore Sentinel Serialization**: Resolved `SERVER_TIMESTAMP` sentinel serialization issues in Firestore transactions - RESOLVED
+- **Firestore Client Import**: Fixed duplicate/incorrect Firestore client import and usage in `auth.py` - RESOLVED
+- **Test Warnings**: Eliminated `pytest` warnings (Google protobuf, InsecureRequestWarning) via configuration - RESOLVED
 
 ### Key Unresolved Issues
 

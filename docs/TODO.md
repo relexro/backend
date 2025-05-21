@@ -63,9 +63,9 @@
             * If only retrieval: Confirm `GET /users/me` (already covered by 1.1.3 if successful).
             * **Executor Prompt (if creation endpoint exists):** "Develop an integration test for user creation (e.g., `POST /v1/users`) followed by retrieval (`GET /v1/users/me`). Use a valid test JWT. Assert 201/200 status codes and validate response data. Store in `tests/integration/test_user.py`. Report execution results."
         * 1.3.2. **Integration Test: Organization Creation & Retrieval:**
-            * Test `POST /organizations` to create a new organization.
-            * Test `GET /organizations/{orgId}` to retrieve the created organization.
-            * Test `GET /organizations` (or `/users/me/organizations`) to list user's organizations.
+            * Test `POST /organizations` to create a new organization. - DONE (Key functionalities fixed: `end_user_id` propagation, datetime handling, sentinel value serialization, and Firestore client issues in auth. All tests now passing.)
+            * Test `GET /organizations/{orgId}` to retrieve the created organization. - DONE (Fixed Firestore client import issue in auth.py, all tests now passing.)
+            * Test `GET /organizations` (or `/users/me/organizations`) to list user's organizations. - DONE (All tests now passing.)
             * **Executor Prompt:** "Develop integration tests for: 1. Creating an organization (`POST /v1/organizations`) with payload `{\"name\": \"Test Org Integration\"}`. 2. Retrieving the created org by its ID. 3. Listing organizations for the test user. Use a valid test JWT. Assert appropriate status codes and response data. Store in `tests/integration/test_organization.py`. Report execution results."
         * 1.3.3. **Run Core Integration Tests:**
             * **Executor Prompt:** "Execute integration tests: `test_user.py` and `test_organization.py` from `tests/integration/` against the deployed dev environment. Ensure `RELEX_API_BASE_URL` (e.g., `https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/`) and the appropriate authentication tokens (`RELEX_TEST_JWT`, `RELEX_ORG_ADMIN_TEST_JWT`, and `RELEX_ORG_USER_TEST_JWT`) are set as environment variables for the test execution environment. Report failures with request/response details."
@@ -77,7 +77,7 @@
     * **Sub-Tasks:** (For each `.py` file in `functions/src/` not yet covered)
         * 2.1.1. **Module: `functions/src/organization.py`**
             * [ ] Create comprehensive unit tests for all functions in `organization.py`, mocking Firestore and `check_permission`.
-            * [ ] Test `create_organization` with valid and invalid inputs, verifying transaction logic.
+            * [x] Unit tests for `create_organization` implemented, verifying correct use of `request.end_user_id` and core logic. (Further tests for all valid/invalid inputs and full transaction logic may be pending).
             * [ ] Test `get_organization` with various permission scenarios.
             * [ ] Test `update_organization` with valid and invalid inputs, verifying field validation.
             * [ ] Test `delete_organization` including subscription checks and transaction logic for deletion.
@@ -129,6 +129,7 @@
             * **Executor Prompt (Code Modification):** "Based on the investigation for the failing `[HTTP Method] [path]` test, modify `functions/src/[file_to_fix.py]`. Replace/update the code at `[specific function/line numbers]` with the following: `[complete new code snippet]`.
         * 4. **Re-test:**
             * **Executor Prompt:** "After applying the fix for `[HTTP Method] [path]`, re-run the specific failing test `[test_function_name]` and then the entire `tests/integration/test_[resource_name].py` suite. Report results."
+        * [DONE] Addressed multiple core issues (May 2025 cycle): Fixed `request.user_id` to `request.end_user_id` across `organization.py`, `cases.py`, `party.py`, `organization_membership.py`. Resolved datetime usage inconsistencies. Fixed Firestore sentinel serialization in `create_org_in_transaction`, `add_organization_member`, `set_organization_member_role`. Corrected Firestore client import in `auth.py`. Added `pytest.ini` to suppress test warnings. These fixes resulted in all tests passing.
 
 ## Phase 3: Refinement, Documentation & Ongoing Maintenance
 

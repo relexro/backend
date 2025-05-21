@@ -294,13 +294,17 @@ def create_api_client(api_base_url, token):
     import requests
     import urllib3
 
-    # Disable SSL verification warnings
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    # Configure SSL verification
+    # For tests, we'll use verify=True with a custom environment variable to override if needed
+    verify_ssl = os.environ.get("RELEX_TEST_VERIFY_SSL", "true").lower() != "false"
+
+    if not verify_ssl:
+        # Only disable warnings if we're explicitly disabling verification
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     session = requests.Session()
     session.headers.update({"Authorization": f"Bearer {token}"})
-    # Disable SSL verification for development environments
-    session.verify = False
+    session.verify = verify_ssl
 
     class APIClient:
         def __init__(self, session, base_url):
