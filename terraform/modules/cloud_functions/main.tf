@@ -124,7 +124,7 @@ resource "google_cloudfunctions2_function" "functions" {
 
   service_config {
     max_instance_count    = lookup(each.value, "max_instances", 3)
-    available_memory      = lookup(each.value, "memory", "512Mi")
+    available_memory      = "512Mi"
     timeout_seconds       = lookup(each.value, "timeout", 60)
     environment_variables = each.value.env_vars
 
