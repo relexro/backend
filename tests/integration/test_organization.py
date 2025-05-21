@@ -41,8 +41,8 @@ class TestOrganizationLifecycle:
 
         # Prepare the payload
         payload = {
-            "name": TestOrganizationLifecycle.created_org_name
-            # Note: 'type' might be in the OpenAPI spec but not strictly required by the code
+            "name": TestOrganizationLifecycle.created_org_name,
+            "type": "integration_test_type"  # Required field as per OpenAPI spec
         }
 
         # Send the request
@@ -143,31 +143,253 @@ class TestOrganizationLifecycle:
             return
 
         try:
-            # Delete the organization
-            # The API might expect a DELETE request with the ID in the path
-            # or a DELETE request with the ID in the body
-            try:
-                # First try with ID in the path
-                response = org_admin_api_client.delete(f"/organizations/{TestOrganizationLifecycle.created_org_id}")
-
-                # Verify the response
-                if response.status_code == 200:
-                    logger.info(f"Successfully deleted organization with ID: {TestOrganizationLifecycle.created_org_id}")
-                    return
-                else:
-                    logger.warning(f"Failed to delete organization with ID in path: {response.text}")
-            except Exception as path_error:
-                logger.warning(f"Error deleting organization with ID in path: {str(path_error)}")
-
-            # If that fails, try with ID in the body
+            # Delete the organization with ID in the body and path
             payload = {"organizationId": TestOrganizationLifecycle.created_org_id}
-            response = org_admin_api_client.delete("/organizations", json=payload)
+            response = org_admin_api_client.delete(
+                f"/organizations/{TestOrganizationLifecycle.created_org_id}",
+                json=payload
+            )
 
             # Verify the response
             if response.status_code == 200:
                 logger.info(f"Successfully deleted organization with ID: {TestOrganizationLifecycle.created_org_id}")
             else:
-                logger.warning(f"Failed to delete organization with ID in body: {response.text}")
+                logger.warning(f"Failed to delete organization: {response.text}")
 
         except Exception as e:
             logger.error(f"Error deleting organization: {str(e)}")
+
+
+class TestOrganizationUpdateDelete:
+    """
+    Tests for updating and deleting organizations, focusing on role-based access
+    and adherence to API specifications.
+    """
+
+    # Class attribute to indicate that organization ID is required in the request body
+    # This was determined through testing and is used in the conditional test
+    _use_body_for_delete = True
+
+    def _create_test_organization_for_test(self, api_client_creator, name_prefix="Test Org UD"):
+        """
+        Helper to create a unique organization using the provided API client.
+        Returns the organization ID.
+        """
+        unique_name = f"{name_prefix} {uuid.uuid4()}"
+        payload = {"name": unique_name, "type": "integration_test_type"}
+        response = api_client_creator.post("/organizations", json=payload)
+        assert response.status_code == 201, f"Failed to create org for test setup: {response.text}"
+        # The API might return 'id' or 'organizationId'
+        org_id = response.json().get("organizationId") or response.json().get("id")
+        assert org_id is not None, "Organization ID not found in creation response."
+        return org_id
+
+    # --- Tests for PUT /organizations/{organizationId} ---
+
+    def test_admin_can_update_organization(self, org_admin_api_client):
+        org_id = None
+        try:
+            org_id = self._create_test_organization_for_test(org_admin_api_client, "AdminUpdate")
+
+            update_payload = {
+                "organizationId": org_id,  # Include the ID in the request body
+                "name": f"Updated Name by Admin {uuid.uuid4()}",
+                "description": "This organization was updated by an admin."
+            }
+            response = org_admin_api_client.put(f"/organizations/{org_id}", json=update_payload)
+
+            assert response.status_code == 200, f"PUT /organizations/{org_id} Expected 200, got {response.status_code}. Response: {response.text}"
+            data = response.json()
+            assert data["name"] == update_payload["name"]
+            assert data["description"] == update_payload["description"]
+            assert "updatedAt" in data, "updatedAt field missing in response"
+        finally:
+            if org_id:
+                # Include the ID in the request body for deletion
+                cleanup_payload = {"organizationId": org_id}
+                cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id}", json=cleanup_payload)
+                assert cleanup_response.status_code == 200 or cleanup_response.status_code == 404 # 404 if already gone for some reason
+
+    def test_staff_cannot_update_organization(self, org_admin_api_client, org_user_api_client):
+        # org_admin_api_client creates the org.
+        # org_user_api_client (representing a staff member of a *different* org, or a user who is not an admin of *this* org) attempts the update.
+        org_id = None
+        try:
+            org_id = self._create_test_organization_for_test(org_admin_api_client, "StaffUpdateAttempt")
+
+            update_payload = {
+                "organizationId": org_id,  # Include the ID in the request body
+                "name": f"Attempted Update by Staff {uuid.uuid4()}"
+            }
+            response = org_user_api_client.put(f"/organizations/{org_id}", json=update_payload)
+
+            assert response.status_code == 403, f"PUT /organizations/{org_id} Expected 403 (Forbidden), got {response.status_code}. Response: {response.text}"
+        finally:
+            if org_id:
+                # Include the ID in the request body for deletion
+                cleanup_payload = {"organizationId": org_id}
+                cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id}", json=cleanup_payload)
+                assert cleanup_response.status_code == 200 or cleanup_response.status_code == 404
+
+    def test_non_member_cannot_update_organization(self, org_admin_api_client, api_client):
+        # org_admin_api_client creates the org.
+        # api_client (representing a user not member of this org) attempts the update.
+        org_id = None
+        try:
+            org_id = self._create_test_organization_for_test(org_admin_api_client, "NonMemberUpdateAttempt")
+
+            update_payload = {
+                "organizationId": org_id,  # Include the ID in the request body
+                "name": f"Attempted Update by Non-Member {uuid.uuid4()}"
+            }
+            response = api_client.put(f"/organizations/{org_id}", json=update_payload)
+
+            # As per openapi_spec.yaml, this should be 403 or 404. Prioritize 403 if resource exists but user is forbidden.
+            assert response.status_code == 403, f"PUT /organizations/{org_id} Expected 403 (Forbidden), got {response.status_code}. Response: {response.text}"
+        finally:
+            if org_id:
+                # Include the ID in the request body for deletion
+                cleanup_payload = {"organizationId": org_id}
+                cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id}", json=cleanup_payload)
+                assert cleanup_response.status_code == 200 or cleanup_response.status_code == 404
+
+    def test_update_non_existent_organization(self, org_admin_api_client):
+        non_existent_org_id = str(uuid.uuid4())
+        update_payload = {
+            "organizationId": non_existent_org_id,  # Include the ID in the request body
+            "name": "Update Non-Existent Org"
+        }
+        response = org_admin_api_client.put(f"/organizations/{non_existent_org_id}", json=update_payload)
+
+        assert response.status_code == 404, f"PUT /organizations/{non_existent_org_id} Expected 404 (Not Found), got {response.status_code}. Response: {response.text}"
+
+    # --- Tests for DELETE /organizations/{organizationId} ---
+
+    def test_admin_can_delete_organization(self, org_admin_api_client):
+        org_id = self._create_test_organization_for_test(org_admin_api_client, "AdminDelete")
+
+        # Include the ID in the request body
+        delete_payload = {"organizationId": org_id}
+        delete_response = org_admin_api_client.delete(f"/organizations/{org_id}", json=delete_payload)
+        assert delete_response.status_code == 200, f"DELETE /organizations/{org_id} Expected 200, got {delete_response.status_code}. Response: {delete_response.text}"
+        delete_data = delete_response.json()
+
+        # Check for success message in the response
+        assert "message" in delete_data, "Response does not contain 'message' field"
+        assert "successfully" in delete_data["message"].lower(), f"Expected success message, got: {delete_data['message']}"
+
+        # Verify actual deletion by attempting a GET
+        get_response = org_admin_api_client.get(f"/organizations/{org_id}")
+        assert get_response.status_code == 404, f"GET /organizations/{org_id} Expected 404 (Not Found) after delete, got {get_response.status_code}. Response: {get_response.text}"
+
+    def test_staff_cannot_delete_organization(self, org_admin_api_client, org_user_api_client):
+        org_id = None
+        try:
+            org_id = self._create_test_organization_for_test(org_admin_api_client, "StaffDeleteAttempt")
+
+            # Include the ID in the request body
+            delete_payload = {"organizationId": org_id}
+            response = org_user_api_client.delete(f"/organizations/{org_id}", json=delete_payload)
+            assert response.status_code == 403, f"DELETE /organizations/{org_id} Expected 403 (Forbidden), got {response.status_code}. Response: {response.text}"
+        finally:
+            if org_id: # Staff failed to delete, admin must clean up
+                cleanup_payload = {"organizationId": org_id}
+                cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id}", json=cleanup_payload)
+                assert cleanup_response.status_code == 200 or cleanup_response.status_code == 404
+
+
+    def test_non_member_cannot_delete_organization(self, org_admin_api_client, api_client):
+        org_id = None
+        try:
+            org_id = self._create_test_organization_for_test(org_admin_api_client, "NonMemberDeleteAttempt")
+
+            # Include the ID in the request body
+            delete_payload = {"organizationId": org_id}
+            response = api_client.delete(f"/organizations/{org_id}", json=delete_payload)
+            assert response.status_code == 403, f"DELETE /organizations/{org_id} Expected 403 (Forbidden), got {response.status_code}. Response: {response.text}"
+        finally:
+            if org_id: # Non-member failed to delete, admin must clean up
+                cleanup_payload = {"organizationId": org_id}
+                cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id}", json=cleanup_payload)
+                assert cleanup_response.status_code == 200 or cleanup_response.status_code == 404
+
+    def test_delete_non_existent_organization(self, org_admin_api_client):
+        non_existent_org_id = str(uuid.uuid4())
+        # Include the ID in the request body
+        delete_payload = {"organizationId": non_existent_org_id}
+        response = org_admin_api_client.delete(f"/organizations/{non_existent_org_id}", json=delete_payload)
+        assert response.status_code == 404, f"DELETE /organizations/{non_existent_org_id} Expected 404 (Not Found), got {response.status_code}. Response: {response.text}"
+
+    def test_admin_cannot_delete_organization_with_active_subscription(self, org_admin_api_client):
+        """Test that an admin cannot delete an organization with an active subscription."""
+        # Executor: Assess if simulating an "active subscription" state is feasible.
+        # This may require direct Firestore manipulation if no API endpoint exists to set this test state.
+        # If not feasible with current test infrastructure, this test should be skipped.
+        org_id_to_test = None
+        # Placeholder for actual subscription simulation status
+        subscription_simulated_successfully = False
+        try:
+            org_id_to_test = self._create_test_organization_for_test(org_admin_api_client, "Subscribed Org Delete Test")
+
+            # Check if FIRESTORE_EMULATOR_HOST is set, which would allow direct Firestore manipulation
+            if os.environ.get("FIRESTORE_EMULATOR_HOST"):
+                try:
+                    # Get a Firestore client connected to the emulator
+                    db = firestore.client()
+
+                    # Update the organization document to simulate an active subscription
+                    org_ref = db.collection('organizations').document(org_id_to_test)
+                    org_ref.update({
+                        'subscriptionStatus': 'active',
+                        'stripeSubscriptionId': f'sub_test_{uuid.uuid4()}',
+                        'stripeCustomerId': f'cus_test_{uuid.uuid4()}',
+                        'subscriptionPlanId': 'plan_test_professional',
+                        'caseQuotaTotal': 100,
+                        'caseQuotaUsed': 10,
+                        'billingCycleStart': firestore.SERVER_TIMESTAMP,
+                        'billingCycleEnd': firestore.SERVER_TIMESTAMP
+                    })
+
+                    subscription_simulated_successfully = True
+                    logger.info(f"Successfully simulated active subscription for organization {org_id_to_test}")
+                except Exception as e:
+                    logger.error(f"Failed to simulate active subscription: {str(e)}")
+                    subscription_simulated_successfully = False
+
+            # Skip the test if we couldn't simulate an active subscription
+            if not subscription_simulated_successfully:
+                pytest.skip("Skipping delete_organization_with_active_subscription: Cannot simulate active subscription without Firestore emulator access.")
+
+            # Attempt to delete the organization with an active subscription
+            delete_payload = {"organizationId": org_id_to_test}
+            response = org_admin_api_client.delete(f"/organizations/{org_id_to_test}", json=delete_payload)
+
+            # The API should return 400 Bad Request (not 403 Forbidden) as per the implementation
+            assert response.status_code == 400, f"Expected 400 for org with active subscription, got {response.status_code}. Response: {response.text}"
+            assert "active subscription" in response.json().get("message", "").lower(), f"Expected error message about active subscription, got: {response.text}"
+        finally:
+            if org_id_to_test and subscription_simulated_successfully:
+                try:
+                    # If we successfully simulated a subscription, we need to remove it before cleanup
+                    db = firestore.client()
+                    org_ref = db.collection('organizations').document(org_id_to_test)
+                    org_ref.update({
+                        'subscriptionStatus': None,
+                        'stripeSubscriptionId': firestore.DELETE_FIELD,
+                        'subscriptionPlanId': firestore.DELETE_FIELD
+                    })
+                    logger.info(f"Removed simulated subscription for organization {org_id_to_test}")
+
+                    # Now try to delete the organization
+                    delete_payload = {"organizationId": org_id_to_test}
+                    cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id_to_test}", json=delete_payload)
+                    if cleanup_response.status_code == 200:
+                        logger.info(f"Successfully cleaned up organization {org_id_to_test}")
+                    else:
+                        logger.warning(f"Failed to clean up organization {org_id_to_test}: {cleanup_response.text}")
+                except Exception as e:
+                    logger.error(f"Error during cleanup: {str(e)}")
+            elif org_id_to_test:
+                # If we didn't simulate a subscription, just try to delete the organization
+                delete_payload = {"organizationId": org_id_to_test}
+                org_admin_api_client.delete(f"/organizations/{org_id_to_test}", json=delete_payload)
