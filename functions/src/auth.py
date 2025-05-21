@@ -222,19 +222,21 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
 
             # API Gateway passes user info in a base64-encoded header after validating the Firebase token
             try:
-                # Add padding to the base64 string if needed
-                # Base64 strings should have a length that is a multiple of 4
-                # If not, add '=' characters as padding
-                padded_userinfo_header = userinfo_header
+                # Log the raw header before attempting to decode
+                logging.info(f"Attempting to decode userinfo_header: '{userinfo_header}'")
+
+                # Add padding if necessary
                 padding_needed = len(userinfo_header) % 4
                 if padding_needed > 0:
-                    padded_userinfo_header += '=' * (4 - padding_needed)
-                    logging.info(f"Added {4 - padding_needed} padding characters to userinfo_header")
+                    userinfo_header += '=' * (4 - padding_needed)
+                    logging.info(f"Added {4 - padding_needed} padding characters. New header: '{userinfo_header}'")
 
-                decoded_userinfo_bytes = base64.b64decode(padded_userinfo_header)
+                decoded_userinfo_bytes = base64.b64decode(userinfo_header)
                 logging.info(f"Successfully base64 decoded userinfo_header. Length: {len(decoded_userinfo_bytes)} bytes")
             except Exception as decode_err:
-                logging.error(f"Failed to base64 decode userinfo_header: {str(decode_err)}")
+                logging.error(f"Failed to base64 decode userinfo_header ('{userinfo_header}') even after padding: {str(decode_err)}")
+                # It's important to re-raise or handle this appropriately.
+                # For now, we'll keep the original error re-raise structure for consistency with previous state.
                 raise ValueError(f"Base64 decoding failed: {str(decode_err)}")
 
             try:
