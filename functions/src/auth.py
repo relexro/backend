@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Dict, Set, Tuple, Any, Literal, Optional
 from flask import Request, jsonify
 import datetime
-from google.cloud import firestore
+# Removed duplicate import: from google.cloud import firestore
 
 logging.basicConfig(level=logging.INFO)
 
@@ -148,10 +148,11 @@ def add_cors_headers(f):
 
     return wrapped_function
 
-def _get_firestore_client() -> firestore.Client:
+def _get_firestore_client():
+    """Get the Firestore client instance from firebase_admin."""
     return firestore.client()
 
-def get_document_data(db: firestore.Client, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
+def get_document_data(db, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
     try:
         doc_ref = db.collection(collection).document(doc_id)
         doc = doc_ref.get()
@@ -164,7 +165,7 @@ def get_document_data(db: firestore.Client, collection: str, doc_id: str) -> Opt
     except Exception as e:
         logging.error(f"Firestore error fetching {collection}/{doc_id}: {e}", exc_info=True)
         raise
-def get_membership_data(db: firestore.Client, user_id: str, org_id: str) -> Optional[Dict[str, Any]]:
+def get_membership_data(db, user_id: str, org_id: str) -> Optional[Dict[str, Any]]:
     try:
         query = db.collection("organization_memberships").where( # Corrected collection name
             "organizationId", "==", org_id).where(
@@ -377,7 +378,7 @@ def _is_action_allowed(
     allowed_actions = permissions_map.get(role, set())
     return action in allowed_actions
 
-def _check_case_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+def _check_case_permissions(db, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
     # Handle creation/listing first (no resourceId)
     if req.action in ["create", "list"] and req.resourceType == TYPE_CASE:
         if not req.organizationId: # Individual case creation/listing
@@ -455,7 +456,7 @@ def _check_case_permissions(db: firestore.Client, user_id: str, req: PermissionC
     return False, f"User {user_id} is not owner or member of org {case_org_id} for case {req.resourceId}."
 
 
-def _check_organization_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+def _check_organization_permissions(db, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
     org_id = req.resourceId if req.resourceId else req.organizationId # Use organizationId for create/list actions
 
     if not org_id:
@@ -499,7 +500,7 @@ def _check_organization_permissions(db: firestore.Client, user_id: str, req: Per
         return False, f"User {user_id} (Role: {user_role}) denied action '{req.action}' on organization {org_id}."
 
 
-def _check_party_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+def _check_party_permissions(db, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
      # Handle creation/listing first (no resourceId)
     if req.action in ["create", "list"] and req.resourceType == TYPE_PARTY:
          # User can always create/list their own parties
@@ -524,7 +525,7 @@ def _check_party_permissions(db: firestore.Client, user_id: str, req: Permission
         return False, f"User {user_id} is not the owner of party {req.resourceId}."
 
 
-def _check_document_permissions(db: firestore.Client, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
+def _check_document_permissions(db, user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
     if not req.resourceId:
          return False, "resourceId is required for this action."
 
@@ -653,7 +654,7 @@ def validate_user(request: Request):
             return jsonify({"error": "Bad Request", "message": "Missing user identification"}), 400
 
         # Create or update user record in Firestore
-        db = firestore.Client()
+        db = _get_firestore_client()
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
         logging.info(f"validate_user: Firestore lookup for user_id={user_id}, exists={user_doc.exists}")
@@ -947,7 +948,7 @@ def get_user_profile(request: Request):
             return jsonify({"error": "Bad Request", "message": "Missing user identification"}), 400
 
         # Get user from Firestore
-        db = firestore.Client()
+        db = _get_firestore_client()
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 

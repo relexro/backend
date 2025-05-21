@@ -71,8 +71,12 @@ def add_organization_member(request: Request):
         }
         member_ref.set(member_data)
 
-        member_data['joinedAt'] = datetime.now().isoformat()
-        return flask.jsonify(member_data), 201
+        # Create a copy of member_data with sentinel values replaced for JSON serialization
+        response_data = member_data.copy()
+        # Replace SERVER_TIMESTAMP with current time for JSON serialization
+        if response_data.get('joinedAt') == firestore.SERVER_TIMESTAMP:
+            response_data['joinedAt'] = datetime.now().isoformat()
+        return flask.jsonify(response_data), 201
     except Exception as e:
         logging.error(f"Error adding member: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
@@ -123,10 +127,12 @@ def set_organization_member_role(request: Request):
              if admin_count <= 1:
                  return flask.jsonify({"error": "Bad Request", "message": "Cannot change role of last administrator"}), 400
 
-        member_ref.update({
+        update_data = {
             'role': role, 'updatedAt': firestore.SERVER_TIMESTAMP, 'updatedBy': user_id
-        })
+        }
+        member_ref.update(update_data)
 
+        # Get the updated data
         updated_member_data = member_ref.get().to_dict()
         if isinstance(updated_member_data.get("joinedAt"), datetime):
              updated_member_data["joinedAt"] = updated_member_data["joinedAt"].isoformat()

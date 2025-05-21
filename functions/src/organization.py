@@ -73,7 +73,15 @@ def create_organization(request: Request):
                 'joinedAt': firestore.SERVER_TIMESTAMP
             }
             transaction.set(member_ref, member_data)
-            return org_data
+
+            # Create a copy of org_data with sentinel values replaced for JSON serialization
+            response_data = org_data.copy()
+            # Replace SERVER_TIMESTAMP with None for JSON serialization
+            if response_data.get('createdAt') == firestore.SERVER_TIMESTAMP:
+                response_data['createdAt'] = None
+            if response_data.get('updatedAt') == firestore.SERVER_TIMESTAMP:
+                response_data['updatedAt'] = None
+            return response_data
 
         org_data = create_org_in_transaction(transaction, organization_id, name, description, address, contact_info, user_id)
 
