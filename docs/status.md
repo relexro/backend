@@ -208,11 +208,15 @@ As a result, all tests are now passing without warnings, confirming the stabilit
 
 ### Test Authentication
 - **Authentication Method**: Requires Firebase JWT tokens
-- **Token Acquisition**: Use `tests/test-auth.html` (served locally from the `tests/` directory via `python3 -m http.server 8080`)
-- **Environment Variables**: Set the obtained tokens as environment variables based on the user role:
-  - `RELEX_TEST_JWT`: For regular user tests (no organization membership)
-  - `RELEX_ORG_ADMIN_TEST_JWT`: For organization admin tests
-  - `RELEX_ORG_USER_TEST_JWT`: For organization staff member tests
+- **Token Generation**: Use `./manage_test_tokens.sh` script to automatically create test users and generate tokens
+- **Test User Personas**:
+  - Individual Test Account (`individual@test.org`, UID: `individual-test-acc-uid`)
+  - Admin Test Account (`admin@test.org`, UID: `admin-test-acc-uid`)
+  - User Test Account (`user@test.org`, UID: `user-test-acc-uid`)
+- **Environment Variables**: The script automatically sets these environment variables in `~/.zshenv`:
+  - `RELEX_TEST_JWT`: For individual account testing (no organization membership)
+  - `RELEX_ORG_ADMIN_TEST_JWT`: For organization admin role testing
+  - `RELEX_ORG_USER_TEST_JWT`: For organization user/staff role testing
 
 ### Authentication Flow
 1. Client sends Firebase JWT token to API Gateway

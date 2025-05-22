@@ -319,38 +319,56 @@ To test the API endpoints:
    - Click "Show/Hide Token" to reveal your JWT token
    - Copy the entire token
 
-3. **Set the authentication token environment variables**:
+3. **Generate and Set Test User Authentication Tokens**:
 
-   **Automated Token Refresh (Recommended)**:
+   The project includes a script to automatically create and manage Firebase test users and generate their ID tokens:
+
    ```bash
-   # Quick setup (one-time)
+   # First-time setup: Install required dependencies
    pip install firebase-admin requests
-   python scripts/setup_token_automation.py
 
-   # Refresh all 3 tokens anytime
-   ./refresh_tokens.sh
+   # Download your Firebase service account key from Firebase Console
+   # (Project Settings > Service accounts > Generate new private key)
+   # Save it as 'firebase-service-account-key.json' in the project root
+
+   # Run the token management script
+   ./manage_test_tokens.sh
    ```
+
+   This script will:
+   - Create or update three test user personas in Firebase Authentication:
+     - Individual Test Account (`individual@test.org`, UID: `individual-test-acc-uid`)
+     - Admin Test Account (`admin@test.org`, UID: `admin-test-acc-uid`)
+     - User Test Account (`user@test.org`, UID: `user-test-acc-uid`)
+   - Generate Firebase ID tokens for each user
+   - Save the tokens as environment variables in `~/.zshenv`:
+     - `RELEX_TEST_JWT` - For individual account testing
+     - `RELEX_ORG_ADMIN_TEST_JWT` - For organization admin role testing
+     - `RELEX_ORG_USER_TEST_JWT` - For organization user/staff role testing
+   - Automatically source the environment variables in the current shell
+
+   **Note**: Tokens are valid for 1 hour. Run `./manage_test_tokens.sh` again to generate fresh tokens.
 
    **Manual Token Setup (Alternative)**:
    ```bash
    # For regular user tests (Linux/macOS)
-   export RELEX_TEST_JWT="your_regular_user_token_here"
+   export RELEX_TEST_JWT="your_token_for_individual@test.org"
 
    # For organization admin tests (Linux/macOS)
-   export RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
+   export RELEX_ORG_ADMIN_TEST_JWT="your_token_for_admin@test.org"
 
    # For organization user tests (Linux/macOS)
-   export RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
+   export RELEX_ORG_USER_TEST_JWT="your_token_for_user@test.org"
 
    # Windows (Command Prompt) equivalents
-   set RELEX_TEST_JWT=your_regular_user_token_here
-   set RELEX_ORG_ADMIN_TEST_JWT=your_org_admin_token_here
-   set RELEX_ORG_USER_TEST_JWT=your_org_user_token_here
+   set RELEX_TEST_JWT=your_token_for_individual@test.org
+   set RELEX_ORG_ADMIN_TEST_JWT=your_token_for_admin@test.org
+   set RELEX_ORG_USER_TEST_JWT=your_token_for_user@test.org
 
    # Windows (PowerShell) equivalents
-   $env:RELEX_TEST_JWT="your_regular_user_token_here"
-   $env:RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
-   $env:RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
+   $env:RELEX_TEST_JWT="your_token_for_individual@test.org"
+   $env:RELEX_ORG_ADMIN_TEST_JWT="your_token_for_admin@test.org"
+   $env:RELEX_ORG_USER_TEST_JWT="your_token_for_user@test.org"
    ```
 
 4. **Make authenticated API requests**:
