@@ -212,19 +212,19 @@ All Stripe resources (products, prices, coupons, tax rates, webhooks) are manage
 
 ```bash
 # View current Stripe configuration
-./scripts/stripe/manage_stripe.sh config
+../terraform/scripts/stripe/manage_stripe.sh config
 
 # Create all Stripe resources from configuration
-./scripts/stripe/manage_stripe.sh create
+../terraform/scripts/stripe/manage_stripe.sh create
 
 # List all current Stripe resources
-./scripts/stripe/manage_stripe.sh list
+../terraform/scripts/stripe/manage_stripe.sh list
 
 # Delete/deactivate all Stripe resources
-./scripts/stripe/manage_stripe.sh delete
+../terraform/scripts/stripe/manage_stripe.sh delete
 
 # Validate configuration file
-./scripts/stripe/manage_stripe.sh validate
+../terraform/scripts/stripe/manage_stripe.sh validate
 ```
 
 ### Customizing Stripe Resources
@@ -238,11 +238,11 @@ To modify products, prices, or other Stripe resources:
    - Coupon and promotion code details
    - Tax rate information
 
-2. **Validate your changes**: `./scripts/stripe/manage_stripe.sh validate`
+2. **Validate your changes**: `../terraform/scripts/stripe/manage_stripe.sh validate`
 
-3. **Preview the configuration**: `./scripts/stripe/manage_stripe.sh config`
+3. **Preview the configuration**: `../terraform/scripts/stripe/manage_stripe.sh config`
 
-4. **Apply the changes**: `./scripts/stripe/manage_stripe.sh create`
+4. **Apply the changes**: `../terraform/scripts/stripe/manage_stripe.sh create`
 
 For detailed documentation and examples, see: [`scripts/stripe/README.md`](scripts/stripe/README.md)
 
@@ -332,7 +332,7 @@ To test the API endpoints:
    # Save it as 'firebase-service-account-key.json' in the project root
 
    # Run the token management script
-   ./manage_test_tokens.sh
+   ././terraform/scripts/manage_test_tokens.sh
    ```
 
    This script will:
@@ -347,7 +347,7 @@ To test the API endpoints:
      - `RELEX_ORG_USER_TEST_JWT` - For organization user/staff role testing
    - Automatically source the environment variables in the current shell
 
-   **Note**: Tokens are valid for 1 hour. Run `./manage_test_tokens.sh` again to generate fresh tokens.
+   **Note**: Tokens are valid for 1 hour. Run `././terraform/scripts/manage_test_tokens.sh` again to generate fresh tokens.
 
    **Manual Token Setup (Alternative)**:
    ```bash

@@ -12,7 +12,7 @@ This directory contains scripts for managing Stripe resources with centralized c
 
 ### 1. View Current Configuration
 ```bash
-./scripts/stripe/manage_stripe.sh config
+../terraform/scripts/stripe/manage_stripe.sh config
 ```
 
 ### 2. Edit Configuration
@@ -25,17 +25,17 @@ Edit `scripts/stripe/config.json` to modify:
 
 ### 3. Create All Resources
 ```bash
-./scripts/stripe/manage_stripe.sh create
+../terraform/scripts/stripe/manage_stripe.sh create
 ```
 
 ### 4. List All Resources
 ```bash
-./scripts/stripe/manage_stripe.sh list
+../terraform/scripts/stripe/manage_stripe.sh list
 ```
 
 ### 5. Delete All Resources
 ```bash
-./scripts/stripe/manage_stripe.sh delete
+../terraform/scripts/stripe/manage_stripe.sh delete
 ```
 
 ## Configuration Examples

@@ -74,7 +74,7 @@ pip install firebase-admin requests
 # Save it as 'firebase-service-account-key.json' in the project root
 
 # Run the token management script
-./manage_test_tokens.sh
+././terraform/scripts/manage_test_tokens.sh
 ```
 
 This script will:
@@ -117,7 +117,7 @@ Firebase JWT tokens expire after 1 hour. When tokens expire, you'll see authenti
 
 ```bash
 # Generate fresh tokens
-./manage_test_tokens.sh
+././terraform/scripts/manage_test_tokens.sh
 ```
 
 #### Preparing `RELEX_TEST_JWT` for User Creation Tests

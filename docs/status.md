@@ -209,7 +209,7 @@ As a result, all tests are now passing without warnings, confirming the stabilit
 
 ### Test Authentication
 - **Authentication Method**: Requires Firebase JWT tokens
-- **Token Generation**: Use `./manage_test_tokens.sh` script to automatically create test users and generate tokens
+- **Token Generation**: Use `././terraform/scripts/manage_test_tokens.sh` script to automatically create test users and generate tokens
 - **Test User Personas**:
   - Individual Test Account (`individual@test.org`, UID: `individual-test-acc-uid`)
   - Admin Test Account (`admin@test.org`, UID: `admin-test-acc-uid`)

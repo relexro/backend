@@ -4,7 +4,7 @@
 echo "🚀 Managing Firebase test users and generating tokens..."
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-python3 "${SCRIPT_DIR}/scripts/manage_firebase_test_users_and_tokens.py"
+python3 "${SCRIPT_DIR}/manage_firebase_test_users_and_tokens.py"
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then
