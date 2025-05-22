@@ -14,8 +14,8 @@
     "payment_intent.canceled"
   ],
   "products": {
-    "individual_case": {
-      "name": "Relex Individual Case",
+    "case": {
+      "name": "Relex Case",
       "description": "Purchase a single Relex AI legal case. Tier determines complexity and features.",
       "statement_descriptor": "RELEX CASE",
       "active": true
@@ -41,7 +41,7 @@
   },
   "prices": {
     "case_tier1_onetime": {
-      "product": "individual_case",
+      "product": "case",
       "currency": "eur",
       "unit_amount": 900,
       "nickname": "Case Tier 1 Purchase (One-Time)",
@@ -49,7 +49,7 @@
       "type": "one_time"
     },
     "case_tier2_onetime": {
-      "product": "individual_case",
+      "product": "case",
       "currency": "eur",
       "unit_amount": 2900,
       "nickname": "Case Tier 2 Purchase (One-Time)",
@@ -57,7 +57,7 @@
       "type": "one_time"
     },
     "case_tier3_onetime": {
-      "product": "individual_case",
+      "product": "case",
       "currency": "eur",
       "unit_amount": 9900,
       "nickname": "Case Tier 3 Purchase (One-Time)",
