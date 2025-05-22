@@ -13,8 +13,12 @@ class TestAuthPermissions:
     """Test suite for auth.py check_permissions function."""
 
     def test_invalid_inputs(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "test_user"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "test_user"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test check_permissions with missing required fields."""
@@ -60,8 +64,12 @@ class TestAuthPermissions:
         assert "Validation Failed" in response["message"]
 
     def test_individual_case_owner_permissions(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "owner123"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "owner123"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test permissions for individual case owner.
@@ -103,8 +111,12 @@ class TestAuthPermissions:
             assert response["allowed"] is True
 
     def test_individual_case_non_owner_permissions(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "non_owner123"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "non_owner123"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test permissions for non-owner on individual case.
@@ -146,8 +158,12 @@ class TestAuthPermissions:
             assert response["allowed"] is False
 
     def test_organization_case_admin_permissions(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "admin123"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "admin123"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test permissions for admin on organization case.
@@ -214,8 +230,12 @@ class TestAuthPermissions:
             assert response["allowed"] is True
 
     def test_organization_case_staff_permissions(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "staff123"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "staff123"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test permissions for staff on organization case.
@@ -298,8 +318,12 @@ class TestAuthPermissions:
             assert response["allowed"] is False
 
     def test_organization_case_staff_as_owner_permissions(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "staff123"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "staff123"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test permissions for staff who is also the owner on organization case.
@@ -441,8 +465,12 @@ class TestAuthPermissions:
             assert response["allowed"] is False
 
     def test_non_member_permissions(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "non_member123"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "non_member123"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test permissions for non-member of organization.
@@ -512,8 +540,12 @@ class TestAuthPermissions:
         assert response["allowed"] is False
 
     def test_resource_not_found(self, mocker):
+        # Create a mock AuthContext object
+        mock_auth_context = MagicMock()
+        mock_auth_context.firebase_user_id = "user123"
+
         # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=({"userId": "user123"}, 200, None))
+        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
         mocker.patch('flask.jsonify', side_effect=test_jsonify)
         """Test when the resource (case) does not exist."""

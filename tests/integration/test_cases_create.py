@@ -206,4 +206,3 @@ class TestCreateCase:
         logger.info(f"Successfully listed {len(data['cases'])} organization cases")
 
 
-```

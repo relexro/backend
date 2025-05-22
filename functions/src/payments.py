@@ -234,7 +234,7 @@ def create_payment_intent(request):
             metadata["caseId"] = case_id
 
         # Get authenticated user ID from the request attribute set by the wrapper
-        user_id = getattr(request, 'user_id', None)
+        user_id = getattr(request, 'end_user_id', None)
         if user_id:
             metadata["userId"] = user_id
         else:
@@ -365,7 +365,7 @@ def create_checkout_session(request):
             metadata["caseId"] = case_id
 
         # Get authenticated user ID to associate with the payment/subscription
-        user_id = getattr(request, 'user_id', None)
+        user_id = getattr(request, 'end_user_id', None)
         if user_id:
             metadata["userId"] = user_id
         else:
@@ -496,7 +496,7 @@ def logic_redeem_voucher(request):
             }, 400
 
         # Get the requesting user ID from the request
-        requesting_user_id = getattr(request, 'user_id', None)
+        requesting_user_id = getattr(request, 'end_user_id', None)
         if not requesting_user_id:
             return {
                 'error': 'Unauthorized',
@@ -1174,7 +1174,7 @@ def cancel_subscription(request):
             return ({"error": "Bad Request", "message": "subscriptionId is required"}, 400)
 
         # Get authenticated user ID from wrapper
-        user_id = getattr(request, 'user_id', None)
+        user_id = getattr(request, 'end_user_id', None)
         if not user_id:
             # Should be caught by wrapper, but check defensively
             logging.error("Unauthorized: User not authenticated")

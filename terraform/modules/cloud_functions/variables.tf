@@ -103,7 +103,6 @@ variable "functions" {
       description = "Get user profile data for the authenticated user"
       entry_point = "relex_backend_get_user_profile" # Corrected
       env_vars    = {}
-      memory      = "512Mi"
     },
     "relex-backend-update-user-profile" = {
       description = "Update user profile data for the authenticated user"

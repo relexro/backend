@@ -320,6 +320,18 @@ To test the API endpoints:
    - Copy the entire token
 
 3. **Set the authentication token environment variables**:
+
+   **Automated Token Refresh (Recommended)**:
+   ```bash
+   # Quick setup (one-time)
+   pip install firebase-admin requests
+   python scripts/setup_token_automation.py
+
+   # Refresh all 3 tokens anytime
+   ./refresh_tokens.sh
+   ```
+
+   **Manual Token Setup (Alternative)**:
    ```bash
    # For regular user tests (Linux/macOS)
    export RELEX_TEST_JWT="your_regular_user_token_here"

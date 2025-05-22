@@ -42,13 +42,36 @@ Currently, the original end-user's Firebase UID is not automatically propagated 
 
 ### Testing Authentication
 
-For testing purposes, you can obtain Firebase JWT tokens using the provided utility. The system uses three different token types for different test scenarios:
+For testing purposes, you can obtain Firebase JWT tokens using either the automated refresh script (recommended) or the manual browser utility. The system uses three different token types for different test scenarios:
 
 1. **Regular User Token (`RELEX_TEST_JWT`)**: For testing endpoints as a regular user without organization membership
 2. **Organization Admin Token (`RELEX_ORG_ADMIN_TEST_JWT`)**: For testing endpoints as an organization administrator
 3. **Organization User Token (`RELEX_ORG_USER_TEST_JWT`)**: For testing endpoints as an organization staff member
 
-Follow these steps to obtain and use these tokens:
+#### Automated Token Refresh (Recommended)
+
+The easiest way to manage these tokens is using the automated refresh script:
+
+```bash
+# Quick setup (one-time)
+pip install firebase-admin requests
+python scripts/setup_token_automation.py
+
+# Refresh all 3 tokens anytime
+./refresh_tokens.sh
+```
+
+This automatically:
+- Generates fresh tokens for all 3 test users
+- Updates your `~/.zshenv` file with the new tokens
+- Eliminates manual browser token copying
+- Can be set up to run automatically every 45 minutes
+
+See [Token Automation Documentation](../token_automation.md) for detailed setup instructions.
+
+#### Manual Token Generation (Alternative)
+
+If you prefer manual token generation, follow these steps:
 
 1. Navigate to the `tests/` directory
 2. Start a local web server: `python3 -m http.server 8080`
@@ -67,6 +90,18 @@ export RELEX_ORG_ADMIN_TEST_JWT="your_org_admin_token_here"
 
 # For organization user tests
 export RELEX_ORG_USER_TEST_JWT="your_org_user_token_here"
+```
+
+#### Token Expiration
+
+Firebase JWT tokens expire after 1 hour. When tokens expire, you'll see authentication errors in your tests. Simply refresh the tokens using:
+
+```bash
+# Automated refresh (if set up)
+./refresh_tokens.sh
+
+# Or manual refresh via browser
+# Follow the manual steps above
 ```
 
 ### Token Format

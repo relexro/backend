@@ -28,6 +28,18 @@ Before running the tests, ensure you have:
    ```
 
 2. Update the auth tokens:
+
+   **Automated Token Refresh (Recommended)**:
+   ```bash
+   # Quick setup (one-time)
+   pip install firebase-admin requests
+   python scripts/setup_token_automation.py
+
+   # Refresh all 3 tokens anytime
+   ./refresh_tokens.sh
+   ```
+
+   **Manual Token Setup (Alternative)**:
    - Obtain fresh tokens using the `test-auth.html` utility:
      ```bash
      cd tests
@@ -69,7 +81,16 @@ A successful test will show "All tests passed successfully!" at the end.
 
 ### Authentication Token Expired
 
-If you see an "Unauthorized" response, your token might have expired. Get a new token from the `test-auth.html` utility and update the appropriate environment variable (`RELEX_TEST_JWT`, `RELEX_ORG_ADMIN_TEST_JWT`, or `RELEX_ORG_USER_TEST_JWT`) depending on which user role you're testing with.
+If you see an "Unauthorized" response, your token might have expired. Refresh the tokens:
+
+```bash
+# Automated refresh (if set up)
+./refresh_tokens.sh
+
+# Or get new tokens manually from test-auth.html utility
+# and update the appropriate environment variable
+# (RELEX_TEST_JWT, RELEX_ORG_ADMIN_TEST_JWT, or RELEX_ORG_USER_TEST_JWT)
+```
 
 ### API Gateway URL
 

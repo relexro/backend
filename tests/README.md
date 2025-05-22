@@ -56,7 +56,24 @@ Integration tests that interact with the deployed API require Firebase JWT token
 2. **Organization Admin Token (`RELEX_ORG_ADMIN_TEST_JWT`)**: For testing endpoints as an organization administrator
 3. **Organization User Token (`RELEX_ORG_USER_TEST_JWT`)**: For testing endpoints as an organization staff member
 
-Follow these steps to obtain and use these tokens:
+#### Automated Token Refresh (Recommended)
+
+The easiest way to manage these tokens is using the automated refresh script:
+
+```bash
+# Quick setup (one-time)
+pip install firebase-admin requests
+python scripts/setup_token_automation.py
+
+# Refresh all 3 tokens anytime
+./refresh_tokens.sh
+```
+
+This automatically generates fresh tokens for all 3 test users and updates your `~/.zshenv` file. See [Token Automation Documentation](../docs/token_automation.md) for detailed setup instructions.
+
+#### Manual Token Generation (Alternative)
+
+Follow these steps to obtain and use these tokens manually:
 
 1. **Obtain Firebase JWT tokens**:
    - Navigate to the `tests/` directory
@@ -96,6 +113,17 @@ Follow these steps to obtain and use these tokens:
    ```
 
 If any of the required environment variables are not available, tests that require those specific tokens will be skipped.
+
+#### Token Expiration
+
+Firebase JWT tokens expire after 1 hour. When tokens expire, you'll see authentication errors like "Jwt is expired". Simply refresh the tokens:
+
+```bash
+# Automated refresh (if set up)
+./refresh_tokens.sh
+
+# Or manual refresh via browser (follow manual steps above)
+```
 
 #### Preparing `RELEX_TEST_JWT` for User Creation Tests
 
