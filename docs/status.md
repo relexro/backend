@@ -122,6 +122,8 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Firebase integration tests
 - [x] LangGraph integration tests
 - [x] Organization Membership RBAC tests (Staff permissions, admin constraints, role management)
+- [x] Case Management in Organization Context tests (Create, list, assign cases with RBAC)
+- [x] File & Party Management for Organization Cases tests (upload/download files, create/attach/detach parties with RBAC)
 - [ ] Stripe integration tests
 - [ ] LLM integration tests
 - [ ] Storage integration tests

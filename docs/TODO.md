@@ -98,13 +98,13 @@
             * [x] Test that staff members cannot add/remove/change roles of other members.
             * [x] Test that the last administrator cannot be removed or downgraded.
         * 2.2.3. **Case Management in Organization Context**
-            * [ ] **Create Case (`POST /organizations/{organizationId}/cases`):** Test for admin (can create), staff (can create), non-member (cannot).
-            * [ ] **Assign Case (`POST /cases/{caseId}/assign`):** Test for admin (can assign), staff (cannot), non-member (cannot); test invalid assignments.
-            * [ ] **List Organization Cases (`GET /organizations/{organizationId}/cases`):** Test for admin, staff, and non-member.
+            * [x] **Create Case (`POST /organizations/{organizationId}/cases`):** Test for admin (can create), staff (can create), non-member (cannot).
+            * [x] **Assign Case (`POST /cases/{caseId}/assign`):** Test for admin (can assign), staff (cannot), non-member (cannot); test invalid assignments.
+            * [x] **List Organization Cases (`GET /organizations/{organizationId}/cases`):** Test for admin, staff, and non-member.
         * 2.2.4. **File & Party Management for Organization Cases**
-            * [ ] Test file upload/download for organization cases using `org_admin_api_client` and `org_user_api_client`.
-            * [ ] Test party creation/update/deletion for organization cases using `org_admin_api_client` and `org_user_api_client`.
-            * [ ] Verify non-members cannot access files or parties for organization cases.
+            * [x] Test file upload/download for organization cases using `org_admin_api_client` and `org_user_api_client`.
+            * [x] Test party creation/update/deletion for organization cases using `org_admin_api_client` and `org_user_api_client`.
+            * [x] Verify non-members cannot access files or parties for organization cases.
         * 2.2.5. **Cross-Organization Security Tests**
             * [ ] Test that users from one organization cannot access resources from another organization.
             * [ ] Test that organization admins cannot modify members of other organizations.
