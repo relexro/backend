@@ -124,9 +124,28 @@ resource "google_cloudfunctions2_function" "functions" {
 
   service_config {
     max_instance_count    = lookup(each.value, "max_instances", 3)
-    available_memory      = "512Mi"
+    available_memory      = "512Mi" # Consider making this configurable per function if needed
     timeout_seconds       = lookup(each.value, "timeout", 60)
-    environment_variables = each.value.env_vars
+    environment_variables = merge(
+      each.value.env_vars,
+      # Add Stripe Price ID env vars specifically for functions that need them,
+      # or universally if all/most functions might need them.
+      # For now, adding them to all functions for simplicity, but this can be refined.
+      # The keys here (e.g., STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY) are what the Python code will use.
+      (
+        # Check if the current function is one of the payment-related functions
+        # This is a more targeted approach.
+        # Alternatively, to apply to ALL functions, remove this conditional logic and just include the map.
+        contains(["relex-backend-create-payment-intent", "relex-backend-get-products", "relex-backend-create-checkout-session", "relex-backend-handle-stripe-webhook", "relex-backend-cancel-subscription"], each.key) ?
+        {
+          STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY = var.stripe_price_id_individual_monthly
+          STRIPE_PRICE_ID_ORG_BASIC_MONTHLY  = var.stripe_price_id_org_basic_monthly
+          STRIPE_PRICE_ID_CASE_TIER_1        = var.stripe_price_id_case_tier1
+          STRIPE_PRICE_ID_CASE_TIER_2        = var.stripe_price_id_case_tier2
+          STRIPE_PRICE_ID_CASE_TIER_3        = var.stripe_price_id_case_tier3
+        } : {}
+      )
+    )
 
     dynamic "secret_environment_variables" {
       for_each = coalesce(lookup(each.value, "secret_env_vars", []), [])

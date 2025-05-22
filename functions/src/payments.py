@@ -330,34 +330,35 @@ def create_checkout_session(request):
         metadata = data.get("metadata", {})
 
         price_id = None # Stripe Price ID
+
+        # Define a mapping for planIds to their environment variable names and Stripe mode
+        # These plan_id keys (e.g., "individual_monthly") are what the API client should send.
+        plan_details_map = {
+            "individual_monthly": {"env_var": "STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY", "mode": "subscription"},
+            "org_basic_monthly": {"env_var": "STRIPE_PRICE_ID_ORG_BASIC_MONTHLY", "mode": "subscription"},
+            # Assuming case tiers can also be initiated via checkout session using a planId-like identifier
+            "case_tier1": {"env_var": "STRIPE_PRICE_ID_CASE_TIER_1", "mode": "payment"},
+            "case_tier2": {"env_var": "STRIPE_PRICE_ID_CASE_TIER_2", "mode": "payment"},
+            "case_tier3": {"env_var": "STRIPE_PRICE_ID_CASE_TIER_3", "mode": "payment"},
+        }
+
         if plan_id:
-            # Query Firestore for plan details if planId is provided
-            plan_doc = db.collection("plans").document(plan_id).get()
+            plan_config = plan_details_map.get(plan_id)
+            if not plan_config:
+                logging.error(f"Unknown planId provided: {plan_id}")
+                return ({"error": "Bad Request", "message": f"Unknown planId: {plan_id}"}, 400)
 
-            if not plan_doc.exists:
-                logging.error(f"Plan not found: {plan_id}")
-                return ({"error": "Bad Request", "message": f"Plan not found: {plan_id}"}, 400)
+            env_var_name = plan_config["env_var"]
+            price_id = os.environ.get(env_var_name)
 
-            plan_data = plan_doc.to_dict()
-
-            # Check if plan is active
-            if not plan_data.get("isActive", False):
-                logging.error(f"Plan is not active: {plan_id}")
-                return ({"error": "Bad Request", "message": f"Plan is not active: {plan_id}"}, 400)
-
-            # Get the Stripe price ID associated with the plan
-            price_id = plan_data.get("stripePriceId")
             if not price_id:
-                # This indicates a configuration issue with the plan in Firestore
-                logging.error(f"Invalid plan configuration, missing stripePriceId: {plan_id}")
-                return ({"error": "Internal Server Error", "message": "Invalid plan configuration"}, 500)
+                logging.error(f"Stripe Price ID for plan '{plan_id}' is not configured in environment variable '{env_var_name}'.")
+                return ({"error": "Configuration Error", "message": f"Pricing for plan '{plan_id}' is not available at this moment."}, 500)
 
-            # Add plan ID and quota info to metadata for webhook processing
-            metadata["planId"] = plan_id
-            metadata["caseQuotaTotal"] = plan_data.get("caseQuotaTotal", 0)
-
-            # Set mode to subscription for plan-based checkouts
-            mode = "subscription"
+            mode = plan_config["mode"] # Override mode based on plan_id type
+            metadata["planId"] = plan_id # Store the original planId in metadata for reference
+            # Note: caseQuotaTotal is no longer sourced from Firestore here.
+            # If quota is needed, it must be handled differently (e.g., defined in Stripe product metadata and fetched, or managed post-subscription).
 
         # Add case ID to metadata if provided (e.g., linking payment to a specific case)
         case_id = data.get("caseId")

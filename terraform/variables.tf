@@ -64,3 +64,29 @@ variable "project_number" {
 }
 
 # Stripe variables removed - resources now managed via scripts
+
+variable "stripe_price_id_individual_monthly" {
+  type        = string
+  description = "Stripe Price ID for the individual monthly plan. Set via TF_VAR_stripe_price_id_individual_monthly."
+  nullable    = false
+}
+variable "stripe_price_id_org_basic_monthly" {
+  type        = string
+  description = "Stripe Price ID for the organization basic monthly plan. Set via TF_VAR_stripe_price_id_org_basic_monthly."
+  nullable    = false
+}
+variable "stripe_price_id_case_tier1" {
+  type        = string
+  description = "Stripe Price ID for Case Tier 1 (one-time). Set via TF_VAR_stripe_price_id_case_tier1."
+  nullable    = false
+}
+variable "stripe_price_id_case_tier2" {
+  type        = string
+  description = "Stripe Price ID for Case Tier 2 (one-time). Set via TF_VAR_stripe_price_id_case_tier2."
+  nullable    = false
+}
+variable "stripe_price_id_case_tier3" {
+  type        = string
+  description = "Stripe Price ID for Case Tier 3 (one-time). Set via TF_VAR_stripe_price_id_case_tier3."
+  nullable    = false
+}

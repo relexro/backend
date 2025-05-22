@@ -333,3 +333,24 @@ variable "environment_suffix" {
   description = "Suffix to append to resource names for the current environment (e.g., '-dev', '' for prod)."
   type        = string
 }
+
+variable "stripe_price_id_individual_monthly" {
+  type        = string
+  description = "Stripe Price ID for the individual monthly plan."
+}
+variable "stripe_price_id_org_basic_monthly" {
+  type        = string
+  description = "Stripe Price ID for the organization basic monthly plan."
+}
+variable "stripe_price_id_case_tier1" {
+  type        = string
+  description = "Stripe Price ID for Case Tier 1."
+}
+variable "stripe_price_id_case_tier2" {
+  type        = string
+  description = "Stripe Price ID for Case Tier 2."
+}
+variable "stripe_price_id_case_tier3" {
+  type        = string
+  description = "Stripe Price ID for Case Tier 3."
+}

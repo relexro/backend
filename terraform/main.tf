@@ -154,6 +154,13 @@ module "cloud_functions" {
   # Ensure consistent naming across environments
   environment_suffix              = local.env_suffix
 
+  # Pass Stripe Price IDs
+  stripe_price_id_individual_monthly    = var.stripe_price_id_individual_monthly
+  stripe_price_id_org_basic_monthly     = var.stripe_price_id_org_basic_monthly
+  stripe_price_id_case_tier1            = var.stripe_price_id_case_tier1
+  stripe_price_id_case_tier2            = var.stripe_price_id_case_tier2
+  stripe_price_id_case_tier3            = var.stripe_price_id_case_tier3
+
   depends_on = [
     module.apis,
     module.storage,

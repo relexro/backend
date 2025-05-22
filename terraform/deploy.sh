@@ -61,6 +61,24 @@ fi
 # Check for state lock before initializing
 check_and_release_lock
 
+echo "Ensuring Stripe resources are created (idempotent)..."
+# SCRIPT_DIR is the 'terraform' directory because of `cd "$(dirname "$0")"` at the top.
+# manage_stripe.sh is in terraform/scripts/stripe/
+scripts/stripe/manage_stripe.sh create
+if [ $? -ne 0 ]; then
+    echo "Stripe resource creation/check failed. Exiting."
+    exit 1
+fi
+
+echo "Fetching Stripe Price IDs and setting TF_VAR_ environment variables..."
+# Ensure STRIPE_SECRET_KEY is available in this script's environment
+# The output of set-env will be 'export TF_VAR_xxx="price_yyy"'
+eval $(scripts/stripe/manage_stripe.sh set-env)
+if [ $? -ne 0 ]; then
+    echo "Failed to fetch Stripe Price IDs or set TF_VARs. Exiting."
+    exit 1
+fi
+
 # Initialize Terraform with reconfigure flag to handle backend changes
 echo "Initializing Terraform..."
 terraform init -reconfigure -input=false
