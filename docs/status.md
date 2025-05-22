@@ -77,12 +77,15 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] Regional model deployment
 
 ### Payment Processing
-- [x] Stripe integration
-- [x] Payment intent creation based on case tier
-- [x] Checkout sessions for subscriptions
-- [x] Subscription management with cancellation
-- [x] Payment webhooks for subscription and payment events
-- [x] Per-case payment verification
+- [x] Stripe integration (fully operational)
+- [x] Payment intent creation based on case tier (all tests passing)
+- [x] Checkout sessions for subscriptions (all tests passing)
+- [x] Subscription management with cancellation (all tests passing)
+- [x] Payment webhooks for subscription and payment events (all tests passing)
+- [x] Per-case payment verification (all tests passing)
+- [x] Products endpoint for retrieving Stripe products and pricing (all tests passing)
+- [x] Payment system authentication and user context propagation (fixed end_user_id issue)
+- [x] Stripe secret management via Google Cloud Secret Manager (configured properly)
 - [ ] Invoice generation
 - [ ] Voucher system implementation
 

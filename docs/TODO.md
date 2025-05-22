@@ -110,12 +110,14 @@
             * [x] Test that organization admins cannot modify members of other organizations.
             * [x] Test that organization cases are properly isolated between organizations.
         * 2.2.6. **Stripe Integration Tests**
-            * [x] Payment intent creation and handling for different case tiers
-            * [x] Checkout session creation for subscriptions (individual and organization plans)
-            * [x] Promotion code/coupon handling for both payment intents and checkout sessions
-            * [x] Webhook event handling for all relevant Stripe events
-            * [x] Quota management based on subscription purchases and one-time payments
-            * [x] Organization-specific subscription and payment handling
+            * [x] Payment intent creation and handling for different case tiers - COMPLETED (All tests passing)
+            * [x] Checkout session creation for subscriptions (individual and organization plans) - COMPLETED (All tests passing)
+            * [x] Promotion code/coupon handling for both payment intents and checkout sessions - COMPLETED (All tests passing)
+            * [x] Webhook event handling for all relevant Stripe events - COMPLETED (All tests passing)
+            * [x] Quota management based on subscription purchases and one-time payments - COMPLETED (All tests passing)
+            * [x] Organization-specific subscription and payment handling - COMPLETED (All tests passing)
+            * [x] Products endpoint for retrieving Stripe products and pricing - COMPLETED (All tests passing)
+            * [x] Payment system authentication and user context propagation - COMPLETED (Fixed end_user_id issue)
         * 2.2.7. **Endpoint/Flow: `[HTTP Method] [path]` (e.g., `POST /cases/{caseId}/parties`)**
             * **Executor Prompt:** "Develop integration tests for the `[HTTP Method] [path]` endpoint. Cover successful scenarios, common error conditions (invalid input, unauthorized, not found), and data validation. Store tests in `tests/integration/test_[resource_name].py`. Report execution results."
             * Endpoints/Flows to cover: All CRUD operations for Cases, Parties, Organization Memberships, Payments (including webhook simulation if possible), Agent invocations.

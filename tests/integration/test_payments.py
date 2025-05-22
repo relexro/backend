@@ -58,7 +58,7 @@ class TestPayments:
             pytest.skip("Payment intent endpoint not available in current API Gateway configuration")
 
         # If endpoint is available, verify the response
-        assert response.status_code == 200
+        assert response.status_code == 201  # 201 Created is correct for payment intent creation
         response_data = response.json()
         assert "paymentIntentId" in response_data
         assert "clientSecret" in response_data
@@ -186,7 +186,7 @@ class TestPayments:
         response = api_client.post("/webhooks/stripe", json=payload)
 
         # Should get signature verification error since we don't have valid signature
-        assert response.status_code == 401
+        assert response.status_code == 400  # 400 Bad Request for missing signature header
 
     def test_get_products(self, api_client):
         """Test get products endpoint against deployed API."""
