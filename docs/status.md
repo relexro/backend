@@ -77,13 +77,13 @@ This document tracks the implementation status of the Relex backend components.
 - [ ] Regional model deployment
 
 ### Payment Processing
-- [x] Stripe integration (fully operational)
-- [x] Payment intent creation based on case tier (all tests passing)
-- [x] Checkout sessions for subscriptions (all tests passing)
-- [x] Subscription management with cancellation (all tests passing)
-- [x] Payment webhooks for subscription and payment events (all tests passing)
-- [x] Per-case payment verification (all tests passing)
-- [x] Products endpoint for retrieving Stripe products and pricing (all tests passing)
+- [x] Stripe integration (core setup operational)
+- [x] Payment intent creation based on case tier (`test_payments.py` tests PASSING)
+- [~] Checkout sessions for subscriptions (`test_create_checkout_session` in `test_payments.py` SKIPPED; `test_stripe_integration.py` which covers more checkout scenarios had all tests SKIPPED)
+- [~] Subscription management with cancellation (`test_subscription_management.py` had all tests SKIPPED)
+- [~] Payment webhooks for subscription and payment events (Most specific webhook tests in `test_stripe_webhooks.py` and `test_stripe_webhook_events.py` were SKIPPED. Basic webhook handling in `test_payments.py` passed.)
+- [x] Per-case payment verification (Covered by passing payment intent tests)
+- [x] Products endpoint for retrieving Stripe products and pricing (`test_get_products` in `test_payments.py` PASSING)
 - [x] Payment system authentication and user context propagation (fixed end_user_id issue)
 - [x] Stripe secret management via Google Cloud Secret Manager (configured properly)
 - [ ] Invoice generation
@@ -109,7 +109,7 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Unit Tests
 - [x] Comprehensive unit tests for `auth.py` (covering token validation, user extraction, core auth logic, permission helpers; 67% overall coverage, HTTP endpoint tests deferred to integration).
-- [x] User profile logic in `user.py` (including language preference).
+- [x] User profile logic in `user.py` (including language preference). (Note: `tests/integration/test_user.py` which contained some unit-style tests for user functions was removed in favor of `test_user_e2e.py` for true integration testing).
 - [x] Comprehensive unit tests for `organization.py` (covering create, get, update, delete, transactions, permissions).
 - [x] Comprehensive unit tests for `organization_membership.py` (covering all member functions, role logic, permissions).
 - [x] Comprehensive unit tests for `party.py` (covering all functions, validation, permissions).
@@ -122,13 +122,14 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Integration Tests
 - [x] API endpoint tests (Organization creation and related flows now passing after critical bug fixes)
+- [x] User Endpoint (`/users/me`) E2E test (`test_user_e2e.py`) - PASSING
 - [x] Firebase integration tests
 - [x] LangGraph integration tests
-- [x] Organization Membership RBAC tests (Staff permissions, admin constraints, role management)
-- [x] Case Management in Organization Context tests (Create, list, assign cases with RBAC)
-- [x] File & Party Management for Organization Cases tests (upload/download files, create/attach/detach parties with RBAC)
-- [x] Cross-Organization Security tests (resource isolation between organizations)
-- [x] Stripe integration tests (payment intents, checkout sessions, webhooks, quota management) - ALL TESTS PASSING
+- [x] Organization Membership RBAC tests (Staff permissions, admin constraints, role management) - PASSING (Note: 10 emulator-specific tests in `TestOrganizationMembership` class are SKIPPED when testing against API gateway without emulator)
+- [x] Case Management in Organization Context tests (Create, list, assign cases with RBAC) - PASSING
+- [x] File & Party Management for Organization Cases tests (upload/download files, create/attach/detach parties with RBAC) - PASSING
+- [x] Cross-Organization Security tests (resource isolation between organizations) - MOSTLY PASSING (1 test intentionally SKIPPED due to known API behavior)
+- [~] Stripe integration tests - PARTIALLY TESTED / NEEDS REVIEW (Many tests SKIPPED, see Payment Processing section for details)
 - [ ] LLM integration tests
 - [ ] Storage integration tests
 

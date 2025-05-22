@@ -62,14 +62,14 @@
         * 1.3.1. **Integration Test: User Creation & Retrieval (if applicable, or focus on retrieval if creation is external):**
             * If user creation is via an endpoint: Test `POST /users` then `GET /users/me`.
             * If only retrieval: Confirm `GET /users/me` (already covered by 1.1.3 if successful).
-            * **Executor Prompt (if creation endpoint exists):** "Develop an integration test for user creation (e.g., `POST /v1/users`) followed by retrieval (`GET /v1/users/me`). Use a valid test JWT. Assert 201/200 status codes and validate response data. Store in `tests/integration/test_user.py`. Report execution results."
+            * **Executor Prompt (if creation endpoint exists):** "Develop an integration test for user creation (e.g., `POST /v1/users`) followed by retrieval (`GET /v1/users/me`). Use a valid test JWT. Assert 201/200 status codes and validate response data. Store in `tests/integration/test_user_e2e.py`. Report execution results."
         * 1.3.2. **Integration Test: Organization Creation & Retrieval:**
             * Test `POST /organizations` to create a new organization. - DONE (Key functionalities fixed: `end_user_id` propagation, datetime handling, sentinel value serialization, and Firestore client issues in auth. All tests now passing.)
             * Test `GET /organizations/{orgId}` to retrieve the created organization. - DONE (Fixed Firestore client import issue in auth.py, all tests now passing.)
             * Test `GET /organizations` (or `/users/me/organizations`) to list user's organizations. - DONE (All tests now passing.)
             * **Executor Prompt:** "Develop integration tests for: 1. Creating an organization (`POST /v1/organizations`) with payload `{\"name\": \"Test Org Integration\"}`. 2. Retrieving the created org by its ID. 3. Listing organizations for the test user. Use a valid test JWT. Assert appropriate status codes and response data. Store in `tests/integration/test_organization.py`. Report execution results."
         * 1.3.3. **Run Core Integration Tests:**
-            * **Executor Prompt:** "Execute integration tests: `test_user.py` and `test_organization.py` from `tests/integration/` against the deployed dev environment. Ensure `RELEX_API_BASE_URL` (e.g., `https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/`) and the appropriate authentication tokens (`RELEX_TEST_JWT`, `RELEX_ORG_ADMIN_TEST_JWT`, and `RELEX_ORG_USER_TEST_JWT`) are set as environment variables for the test execution environment. Use `./refresh_tokens.sh` to refresh expired tokens automatically. Report failures with request/response details."
+            * **Executor Prompt:** "Execute integration tests: `test_user_e2e.py` and `test_organization.py` from `tests/integration/` against the deployed dev environment. Ensure `RELEX_API_BASE_URL` (e.g., `https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1/`) and the appropriate authentication tokens (`RELEX_TEST_JWT`, `RELEX_ORG_ADMIN_TEST_JWT`, and `RELEX_ORG_USER_TEST_JWT`) are set as environment variables for the test execution environment. Use `./refresh_tokens.sh` to refresh expired tokens automatically. Report failures with request/response details."
 
 ## Phase 2: Expanding Test Coverage & API Functionality
 
@@ -92,9 +92,9 @@
     * **Sub-Tasks:** (For each endpoint/flow not yet covered)
         * 2.2.1. **Organization Management Integration Tests**
             * [ ] **Organization Update (`PUT /organizations/{organizationId}`):** Verify org admin can update, staff cannot, non-member cannot.
-            * [ ] **Organization Deletion (`DELETE /organizations/{organizationId}`):** Verify org admin can delete (and cannot with active subscription), staff cannot, non-member cannot.
+            * [ ] **Organization Deletion (`DELETE /organizations/{organizationId}`):** Verify org admin can delete (and cannot with active subscription), staff cannot, non-member cannot. (Note: `test_admin_cannot_delete_organization_with_active_subscription` in `test_organization.py` was SKIPPED in last run; reason needs checking if not known.)
         * 2.2.2. **Organization Membership Integration Tests**
-            * [x] Enhance existing tests to verify role-based access control for all membership operations.
+            * [x] Enhance existing tests to verify role-based access control for all membership operations. (Note: 10 tests in `TestOrganizationMembership` class in `test_organization_membership.py` are emulator-specific and were SKIPPED in API gateway test run.)
             * [x] Test that staff members cannot add/remove/change roles of other members.
             * [x] Test that the last administrator cannot be removed or downgraded.
         * 2.2.3. **Case Management in Organization Context**
@@ -106,17 +106,17 @@
             * [x] Test party creation/update/deletion for organization cases using `org_admin_api_client` and `org_user_api_client`.
             * [x] Verify non-members cannot access files or parties for organization cases.
         * 2.2.5. **Cross-Organization Security Tests**
-            * [x] Test that users from one organization cannot access resources from another organization.
+            * [x] Test that users from one organization cannot access resources from another organization. (Note: `test_admin_cannot_access_other_org_details` in `test_cross_org_security.py` is intentionally SKIPPED due to known API behavior.)
             * [x] Test that organization admins cannot modify members of other organizations.
             * [x] Test that organization cases are properly isolated between organizations.
-        * 2.2.6. **Stripe Integration Tests**
-            * [x] Payment intent creation and handling for different case tiers - COMPLETED (All tests passing)
-            * [x] Checkout session creation for subscriptions (individual and organization plans) - COMPLETED (All tests passing)
-            * [x] Promotion code/coupon handling for both payment intents and checkout sessions - COMPLETED (All tests passing)
-            * [x] Webhook event handling for all relevant Stripe events - COMPLETED (All tests passing)
-            * [x] Quota management based on subscription purchases and one-time payments - COMPLETED (All tests passing)
-            * [x] Organization-specific subscription and payment handling - COMPLETED (All tests passing)
-            * [x] Products endpoint for retrieving Stripe products and pricing - COMPLETED (All tests passing)
+        * 2.2.6. **Stripe Integration Tests** // Status updated based on focused test run on 2025-05-22
+            * [x] Payment intent creation and handling for different case tiers - COMPLETED (Relevant tests in `test_payments.py` passed)
+            * [~] Checkout session creation for subscriptions (individual and organization plans) - NEEDS REVIEW (`test_create_checkout_session` in `test_payments.py` was SKIPPED)
+            * [?] Promotion code/coupon handling for both payment intents and checkout sessions - NEEDS RE-VERIFICATION (Not covered in focused 2025-05-22 test run)
+            * [~] Webhook event handling for all relevant Stripe events - NEEDS REVIEW (Most tests in `test_stripe_webhooks.py` were SKIPPED; some basic webhook tests in `test_payments.py` passed)
+            * [?] Quota management based on subscription purchases and one-time payments - NEEDS RE-VERIFICATION (Not covered in focused 2025-05-22 test run)
+            * [?] Organization-specific subscription and payment handling - NEEDS RE-VERIFICATION (Not covered in focused 2025-05-22 test run)
+            * [x] Products endpoint for retrieving Stripe products and pricing - COMPLETED (`test_get_products` in `test_payments.py` passed)
             * [x] Payment system authentication and user context propagation - COMPLETED (Fixed end_user_id issue)
         * 2.2.7. **Endpoint/Flow: `[HTTP Method] [path]` (e.g., `POST /cases/{caseId}/parties`)**
             * **Executor Prompt:** "Develop integration tests for the `[HTTP Method] [path]` endpoint. Cover successful scenarios, common error conditions (invalid input, unauthorized, not found), and data validation. Store tests in `tests/integration/test_[resource_name].py`. Report execution results."

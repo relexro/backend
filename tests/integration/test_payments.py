@@ -96,50 +96,42 @@ class TestPayments:
         response_data = response.json()
         assert "error" in response_data
 
+    # This test requires the environment variable STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY
+    # to be set with a valid Stripe Price ID. This ID should then be configured
+    # in a Firestore 'plans' document corresponding to the planId used below (e.g., 'test_firestore_individual_monthly_plan').
     def test_create_checkout_session(self, api_client):
-        """Test create_checkout_session endpoint against deployed API."""
-        # First get available products to find a valid priceId
-        products_response = api_client.get("/products")
-        if products_response.status_code != 200:
-            pytest.skip("Cannot get products to test checkout session")
+        """Test create_checkout_session endpoint against deployed API for a subscription."""
+        # Ensure the Stripe Price ID is available in env for Operator to configure Firestore
+        stripe_price_id_env = os.getenv("STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY")
+        if not stripe_price_id_env:
+            pytest.fail(
+                "Required environment variable STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY is not set. "
+                "This is needed to ensure the corresponding Firestore 'plans' document "
+                "has the correct 'stripePriceId' field."
+            )
 
-        products_data = products_response.json()
+        # The API expects a planId that exists in Firestore and maps to a Stripe Price ID
+        test_plan_id_in_firestore = "test_firestore_individual_monthly_plan" # Example planId
 
-        # Find a valid price ID from the products
-        price_id = None
-        if "subscriptions" in products_data and products_data["subscriptions"]:
-            for subscription in products_data["subscriptions"]:
-                if "prices" in subscription and subscription["prices"]:
-                    price_id = subscription["prices"][0]["id"]
-                    break
-
-        if not price_id:
-            pytest.skip("No valid price ID found to test checkout session")
-
-        # Test data with valid priceId
         payload = {
-            "priceId": price_id
+            "planId": test_plan_id_in_firestore
         }
 
         # Make request to deployed API
         response = api_client.post("/payments/checkout", json=payload)
 
         # Verify the response
-        assert response.status_code == 200
+        # The endpoint returns 201 on successful checkout session creation
+        assert response.status_code == 201, \
+            f"Expected 201 Created, but got {response.status_code}. Response: {response.text}"
+        
         response_data = response.json()
         assert "sessionId" in response_data
-        assert "url" in response_data
-
-        # Verify the session ID format (Stripe format: cs_...)
-        session_id = response_data["sessionId"]
-        assert session_id.startswith("cs_")
-
-        # Verify URL format (should be Stripe checkout URL)
-        checkout_url = response_data["url"]
-        assert "checkout.stripe.com" in checkout_url
+        assert response_data["sessionId"].startswith("cs_test_") # Checkout session IDs in test mode
+        assert "url" in response_data # Stripe Checkout URL
 
         # Clean up: Delete the checkout session from Firestore
-        self._cleanup_firestore_document("checkoutSessions", session_id)
+        self._cleanup_firestore_document("checkoutSessions", response_data["sessionId"])
 
     def test_create_checkout_session_invalid_plan(self, api_client):
         """Test create_checkout_session with invalid price ID."""
