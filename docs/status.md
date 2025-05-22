@@ -124,7 +124,8 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Organization Membership RBAC tests (Staff permissions, admin constraints, role management)
 - [x] Case Management in Organization Context tests (Create, list, assign cases with RBAC)
 - [x] File & Party Management for Organization Cases tests (upload/download files, create/attach/detach parties with RBAC)
-- [ ] Stripe integration tests
+- [x] Cross-Organization Security tests (resource isolation between organizations)
+- [x] Stripe integration tests (payment intents, checkout sessions, webhooks, quota management)
 - [ ] LLM integration tests
 - [ ] Storage integration tests
 

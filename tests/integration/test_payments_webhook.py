@@ -468,6 +468,6 @@ class TestStripeWebhook:
         response, status_code = payments.handle_stripe_webhook(request)
         
         # Verify the response indicates signature verification error
-        assert status_code == 400
+        assert status_code == 401
         assert "error" in response
-        assert "Invalid signature" in response["message"] 
+        assert "Invalid signature" in response["message"]

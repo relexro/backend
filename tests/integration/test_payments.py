@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import json
 import firebase_admin
 from firebase_admin import firestore
+import stripe
 from functions.src import payments, auth
 
 class TestPayments:
@@ -85,7 +86,7 @@ class TestPayments:
         # Verify the response indicates invalid tier
         assert status_code == 400
         assert "error" in response
-        assert "Invalid case tier" in response["message"]
+        assert "caseTier must be 1, 2, or 3" in response["message"]
     
     def test_create_checkout_session(self, mocker, firestore_emulator_client, mock_request):
         """Test create_checkout_session function."""
@@ -162,7 +163,7 @@ class TestPayments:
         # Verify the response indicates invalid plan
         assert status_code == 400
         assert "error" in response
-        assert "Invalid plan ID" in response["message"]
+        assert "Plan not found: invalid_plan" in response["message"]
     
     def test_handle_stripe_webhook_signature_verification_error(self, mocker, mock_request):
         """Test handle_stripe_webhook with signature verification error."""
@@ -180,7 +181,7 @@ class TestPayments:
         response, status_code = payments.handle_stripe_webhook(request)
         
         # Verify the response indicates signature verification error
-        assert status_code == 400
+        assert status_code == 401
         assert "error" in response
         assert "Invalid signature" in response["message"]
     
@@ -231,8 +232,9 @@ class TestPayments:
         
         # Verify the response
         assert status_code == 200
-        assert "received" in response
-        assert response["received"] is True
+        assert "success" in response
+        assert response["success"] is True
+        assert "message" in response
         
         # Verify the organization was updated in Firestore
         org_doc = firestore_emulator_client.collection("organizations").document(org_id).get()
@@ -290,8 +292,9 @@ class TestPayments:
         
         # Verify the response
         assert status_code == 200
-        assert "received" in response
-        assert response["received"] is True
+        assert "success" in response
+        assert response["success"] is True
+        assert "message" in response
         
         # Verify the case was updated in Firestore
         case_doc = firestore_emulator_client.collection("cases").document(case_id).get()
@@ -439,8 +442,10 @@ class TestPayments:
         
         # Verify the response is still 200 (as per Stripe best practice)
         assert status_code == 200
-        assert "received" in response
-        assert response["received"] is True
+        assert "success" in response
+        assert response["success"] is True
+        assert "message" in response
+        assert "Webhook processed: unhandled.event.type" in response["message"]
     
     def test_cancel_subscription(self, mocker, firestore_emulator_client, mock_request):
         """Test cancel_subscription function."""

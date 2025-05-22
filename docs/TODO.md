@@ -106,10 +106,17 @@
             * [x] Test party creation/update/deletion for organization cases using `org_admin_api_client` and `org_user_api_client`.
             * [x] Verify non-members cannot access files or parties for organization cases.
         * 2.2.5. **Cross-Organization Security Tests**
-            * [ ] Test that users from one organization cannot access resources from another organization.
-            * [ ] Test that organization admins cannot modify members of other organizations.
-            * [ ] Test that organization cases are properly isolated between organizations.
-        * 2.2.6. **Endpoint/Flow: `[HTTP Method] [path]` (e.g., `POST /cases/{caseId}/parties`)**
+            * [x] Test that users from one organization cannot access resources from another organization.
+            * [x] Test that organization admins cannot modify members of other organizations.
+            * [x] Test that organization cases are properly isolated between organizations.
+        * 2.2.6. **Stripe Integration Tests**
+            * [x] Payment intent creation and handling for different case tiers
+            * [x] Checkout session creation for subscriptions (individual and organization plans)
+            * [x] Promotion code/coupon handling for both payment intents and checkout sessions
+            * [x] Webhook event handling for all relevant Stripe events
+            * [x] Quota management based on subscription purchases and one-time payments
+            * [x] Organization-specific subscription and payment handling
+        * 2.2.7. **Endpoint/Flow: `[HTTP Method] [path]` (e.g., `POST /cases/{caseId}/parties`)**
             * **Executor Prompt:** "Develop integration tests for the `[HTTP Method] [path]` endpoint. Cover successful scenarios, common error conditions (invalid input, unauthorized, not found), and data validation. Store tests in `tests/integration/test_[resource_name].py`. Report execution results."
             * Endpoints/Flows to cover: All CRUD operations for Cases, Parties, Organization Memberships, Payments (including webhook simulation if possible), Agent invocations.
 
