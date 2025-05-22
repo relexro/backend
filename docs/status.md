@@ -165,6 +165,16 @@ This document tracks the implementation status of the Relex backend components.
 
 ### Latest Updates
 ---
+**Date:** 2025-05-29
+**Update:** Payment system fully operational and all tests passing. Key achievements include:
+* Fixed Stripe secret configuration in Google Cloud Secret Manager by removing trailing newline character from `stripe-secret-key` secret.
+* Resolved authentication context mismatch by updating all payment functions to use `request.end_user_id` instead of `request.user_id` (4 instances in `functions/src/payments.py`).
+* Confirmed proper IAM permissions for Cloud Functions service account to access Secret Manager secrets.
+* Updated test assertions to match correct HTTP status codes (201 for payment intent creation, 400 for bad webhook requests).
+* All 7 payment integration tests now passing: payment intent creation, checkout sessions, webhook handling, products endpoint, and error scenarios.
+* Payment endpoints fully functional: `/products` (GET), `/payments/intent` (POST), `/webhooks/stripe` (POST), `/payments/checkout` (POST).
+* Stripe integration confirmed working with proper authentication, user context propagation, and secret management.
+---
 **Date:** 2025-05-28
 **Update:** Successfully resolved several critical bugs and enhanced test robustness. Key changes include:
 * Corrected user identification by changing `request.user_id` to `request.end_user_id` in `functions/src/organization.py`, `functions/src/cases.py`, `functions/src/party.py`, and `functions/src/organization_membership.py`.
