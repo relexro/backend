@@ -105,9 +105,10 @@ def get_or_create_firebase_user(uid, email, display_name):
 
 def generate_id_token_for_user(uid):
     try:
-        custom_token = auth.create_custom_token(uid)
+        custom_token_bytes = auth.create_custom_token(uid)
+        custom_token_str = custom_token_bytes.decode('utf-8')
         rest_api_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key={FIREBASE_WEB_API_KEY}"
-        payload = json.dumps({"token": custom_token, "returnSecureToken": True})
+        payload = json.dumps({"token": custom_token_str, "returnSecureToken": True})
         headers = {"Content-Type": "application/json"}
         response = requests.post(rest_api_url, data=payload, headers=headers)
         response.raise_for_status()
