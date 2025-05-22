@@ -13,7 +13,13 @@ sys.path.insert(0, mock_setup_path)
 os.makedirs(os.path.join(os.path.dirname(__file__), '..', 'functions', 'src', 'mock_setup'), exist_ok=True)
 
 # Mock essential modules
-sys.modules['auth'] = __import__('auth')
+mock_auth = MagicMock()
+mock_auth._mock_user_id = "test_user_id"
+mock_auth._mock_auth_status = 200
+mock_auth._mock_auth_message = None
+mock_auth._mock_permissions_allowed = True
+mock_auth._mock_permissions_status = 200
+sys.modules['auth'] = mock_auth
 
 import pytest
 import json
@@ -95,13 +101,12 @@ def patch_organization_membership_auth(monkeypatch):
 @pytest.fixture(autouse=True)
 def setup_auth_mock():
     """Configure the mock auth module with default values before each test."""
-    auth.configure_mock(
-        user_id="test_user_id",
-        auth_status=200,
-        auth_message=None,
-        permissions_allowed=True,
-        permissions_status=200
-    )
+    # Reset mock attributes to default values
+    auth._mock_user_id = "test_user_id"
+    auth._mock_auth_status = 200
+    auth._mock_auth_message = None
+    auth._mock_permissions_allowed = True
+    auth._mock_permissions_status = 200
     yield
 
 @pytest.fixture
@@ -147,7 +152,7 @@ class TestOrganizationMembership:
         staff_id = org_setup["staff_id"]
 
         # Configure mock auth to be the admin
-        auth.configure_mock(user_id=admin_id)
+        auth._mock_user_id = admin_id
 
         # Create a mock request to add a staff member
         request = mock_request(
@@ -188,7 +193,7 @@ class TestOrganizationMembership:
         admin_id = org_setup["admin_id"]
 
         # Configure mock auth to be the admin
-        auth.configure_mock(user_id=admin_id)
+        auth._mock_user_id = admin_id
 
         # Create a mock request to add the admin (who is already a member)
         request = mock_request(
@@ -214,8 +219,8 @@ class TestOrganizationMembership:
         staff_id = org_setup["staff_id"]
 
         # Configure mock auth to be a staff user (not yet a member)
-        auth.configure_mock(user_id=staff_id)
-        auth.configure_mock(permissions_allowed=False)
+        auth._mock_user_id = staff_id
+        auth._mock_permissions_allowed = False
 
         # Create a mock request to add another user
         request = mock_request(
@@ -242,7 +247,7 @@ class TestOrganizationMembership:
         staff_id = org_setup["staff_id"]
 
         # Configure mock auth to be the admin
-        auth.configure_mock(user_id=admin_id)
+        auth._mock_user_id = admin_id
 
         # Add a staff member first
         staff_membership_ref = firestore_emulator_client.collection("organization_memberships").document(f"{org_id}_{staff_id}")
@@ -281,7 +286,7 @@ class TestOrganizationMembership:
         admin_id = org_setup["admin_id"]
 
         # Configure mock auth to be the admin
-        auth.configure_mock(user_id=admin_id)
+        auth._mock_user_id = admin_id
 
         # Create a mock request to downgrade the only admin to staff
         request = mock_request(
@@ -308,7 +313,7 @@ class TestOrganizationMembership:
         staff_id = org_setup["staff_id"]
 
         # Configure mock auth to be the admin
-        auth.configure_mock(user_id=admin_id)
+        auth._mock_user_id = admin_id
 
         # Add a staff member
         staff_membership_ref = firestore_emulator_client.collection("organization_memberships").document(f"{org_id}_{staff_id}")
@@ -356,7 +361,7 @@ class TestOrganizationMembership:
         staff_id = org_setup["staff_id"]
 
         # Configure mock auth to be the admin
-        auth.configure_mock(user_id=admin_id)
+        auth._mock_user_id = admin_id
 
         # Add a staff member
         staff_membership_ref = firestore_emulator_client.collection("organization_memberships").document(f"{org_id}_{staff_id}")
@@ -393,7 +398,7 @@ class TestOrganizationMembership:
         admin_id = org_setup["admin_id"]
 
         # Configure mock auth to be the admin
-        auth.configure_mock(user_id=admin_id)
+        auth._mock_user_id = admin_id
 
         # Create a mock request to remove the only admin
         request = mock_request(
@@ -419,7 +424,7 @@ class TestOrganizationMembership:
         staff_id = org_setup["staff_id"]
 
         # Configure mock auth to be authenticated
-        auth.configure_mock(user_id="any_user")
+        auth._mock_user_id = "any_user"
 
         # Add a staff member
         staff_membership_ref = firestore_emulator_client.collection("organization_memberships").document(f"{org_id}_{staff_id}")
@@ -492,7 +497,7 @@ class TestOrganizationMembership:
         user_id = "test_user_orgs_123"
 
         # Configure mock auth to be the user
-        auth.configure_mock(user_id=user_id)
+        auth._mock_user_id = user_id
 
         # Create test organizations and memberships
         org_ids = ["test_org_1", "test_org_2", "test_org_3"]
