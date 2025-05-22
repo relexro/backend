@@ -93,6 +93,10 @@ By following this onboarding process, the Lead Planner will be equipped to analy
 - Cloudflare account with access to relex.ro domain
 - Node.js and npm (for OpenAPI validation)
 - Redocly CLI: `npm install -g @redocly/cli` (for validating OpenAPI specifications)
+- **Stripe CLI**: Required for managing Stripe resources (products, prices, webhooks)
+  - Install: [Stripe CLI Installation Guide](https://stripe.com/docs/stripe-cli)
+  - Login: `stripe login`
+  - Configure: `stripe config` (verify correct API key)
 
 ### Configuration
 
@@ -192,6 +196,55 @@ For a clean deployment destroying all resources first:
 cd terraform
 ./destroy.sh && ./deploy.sh
    ```
+
+## Stripe Resource Management
+
+The project includes a comprehensive Stripe resource management system for handling products, prices, coupons, and webhooks. All Stripe resources are managed through centralized configuration and scripts.
+
+### Stripe Setup
+
+1. **Install and configure Stripe CLI** (see Prerequisites above)
+2. **Configure Stripe API keys** in your environment variables (see Configuration section)
+
+### Managing Stripe Resources
+
+All Stripe resources (products, prices, coupons, tax rates, webhooks) are managed through a single script with centralized configuration:
+
+```bash
+# View current Stripe configuration
+./scripts/stripe/manage_stripe.sh config
+
+# Create all Stripe resources from configuration
+./scripts/stripe/manage_stripe.sh create
+
+# List all current Stripe resources
+./scripts/stripe/manage_stripe.sh list
+
+# Delete/deactivate all Stripe resources
+./scripts/stripe/manage_stripe.sh delete
+
+# Validate configuration file
+./scripts/stripe/manage_stripe.sh validate
+```
+
+### Customizing Stripe Resources
+
+To modify products, prices, or other Stripe resources:
+
+1. **Edit the configuration file**: `scripts/stripe/config.json`
+   - Product names, descriptions, and statement descriptors
+   - Pricing (amounts in cents: 900 = €9.00)
+   - Webhook URL and events
+   - Coupon and promotion code details
+   - Tax rate information
+
+2. **Validate your changes**: `./scripts/stripe/manage_stripe.sh validate`
+
+3. **Preview the configuration**: `./scripts/stripe/manage_stripe.sh config`
+
+4. **Apply the changes**: `./scripts/stripe/manage_stripe.sh create`
+
+For detailed documentation and examples, see: [`scripts/stripe/README.md`](scripts/stripe/README.md)
 
 ## Development
 

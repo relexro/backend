@@ -63,8 +63,4 @@ variable "project_number" {
   default     = "49787884280"
 }
 
-variable "stripe_secret_key" {
-  description = "Stripe API Secret Key (Test Mode). This will be populated by the TF_VAR_stripe_secret_key environment variable."
-  type        = string
-  sensitive   = true
-}
+# Stripe variables removed - resources now managed via scripts
