@@ -94,9 +94,9 @@
             * [ ] **Organization Update (`PUT /organizations/{organizationId}`):** Verify org admin can update, staff cannot, non-member cannot.
             * [ ] **Organization Deletion (`DELETE /organizations/{organizationId}`):** Verify org admin can delete (and cannot with active subscription), staff cannot, non-member cannot.
         * 2.2.2. **Organization Membership Integration Tests**
-            * [ ] Enhance existing tests to verify role-based access control for all membership operations.
-            * [ ] Test that staff members cannot add/remove/change roles of other members.
-            * [ ] Test that the last administrator cannot be removed or downgraded.
+            * [x] Enhance existing tests to verify role-based access control for all membership operations.
+            * [x] Test that staff members cannot add/remove/change roles of other members.
+            * [x] Test that the last administrator cannot be removed or downgraded.
         * 2.2.3. **Case Management in Organization Context**
             * [ ] **Create Case (`POST /organizations/{organizationId}/cases`):** Test for admin (can create), staff (can create), non-member (cannot).
             * [ ] **Assign Case (`POST /cases/{caseId}/assign`):** Test for admin (can assign), staff (cannot), non-member (cannot); test invalid assignments.

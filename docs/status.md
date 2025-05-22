@@ -121,6 +121,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] API endpoint tests (Organization creation and related flows now passing after critical bug fixes)
 - [x] Firebase integration tests
 - [x] LangGraph integration tests
+- [x] Organization Membership RBAC tests (Staff permissions, admin constraints, role management)
 - [ ] Stripe integration tests
 - [ ] LLM integration tests
 - [ ] Storage integration tests
