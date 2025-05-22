@@ -116,7 +116,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Comprehensive unit tests for core logic in `cases.py` (covering create, get, list, archive, delete; permissions and error handling).
 - [x] Business logic tests (general placeholder - specific modules like agent_nodes, templates covered)
 - [x] Agent workflow tests (covered by agent_nodes, llm_integration, agent_tools tests acting as unit/integration)
-- [ ] Payment processing tests (core logic unit tests for `payments.py` still to be explicitly itemized/confirmed beyond integration coverage)
+- [x] Payment processing tests (comprehensive integration tests covering all payment endpoints and Stripe functionality - ALL PASSING)
 - [ ] File management tests (file operations beyond current integration coverage)
 - [x] Test warnings (protobuf, InsecureRequestWarning) suppressed via `pytest.ini` and `conftest.py` updates
 
@@ -128,7 +128,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Case Management in Organization Context tests (Create, list, assign cases with RBAC)
 - [x] File & Party Management for Organization Cases tests (upload/download files, create/attach/detach parties with RBAC)
 - [x] Cross-Organization Security tests (resource isolation between organizations)
-- [x] Stripe integration tests (payment intents, checkout sessions, webhooks, quota management)
+- [x] Stripe integration tests (payment intents, checkout sessions, webhooks, quota management) - ALL TESTS PASSING
 - [ ] LLM integration tests
 - [ ] Storage integration tests
 
