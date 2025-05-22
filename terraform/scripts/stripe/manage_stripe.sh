@@ -217,6 +217,12 @@ set_env_vars() {
 create_resources() {
     print_header "Creating Stripe Resources from Configuration"
 
+    if [ -z "$STRIPE_SECRET_KEY" ]; then
+        print_error "STRIPE_SECRET_KEY environment variable is not set. Cannot manage Stripe resources."
+        print_error "Please set it: export STRIPE_SECRET_KEY=sk_test_yourkey (or sk_live_yourkey for live mode)"
+        exit 1 # Exit immediately if key is not set
+    fi
+
     local webhook_url=$(get_config '.webhook_url')
     local environment=$(get_config '.environment')
 
@@ -237,9 +243,29 @@ create_resources() {
         config_active_status=$(get_config ".products.$product_key.active") # boolean true/false
 
         print_status "Checking product: $name"
+        
+        local stripe_cli_output
+        local stripe_exit_code
+        local temp_stderr=".stripe_stderr.tmp"
+
         # Search for an existing active product by name
-        # The query needs to be exact. Note: `active:'true'` is a string match for Stripe CLI search.
-        existing_product_json=$(stripe products search --query "name:'$name' AND active:'true'" --limit 1 --api-key "$STRIPE_SECRET_KEY")
+        stripe_cli_output=$(stripe products search --query "name:'$name' AND active:'true'" --limit 1 --api-key "$STRIPE_SECRET_KEY" 2> "$temp_stderr")
+        stripe_exit_code=$?
+
+        if [ $stripe_exit_code -ne 0 ]; then
+            print_error "Stripe CLI command failed (exit code: $stripe_exit_code) while searching for product '$name'."
+            [ -s "$temp_stderr" ] && print_error "Stripe CLI stderr:" && cat "$temp_stderr"
+            rm -f "$temp_stderr"
+            exit 1
+        fi
+        rm -f "$temp_stderr"
+        
+        if ! echo "$stripe_cli_output" | jq empty 2>/dev/null; then
+            print_error "Stripe CLI output was not valid JSON when searching for product '$name'."
+            print_error "Output was: $stripe_cli_output"
+            exit 1
+        fi
+        existing_product_json="$stripe_cli_output"
         existing_product_id=$(echo "$existing_product_json" | jq -r '.data[0].id // empty')
 
         if [ -n "$existing_product_id" ]; then
@@ -247,12 +273,28 @@ create_resources() {
             echo "$product_key=$existing_product_id" >> "$PRODUCT_IDS_FILE"
         else
             print_status "Product '$name' not found or not active. Creating..."
-            PRODUCT_ID=$(stripe products create \
+            stripe_cli_output=$(stripe products create \
                 --name="$name" \
                 --description="$description" \
                 --statement-descriptor="$statement_descriptor" \
                 --active=$config_active_status \
-                --api-key "$STRIPE_SECRET_KEY" | jq -r '.id // empty')
+                --api-key "$STRIPE_SECRET_KEY" 2> "$temp_stderr")
+            stripe_exit_code=$?
+
+            if [ $stripe_exit_code -ne 0 ]; then
+                print_error "Stripe CLI command failed (exit code: $stripe_exit_code) while creating product '$name'."
+                [ -s "$temp_stderr" ] && print_error "Stripe CLI stderr:" && cat "$temp_stderr"
+                rm -f "$temp_stderr"
+                exit 1
+            fi
+            rm -f "$temp_stderr"
+
+            if ! echo "$stripe_cli_output" | jq empty 2>/dev/null; then
+                print_error "Stripe CLI output was not valid JSON when creating product '$name'."
+                print_error "Output was: $stripe_cli_output"
+                exit 1
+            fi
+            PRODUCT_ID=$(echo "$stripe_cli_output" | jq -r '.id // empty')
 
             if [ -n "$PRODUCT_ID" ]; then
                 echo "$product_key=$PRODUCT_ID" >> "$PRODUCT_IDS_FILE"
@@ -280,30 +322,104 @@ create_resources() {
         fi
 
         print_status "Checking price: $nickname (lookup_key: $lookup_key)"
-        # Search for an existing active price by lookup_key
-        existing_price_json=$(stripe prices list --lookup-keys "$lookup_key" --active true --limit 1 --api-key "$STRIPE_SECRET_KEY")
-        existing_price_id=$(echo "$existing_price_json" | jq -r '.data[0].id // empty')
-
+        local stripe_cli_output
+        local stripe_exit_code
+        local temp_stderr=".stripe_stderr.tmp"
+        
         PRODUCT_ID=$(get_temp_value "$PRODUCT_IDS_FILE" "$product_ref_key")
         if [ -z "$PRODUCT_ID" ]; then
-            print_error "Could not find Product ID for product reference '$product_ref_key' (for price '$nickname'). Ensure product was created or found."
+            print_error "Could not find Product ID for product reference '$product_ref_key' (for price '$nickname'). Ensure product was created or found. Skipping this price."
             continue
         fi
 
-        if [ -n "$existing_price_id" ]; then
-            # Verify if the existing price belongs to the correct product
-            existing_price_product_id=$(echo "$existing_price_json" | jq -r '.data[0].product // empty')
-            if [ "$existing_price_product_id" == "$PRODUCT_ID" ]; then
-                print_status "Price '$nickname' (lookup_key: $lookup_key) already exists, is active, and linked to correct product. ID: $existing_price_id. Skipping creation."
-                echo "$price_key=$existing_price_id" >> "$PRICE_IDS_FILE"
+        # 1. Check for an ACTIVE price with the lookup_key
+        stripe_cli_output=$(stripe prices list --lookup-keys "$lookup_key" --active true --limit 1 --api-key "$STRIPE_SECRET_KEY" 2> "$temp_stderr")
+        stripe_exit_code=$?
+        if [ $stripe_exit_code -ne 0 ]; then
+            print_error "Stripe CLI command failed (exit code: $stripe_exit_code) while listing active prices for lookup_key '$lookup_key'."
+            [ -s "$temp_stderr" ] && print_error "Stripe CLI stderr:" && cat "$temp_stderr"
+            rm -f "$temp_stderr"
+            exit 1
+        fi
+        rm -f "$temp_stderr"
+        if ! echo "$stripe_cli_output" | jq empty 2>/dev/null; then
+            print_error "Stripe CLI output was not valid JSON listing active prices for lookup_key '$lookup_key'."
+            print_error "Output was: $stripe_cli_output"
+            exit 1
+        fi
+        active_price_json="$stripe_cli_output"
+        active_price_id=$(echo "$active_price_json" | jq -r '.data[0].id // empty')
+
+        if [ -n "$active_price_id" ]; then
+            active_price_product_id=$(echo "$active_price_json" | jq -r '.data[0].product // empty')
+            if [ "$active_price_product_id" == "$PRODUCT_ID" ]; then
+                print_status "Active price '$nickname' (lookup_key: $lookup_key) already exists for product $PRODUCT_ID. ID: $active_price_id. Skipping."
+                echo "$price_key=$active_price_id" >> "$PRICE_IDS_FILE"
+                continue 
             else
-                print_warning "Price '$nickname' (lookup_key: $lookup_key) exists with ID $existing_price_id but is linked to product $existing_price_product_id instead of expected $PRODUCT_ID. This might indicate a misconfiguration or a lookup_key collision. Skipping creation of new price for now."
-                # Decide on behavior: error out, or create a new one (which Stripe might block if lookup_key is truly unique constraint for active prices)
+                print_error "CRITICAL: Active price with lookup_key '$lookup_key' (ID: $active_price_id) exists but is linked to product $active_price_product_id, expected $PRODUCT_ID. Manual intervention required. Skipping this price."
+                continue
             fi
-        else
-            print_status "Price '$nickname' (lookup_key: $lookup_key) not found or not active. Creating..."
-            
-            create_params=(
+        fi
+
+        # 2. Active price not found. Check for an INACTIVE price with the lookup_key.
+        print_status "No active price found for lookup_key '$lookup_key'. Checking for inactive price..."
+        stripe_cli_output=$(stripe prices list --lookup-keys "$lookup_key" --active false --limit 1 --api-key "$STRIPE_SECRET_KEY" 2> "$temp_stderr")
+        stripe_exit_code=$?
+        if [ $stripe_exit_code -ne 0 ]; then
+            print_error "Stripe CLI command failed (exit code: $stripe_exit_code) while listing inactive prices for lookup_key '$lookup_key'."
+            [ -s "$temp_stderr" ] && print_error "Stripe CLI stderr:" && cat "$temp_stderr"
+            rm -f "$temp_stderr"
+            exit 1
+        fi
+        rm -f "$temp_stderr"
+        if ! echo "$stripe_cli_output" | jq empty 2>/dev/null; then
+            print_error "Stripe CLI output was not valid JSON listing inactive prices for lookup_key '$lookup_key'."
+            print_error "Output was: $stripe_cli_output"
+            exit 1
+        fi
+        inactive_price_json="$stripe_cli_output"
+        inactive_price_id=$(echo "$inactive_price_json" | jq -r '.data[0].id // empty')
+
+        if [ -n "$inactive_price_id" ]; then
+            inactive_price_product_id=$(echo "$inactive_price_json" | jq -r '.data[0].product // empty')
+            if [ "$inactive_price_product_id" == "$PRODUCT_ID" ]; then
+                print_status "Inactive price '$nickname' (lookup_key: $lookup_key) found for product $PRODUCT_ID. ID: $inactive_price_id. Attempting to reactivate..."
+                
+                stripe_cli_output=$(stripe prices update "$inactive_price_id" --active=true --api-key "$STRIPE_SECRET_KEY" 2> "$temp_stderr")
+                stripe_exit_code=$?
+                if [ $stripe_exit_code -ne 0 ]; then
+                    print_error "Stripe CLI command failed (exit code: $stripe_exit_code) while reactivating price ID '$inactive_price_id'."
+                    [ -s "$temp_stderr" ] && print_error "Stripe CLI stderr:" && cat "$temp_stderr"
+                    rm -f "$temp_stderr"
+                    exit 1
+                fi
+                rm -f "$temp_stderr"
+                if ! echo "$stripe_cli_output" | jq empty 2>/dev/null; then
+                    print_error "Stripe CLI output was not valid JSON when reactivating price ID '$inactive_price_id'."
+                    print_error "Output was: $stripe_cli_output"
+                    exit 1
+                fi
+                updated_price_json="$stripe_cli_output"
+                reactivated_price_id=$(echo "$updated_price_json" | jq -r '.id // empty')
+                is_active=$(echo "$updated_price_json" | jq -r '.active // false')
+
+                if [ "$is_active" == "true" ] && [ -n "$reactivated_price_id" ]; then
+                    print_status "Successfully reactivated price '$nickname': $reactivated_price_id"
+                    echo "$price_key=$reactivated_price_id" >> "$PRICE_IDS_FILE"
+                else
+                    print_error "Failed to reactivate price '$nickname' (ID: $inactive_price_id). Manual check required. Raw update response: $updated_price_json"
+                fi
+                continue 
+            else
+                print_error "CRITICAL: Inactive price with lookup_key '$lookup_key' (ID: $inactive_price_id) exists but is linked to product $inactive_price_product_id, expected $PRODUCT_ID. Cannot reactivate. Manual intervention required. Skipping this price."
+                continue
+            fi
+        fi
+        
+        # 3. No existing price found. Create a new one.
+        print_status "No existing price (active or inactive for the correct product) found for lookup_key '$lookup_key'. Creating new price..."
+        create_params=(
                 --product "$PRODUCT_ID"
                 --currency "$currency"
                 --unit-amount "$unit_amount"
@@ -320,18 +436,40 @@ create_resources() {
                 create_params+=(--recurring.interval "$recurring_interval")
             fi
 
-            PRICE_ID=$(stripe prices create "${create_params[@]}" | jq -r '.id // empty')
+            stripe_cli_output=$(stripe prices create "${create_params[@]}" 2> "$temp_stderr")
+            stripe_exit_code=$?
+
+            if [ $stripe_exit_code -ne 0 ]; then
+                print_error "Stripe CLI command failed (exit code: $stripe_exit_code) while creating price '$nickname' (lookup_key: $lookup_key)."
+                [ -s "$temp_stderr" ] && print_error "Stripe CLI stderr:" && cat "$temp_stderr"
+                rm -f "$temp_stderr"
+                exit 1
+            fi
+            rm -f "$temp_stderr"
+
+            if ! echo "$stripe_cli_output" | jq empty 2>/dev/null; then
+                print_error "Stripe CLI output was not valid JSON when creating price '$nickname' (lookup_key: $lookup_key)."
+                print_error "Output was: $stripe_cli_output"
+                exit 1
+            fi
+            PRICE_ID=$(echo "$stripe_cli_output" | jq -r '.id // empty')
 
             if [ -n "$PRICE_ID" ]; then
                 echo "$price_key=$PRICE_ID" >> "$PRICE_IDS_FILE"
                 print_status "Created price '$nickname' ($price_key) with lookup_key '$lookup_key': $PRICE_ID"
-                # If price needs to be explicitly set to active and `stripe prices create` doesn't support it:
-                # stripe prices update "$PRICE_ID" --active=$config_active_status --api-key "$STRIPE_SECRET_KEY"
+                # Prices are created active by default. If config_active_status could be false,
+                # an update would be needed here:
+                # if [ "$config_active_status" == "false" ]; then
+                #   stripe prices update "$PRICE_ID" --active=false --api-key "$STRIPE_SECRET_KEY"
+                # fi
             else
-                print_error "Failed to create price '$nickname' (lookup_key: $lookup_key). Check Stripe logs."
+                print_error "Failed to create price '$nickname' (lookup_key: $lookup_key) or extract ID. Check Stripe logs and previous messages."
+                # This path implies jq extracted an empty ID despite stripe CLI exiting 0.
             fi
         fi
     done
+    # Clean up any lingering temp file, just in case
+    rm -f .stripe_stderr.tmp
 
     # Create coupons
     print_status "Creating coupons..."
