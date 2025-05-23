@@ -14,7 +14,7 @@
     "payment_intent.canceled"
   ],
   "products": {
-    "case": {
+    "relex_case": {
       "name": "Relex Case",
       "description": "Purchase a single Relex AI legal case. Tier determines complexity and features.",
       "statement_descriptor": "RELEX CASE",
@@ -26,13 +26,13 @@
       "statement_descriptor": "RELEX INDIVIDUAL",
       "active": true
     },
-    "org_basic_plan": {
+    "relex_org_basic_plan": {
       "name": "Relex Organization Basic Plan",
       "description": "AI legal assistance for small legal teams. Up to 5 members.",
       "statement_descriptor": "RELEX ORG BASIC",
       "active": true
     },
-    "org_pro_plan": {
+    "relex_org_pro_plan": {
       "name": "Relex Organization Pro Plan",
       "description": "Advanced AI legal assistance for larger orgs. Up to 20 members.",
       "statement_descriptor": "RELEX ORG PRO",
@@ -40,28 +40,28 @@
     }
   },
   "prices": {
-    "case_tier1_onetime": {
-      "product": "case",
+    "relex_case_tier1_onetime": {
+      "product": "relex_case",
       "currency": "eur",
       "unit_amount": 900,
       "nickname": "Case Tier 1 Purchase (One-Time)",
-      "lookup_key": "price_case_tier1_onetime",
+      "lookup_key": "relex_price_case_tier1_onetime",
       "type": "one_time"
     },
-    "case_tier2_onetime": {
-      "product": "case",
+    "relex_case_tier2_onetime": {
+      "product": "relex_case",
       "currency": "eur",
       "unit_amount": 2900,
       "nickname": "Case Tier 2 Purchase (One-Time)",
-      "lookup_key": "price_case_tier2_onetime",
+      "lookup_key": "relex_price_case_tier2_onetime",
       "type": "one_time"
     },
-    "case_tier3_onetime": {
-      "product": "case",
+    "relex_case_tier3_onetime": {
+      "product": "relex_case",
       "currency": "eur",
       "unit_amount": 9900,
       "nickname": "Case Tier 3 Purchase (One-Time)",
-      "lookup_key": "price_case_tier3_onetime",
+      "lookup_key": "relex_price_case_tier3_onetime",
       "type": "one_time"
     },
     "individual_monthly": {
@@ -69,7 +69,7 @@
       "currency": "eur",
       "unit_amount": 900,
       "nickname": "Individual Monthly",
-      "lookup_key": "price_individual_monthly",
+      "lookup_key": "relex_price_individual_monthly",
       "type": "recurring",
       "recurring_interval": "month"
     },
@@ -78,57 +78,57 @@
       "currency": "eur",
       "unit_amount": 8640,
       "nickname": "Individual Annually (20% discount)",
-      "lookup_key": "price_individual_yearly",
+      "lookup_key": "relex_price_individual_yearly",
       "type": "recurring",
       "recurring_interval": "year"
     },
-    "org_basic_monthly": {
-      "product": "org_basic_plan",
+    "relex_org_basic_monthly": {
+      "product": "relex_org_basic_plan",
       "currency": "eur",
       "unit_amount": 20000,
       "nickname": "Organization Basic Monthly",
-      "lookup_key": "price_org_basic_monthly",
+      "lookup_key": "relex_price_org_basic_monthly",
       "type": "recurring",
       "recurring_interval": "month"
     },
-    "org_basic_yearly": {
-      "product": "org_basic_plan",
+    "relex_org_basic_yearly": {
+      "product": "relex_org_basic_plan",
       "currency": "eur",
       "unit_amount": 192000,
       "nickname": "Organization Basic Annually (20% discount)",
-      "lookup_key": "price_org_basic_yearly",
+      "lookup_key": "relex_price_org_basic_yearly",
       "type": "recurring",
       "recurring_interval": "year"
     },
-    "org_pro_monthly": {
-      "product": "org_pro_plan",
+    "relex_org_pro_monthly": {
+      "product": "relex_org_pro_plan",
       "currency": "eur",
       "unit_amount": 50000,
       "nickname": "Organization Pro Monthly",
-      "lookup_key": "price_org_pro_monthly",
+      "lookup_key": "relex_price_org_pro_monthly",
       "type": "recurring",
       "recurring_interval": "month"
     },
-    "org_pro_yearly": {
-      "product": "org_pro_plan",
+    "relex_org_pro_yearly": {
+      "product": "relex_org_pro_plan",
       "currency": "eur",
       "unit_amount": 480000,
       "nickname": "Organization Pro Annually (20% discount)",
-      "lookup_key": "price_org_pro_yearly",
+      "lookup_key": "relex_price_org_pro_yearly",
       "type": "recurring",
       "recurring_interval": "year"
     }
   },
   "coupons": {
-    "test_coupon_25_off": {
+    "relex_test_coupon_25_off": {
       "name": "Test Coupon 25% Off First Month",
       "percent_off": 25,
       "duration": "once"
     }
   },
   "promotion_codes": {
-    "test_promo_relex25": {
-      "coupon": "test_coupon_25_off",
+    "relex_test_promo_relex25": {
+      "coupon": "relex_test_coupon_25_off",
       "code": "RELEXTEST25",
       "active": true
     }

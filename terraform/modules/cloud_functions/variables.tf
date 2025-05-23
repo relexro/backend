@@ -354,3 +354,23 @@ variable "stripe_price_id_case_tier3" {
   type        = string
   description = "Stripe Price ID for Case Tier 3."
 }
+
+variable "stripe_product_id_relex_case" {
+  type        = string
+  description = "Stripe Product ID for Relex Case."
+}
+
+variable "stripe_product_id_individual_plan" {
+  type        = string
+  description = "Stripe Product ID for Individual Plan."
+}
+
+variable "stripe_product_id_relex_org_basic_plan" {
+  type        = string
+  description = "Stripe Product ID for Organization Basic Plan."
+}
+
+variable "stripe_product_id_relex_org_pro_plan" {
+  type        = string
+  description = "Stripe Product ID for Organization Pro Plan."
+}

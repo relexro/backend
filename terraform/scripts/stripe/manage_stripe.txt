@@ -244,44 +244,6 @@ set_env_vars() {
         echo "export $env_var_name=\"$stripe_price_id\""
     done
     print_status_stderr "Finished generating environment variable export commands."
-
-    print_status_stderr "Fetching Stripe Product IDs..."
-    for product_key in $(get_config_keys '.products'); do
-        product_name=$(get_config ".products.$product_key.name")
-        print_status_stderr "Fetching Stripe Product ID for product: '$product_name'"
-        local product_list_output stripe_product_id=""
-        local stderr_capture_file_products; stderr_capture_file_products=$(mktemp)
-    
-        set +e
-        product_list_output=$(stripe products list --limit 100 --api-key "$STRIPE_SECRET_KEY" 2> "$stderr_capture_file_products")
-        cli_exit_code=$?
-        set -e
-    
-        if [ $cli_exit_code -ne 0 ]; then
-            print_warning_stderr "Stripe CLI command failed (exit code $cli_exit_code) for product '$product_name'. TF_VAR will not be set."
-            if [ -s "$stderr_capture_file_products" ]; then
-                print_warning_stderr "Stripe CLI stderr: $(cat "$stderr_capture_file_products")"
-            fi
-        else
-            if echo "$product_list_output" | jq empty >/dev/null 2>&1; then
-                stripe_product_id=$(echo "$product_list_output" | jq -r --arg name "$product_name" '.data[] | select(.name==$name and .active==true) | .id' | head -n 1)
-                if [ -z "$stripe_product_id" ]; then
-                    print_warning_stderr "No active product found with name '$product_name'"
-                fi
-            else
-                print_warning_stderr "Stripe CLI output for product '$product_name' was not valid JSON. Output: $product_list_output"
-            fi
-        fi
-        rm -f "$stderr_capture_file_products"
-    
-        local env_var_name="TF_VAR_stripe_product_id_${product_key}"
-        if [ -z "$stripe_product_id" ]; then
-            print_warning_stderr "TF_VAR '$env_var_name' will be set to empty."
-        else
-            print_status_stderr "Found active Stripe Product ID: $stripe_product_id for product '$product_name'. Setting $env_var_name."
-        fi
-        echo "export $env_var_name=\"$stripe_product_id\""
-    done
 }
 
 # Function to create all resources from config
@@ -292,28 +254,16 @@ create_resources() {
         exit 1
     fi
 
-    print_status_stderr "Checking if any product exists to skip creation..."
-    local product_list_output=$(stripe products list --active true --limit 1 --api-key "$STRIPE_SECRET_KEY" 2>/dev/null)
-    if [ $? -eq 0 ] && echo "$product_list_output" | jq -r '.data | length' | grep -q "1"; then
-        print_status_stderr "At least one active product exists. Skipping resource creation as requested."
-        return 0
-    fi
-
     # First, try to use existing resources if they have the correct lookup keys
     print_status_stderr "Checking for existing resources with correct lookup keys..."
     local has_all_prices=true
     for price_key in $(get_config_keys '.prices'); do
         lookup_key=$(get_config ".prices.$price_key.lookup_key")
         if [ -n "$lookup_key" ]; then
-            local stripe_output=$(stripe prices list --lookup-keys "$lookup_key" --active true --limit 1 --api-key "$STRIPE_SECRET_KEY" 2>/dev/null)
-            if [ $? -ne 0 ]; then
-                print_warning_stderr "Stripe CLI command failed for lookup_key '$lookup_key'. Assuming price does not exist."
+            local existing_price=$(stripe prices list --lookup-keys "$lookup_key" --active true --limit 1 --api-key "$STRIPE_SECRET_KEY" 2>/dev/null | jq -r '.data[0].id // empty')
+            if [ -z "$existing_price" ]; then
                 has_all_prices=false
-            else
-                local existing_price=$(echo "$stripe_output" | jq -r '.data[0].id // empty' 2>/dev/null)
-                if [ -z "$existing_price" ]; then
-                    has_all_prices=false
-                fi
+                break
             fi
         fi
     done

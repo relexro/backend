@@ -90,3 +90,27 @@ variable "stripe_price_id_case_tier3" {
   description = "Stripe Price ID for Case Tier 3 (one-time). Set via TF_VAR_stripe_price_id_case_tier3."
   nullable    = false
 }
+
+variable "stripe_product_id_relex_case" {
+  type        = string
+  description = "Stripe Product ID for Relex Case. Set via TF_VAR_stripe_product_id_relex_case."
+  nullable    = false
+}
+
+variable "stripe_product_id_individual_plan" {
+  type        = string
+  description = "Stripe Product ID for Individual Plan. Set via TF_VAR_stripe_product_id_individual_plan."
+  nullable    = false
+}
+
+variable "stripe_product_id_relex_org_basic_plan" {
+  type        = string
+  description = "Stripe Product ID for Organization Basic Plan. Set via TF_VAR_stripe_product_id_relex_org_basic_plan."
+  nullable    = false
+}
+
+variable "stripe_product_id_relex_org_pro_plan" {
+  type        = string
+  description = "Stripe Product ID for Organization Pro Plan. Set via TF_VAR_stripe_product_id_relex_org_pro_plan."
+  nullable    = false
+}

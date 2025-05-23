@@ -138,11 +138,15 @@ resource "google_cloudfunctions2_function" "functions" {
         # Alternatively, to apply to ALL functions, remove this conditional logic and just include the map.
         contains(["relex-backend-create-payment-intent", "relex-backend-get-products", "relex-backend-create-checkout-session", "relex-backend-handle-stripe-webhook", "relex-backend-cancel-subscription"], each.key) ?
         {
-          STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY = var.stripe_price_id_individual_monthly
-          STRIPE_PRICE_ID_ORG_BASIC_MONTHLY  = var.stripe_price_id_org_basic_monthly
-          STRIPE_PRICE_ID_CASE_TIER_1        = var.stripe_price_id_case_tier1
-          STRIPE_PRICE_ID_CASE_TIER_2        = var.stripe_price_id_case_tier2
-          STRIPE_PRICE_ID_CASE_TIER_3        = var.stripe_price_id_case_tier3
+         STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY = var.stripe_price_id_individual_monthly
+         STRIPE_PRICE_ID_ORG_BASIC_MONTHLY  = var.stripe_price_id_org_basic_monthly
+         STRIPE_PRICE_ID_CASE_TIER_1        = var.stripe_price_id_case_tier1
+         STRIPE_PRICE_ID_CASE_TIER_2        = var.stripe_price_id_case_tier2
+         STRIPE_PRICE_ID_CASE_TIER_3        = var.stripe_price_id_case_tier3
+         STRIPE_PRODUCT_ID_RELEX_CASE       = var.stripe_product_id_relex_case
+         STRIPE_PRODUCT_ID_INDIVIDUAL_PLAN  = var.stripe_product_id_individual_plan
+         STRIPE_PRODUCT_ID_ORG_BASIC_PLAN   = var.stripe_product_id_relex_org_basic_plan
+         STRIPE_PRODUCT_ID_ORG_PRO_PLAN     = var.stripe_product_id_relex_org_pro_plan
         } : {}
       )
     )

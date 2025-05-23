@@ -161,6 +161,12 @@ module "cloud_functions" {
   stripe_price_id_case_tier2            = var.stripe_price_id_case_tier2
   stripe_price_id_case_tier3            = var.stripe_price_id_case_tier3
 
+  # Pass Stripe Product IDs (new)
+  stripe_product_id_relex_case          = var.stripe_product_id_relex_case
+  stripe_product_id_individual_plan     = var.stripe_product_id_individual_plan
+  stripe_product_id_relex_org_basic_plan = var.stripe_product_id_relex_org_basic_plan
+  stripe_product_id_relex_org_pro_plan  = var.stripe_product_id_relex_org_pro_plan
+
   depends_on = [
     module.apis,
     module.storage,
