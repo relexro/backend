@@ -7,6 +7,7 @@ import os
 import json
 from unittest.mock import MagicMock
 import sys
+import re
 
 # Add functions/src to the Python path if not already there
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../functions/src')))
@@ -215,17 +216,47 @@ def mock_auth_module(mocker):
 
 @pytest.fixture(scope="session")
 def api_base_url():
-    """Return the base URL for the API.
+    terraform_outputs_path = "docs/terraform_outputs.log"
+    api_gateway_hostname = None
+    base_url_to_return = None
 
-    This URL is derived from docs/terraform_outputs.log and is used for integration tests.
-    Uses the API Gateway URL with the /v1 base path as specified in the OpenAPI specification.
+    try:
+        # Attempt to read from terraform_outputs.log
+        if os.path.exists(terraform_outputs_path):
+            with open(terraform_outputs_path, 'r') as f:
+                for line in f:
+                    if line.strip().startswith("api_gateway_url ="):
+                        # Regex to capture the value within quotes
+                        match = re.search(r'api_gateway_url\s*=\s*"([^"]+)"', line)
+                        if match:
+                            api_gateway_hostname = match.group(1)
+                            break
+            
+            if api_gateway_hostname:
+                base_url_to_return = f"https://{api_gateway_hostname}/v1"
+                # This constructs the URL like: [https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1](https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1)
+                # No rstrip('/') needed here as it's constructed without a trailing slash.
+    except Exception as e:
+        # Log error reading file but proceed to fallback
+        print(f"\nWarning: Could not read API Gateway URL from {terraform_outputs_path}: {e}")
+        # Ensure pytest prints this warning if it captures stdout/stderr.
+        # Alternatively, use pytest.warn or similar if a more formal warning is desired.
 
-    Returns:
-        str: The base URL for the API.
-    """
-    # The API is deployed as a set of Cloud Run services behind an API Gateway
-    # The API Gateway URL is in the format: https://{api_gateway_url}/v1
-    return "https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1"
+    if base_url_to_return:
+        return base_url_to_return
+
+    # Fallback to environment variable if not found in file or file reading failed
+    base_url_env = os.environ.get("RELEX_API_BASE_URL")
+    if base_url_env:
+        return base_url_env.rstrip('/') # Strip trailing slash if present from env var
+    
+    # If neither method yields a URL, skip the tests
+    pytest.skip(
+        f"API base URL could not be determined. "
+        f"Checked '{terraform_outputs_path}' (or it was unreadable/key missing) "
+        f"and the RELEX_API_BASE_URL environment variable is not set. "
+        "Skipping integration tests."
+    )
 
 @pytest.fixture(scope="session")
 def auth_token():
@@ -309,7 +340,7 @@ def create_api_client(api_base_url, token):
     class APIClient:
         def __init__(self, session, base_url):
             self.session = session
-            self.base_url = base_url
+            self.base_url = base_url.rstrip('/') # Ensure no trailing slash on base_url
 
         def get(self, endpoint, **kwargs):
             """Make a GET request to the API.
@@ -321,7 +352,9 @@ def create_api_client(api_base_url, token):
             Returns:
                 Response: The HTTP response.
             """
-            return self.session.get(f"{self.base_url}{endpoint}", **kwargs)
+            # Ensure endpoint starts with a slash if not already present
+            request_url = f"{self.base_url}/{endpoint.lstrip('/')}"
+            return self.session.get(request_url, **kwargs)
 
         def post(self, endpoint, **kwargs):
             """Make a POST request to the API.
@@ -333,7 +366,8 @@ def create_api_client(api_base_url, token):
             Returns:
                 Response: The HTTP response.
             """
-            return self.session.post(f"{self.base_url}{endpoint}", **kwargs)
+            request_url = f"{self.base_url}/{endpoint.lstrip('/')}"
+            return self.session.post(request_url, **kwargs)
 
         def put(self, endpoint, **kwargs):
             """Make a PUT request to the API.
@@ -345,7 +379,8 @@ def create_api_client(api_base_url, token):
             Returns:
                 Response: The HTTP response.
             """
-            return self.session.put(f"{self.base_url}{endpoint}", **kwargs)
+            request_url = f"{self.base_url}/{endpoint.lstrip('/')}"
+            return self.session.put(request_url, **kwargs)
 
         def delete(self, endpoint, **kwargs):
             """Make a DELETE request to the API.
@@ -357,7 +392,8 @@ def create_api_client(api_base_url, token):
             Returns:
                 Response: The HTTP response.
             """
-            return self.session.delete(f"{self.base_url}{endpoint}", **kwargs)
+            request_url = f"{self.base_url}/{endpoint.lstrip('/')}"
+            return self.session.delete(request_url, **kwargs)
 
         def patch(self, endpoint, **kwargs):
             """Make a PATCH request to the API.
@@ -369,7 +405,8 @@ def create_api_client(api_base_url, token):
             Returns:
                 Response: The HTTP response.
             """
-            return self.session.patch(f"{self.base_url}{endpoint}", **kwargs)
+            request_url = f"{self.base_url}/{endpoint.lstrip('/')}"
+            return self.session.patch(request_url, **kwargs)
 
         def request(self, method, endpoint, **kwargs):
             """Make a request to the API with the specified method.
@@ -382,7 +419,8 @@ def create_api_client(api_base_url, token):
             Returns:
                 Response: The HTTP response.
             """
-            return self.session.request(method, f"{self.base_url}{endpoint}", **kwargs)
+            request_url = f"{self.base_url}/{endpoint.lstrip('/')}"
+            return self.session.request(method, request_url, **kwargs)
 
     return APIClient(session, api_base_url)
 

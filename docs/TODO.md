@@ -111,7 +111,7 @@
             * [x] Test that organization cases are properly isolated between organizations.
         * 2.2.6. **Stripe Integration Tests** // Status updated based on focused test run on 2025-05-22
             * [x] Payment intent creation and handling for different case tiers - COMPLETED (Relevant tests in `test_payments.py` passed)
-            * [~] Checkout session creation for subscriptions (individual and organization plans) - NEEDS REVIEW (`test_create_checkout_session` in `test_payments.py` was SKIPPED)
+            * [x] Checkout session creation for subscriptions (individual plan) - VERIFIED (`test_create_checkout_session` for `planId: "individual_monthly"` now passing. Prerequisites: `tests/conftest.py` correctly sources `api_base_url` from `docs/terraform_outputs.log` or `RELEX_API_BASE_URL` env var; `STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY` env var is set; Operator configured Firestore `plans/individual_monthly` document for webhook processing, including `caseQuotaTotal`). Further testing for organization plans may be needed.
             * [?] Promotion code/coupon handling for both payment intents and checkout sessions - NEEDS RE-VERIFICATION (Not covered in focused 2025-05-22 test run)
             * [~] Webhook event handling for all relevant Stripe events - NEEDS REVIEW (Most tests in `test_stripe_webhooks.py` were SKIPPED; some basic webhook tests in `test_payments.py` passed)
             * [?] Quota management based on subscription purchases and one-time payments - NEEDS RE-VERIFICATION (Not covered in focused 2025-05-22 test run)

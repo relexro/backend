@@ -162,6 +162,37 @@ Here's how to do it:
 
 By performing these steps before running tests like `test_get_me_creates_user_profile_after_operator_manual_delete`, you ensure the test accurately verifies the profile creation logic. For other tests that expect the user associated with `RELEX_TEST_JWT` to exist, this deletion step should not be performed.
 
+### Integration Test Environment Setup
+
+#### API Base URL Resolution
+
+Integration tests automatically determine the API base URL required to connect to the deployed backend. The `api_base_url` fixture in `tests/conftest.py` implements the following logic:
+
+1.  It first attempts to read the `api_gateway_url` from the `docs/terraform_outputs.log` file. If found, the base URL is constructed as `https://<api_gateway_url_from_file>/v1`.
+2.  If `docs/terraform_outputs.log` is not found, or if the `api_gateway_url` key is missing within it, the fixture will attempt to use the value of the `RELEX_API_BASE_URL` environment variable.
+3.  If neither method yields a base URL, integration tests that depend on this fixture will be skipped.
+
+**Action Required**:
+* Ensure `docs/terraform_outputs.log` is kept up-to-date after any relevant Terraform deployments.
+* Alternatively, or as a fallback, ensure the `RELEX_API_BASE_URL` environment variable is correctly set in your test execution environment (e.g., `export RELEX_API_BASE_URL=https://your-api-gateway-id.ew.gateway.dev/v1`).
+
+#### Prerequisites for Payment Integration Tests
+
+Specific payment integration tests, such as `test_create_checkout_session` in `tests/integration/test_payments.py`, have additional prerequisites:
+
+1.  **Stripe Price ID Environment Variable**: An environment variable like `STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY` must be set with a valid Stripe Price ID (e.g., `price_xxxxxxxxxxxxxx`). This ID is used by the test and backend to refer to a specific Stripe price object, often looked up via an internal map in `functions/src/payments.py` which links a `planId` like `"individual_monthly"` to this environment variable.
+
+2.  **`planId` in Test Payload**: The test payload for creating checkout sessions (e.g., for `test_create_checkout_session`) sends a `planId` (e.g., `"individual_monthly"`). This `planId` must be a recognized key within an internal map in the `functions/src/payments.py` backend code.
+
+3.  **Firestore `plans` Document for Webhook Processing**: For subsequent webhook processing related to the plan identified by `planId` (e.g., `"individual_monthly"`), a corresponding document must exist in the Firestore `plans` collection.
+    * **Document ID**: Must match the `planId` (e.g., `individual_monthly`).
+    * **Required Fields (example for `individual_monthly`):**
+        * `caseQuotaTotal` (Number): The total case quota granted by this plan (this is read by webhook handlers).
+        * `stripePriceId` (String): The Stripe Price ID (e.g., `price_1RRUysCQ8cBrpIHal3AOk6JA`). Useful for reference and consistency, even if not directly used by the `create_checkout_session` endpoint to find the price.
+        * Other plan-specific metadata (e.g., `name`, `description`).
+
+Ensure these environment variables are set and Firestore data is configured by the Operator before running these payment tests to avoid test failures related to setup.
+
 ## Writing Tests
 
 When writing tests, follow these guidelines:
@@ -267,7 +298,3 @@ def test_get_organization(api_client, test_organization):
     assert response.status_code == 200
     assert response.json()["id"] == org_id
 ```
-
-## Continuous Integration
-
-These tests are run as part of the CI/CD pipeline to ensure code quality and prevent regressions.

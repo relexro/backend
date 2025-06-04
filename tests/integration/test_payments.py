@@ -111,7 +111,7 @@ class TestPayments:
             )
 
         # The API expects a planId that exists in Firestore and maps to a Stripe Price ID
-        test_plan_id_in_firestore = "test_firestore_individual_monthly_plan" # Example planId
+        test_plan_id_in_firestore = "individual_monthly" # Use a valid key from plan_details_map in functions/src/payments.py
 
         payload = {
             "planId": test_plan_id_in_firestore

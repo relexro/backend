@@ -79,7 +79,7 @@ This document tracks the implementation status of the Relex backend components.
 ### Payment Processing
 - [x] Stripe integration (core setup operational)
 - [x] Payment intent creation based on case tier (`test_payments.py` tests PASSING)
-- [~] Checkout sessions for subscriptions (`test_create_checkout_session` in `test_payments.py` SKIPPED; `test_stripe_integration.py` which covers more checkout scenarios had all tests SKIPPED)
+- [~] Checkout sessions for subscriptions - `test_create_checkout_session` in `test_payments.py` now PASSING for individual plan (`planId: "individual_monthly"`) after `conftest.py` and test payload `planId` corrections. Firestore data for `plans/individual_monthly` and `STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY` env var are prerequisites. (`test_stripe_integration.py` covering more scenarios still needs review).
 - [~] Subscription management with cancellation (`test_subscription_management.py` had all tests SKIPPED)
 - [~] Payment webhooks for subscription and payment events (Most specific webhook tests in `test_stripe_webhooks.py` and `test_stripe_webhook_events.py` were SKIPPED. Basic webhook handling in `test_payments.py` passed.)
 - [x] Per-case payment verification (Covered by passing payment intent tests)
@@ -129,7 +129,7 @@ This document tracks the implementation status of the Relex backend components.
 - [x] Case Management in Organization Context tests (Create, list, assign cases with RBAC) - PASSING
 - [x] File & Party Management for Organization Cases tests (upload/download files, create/attach/detach parties with RBAC) - PASSING
 - [x] Cross-Organization Security tests (resource isolation between organizations) - MOSTLY PASSING (1 test intentionally SKIPPED due to known API behavior)
-- [~] Stripe integration tests - PARTIALLY TESTED / NEEDS REVIEW (Many tests SKIPPED, see Payment Processing section for details)
+- [~] Stripe integration tests - Progress made: `test_create_checkout_session` for individual plan now PASSING. Other scenarios (e.g., organization plans, other specific webhook tests) still need review/unskipping. See Payment Processing section.
 - [ ] LLM integration tests
 - [ ] Storage integration tests
 
@@ -165,6 +165,14 @@ This document tracks the implementation status of the Relex backend components.
 ## Current System Status
 
 ### Latest Updates
+---
+**Date:** 2025-06-04
+**Update:** Resolved issues preventing `test_create_checkout_session` (for individual plans) from running and passing; enhanced test infrastructure and documentation. Key changes include:
+* Modified `tests/conftest.py` to robustly determine `api_base_url` from `docs/terraform_outputs.log` or `RELEX_API_BASE_URL` environment variable, allowing integration tests to run consistently.
+* Corrected `planId` in `tests/integration/test_payments.py` for `test_create_checkout_session` to use `"individual_monthly"`, aligning with backend expectations in `functions/src/payments.py`.
+* Verified that `test_create_checkout_session` now passes with correct `planId`, environment variables (`STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY`, JWTs), and Operator-configured Firestore `plans/individual_monthly` document.
+* Updated `PLANNER_GUIDE.MD` to reflect Operator communication preferences.
+* Updated `tests/README.MD` with details on `api_base_url` resolution and payment test prerequisites.
 ---
 **Date:** 2025-05-29
 **Update:** Payment system fully operational and all tests passing. Key achievements include:
