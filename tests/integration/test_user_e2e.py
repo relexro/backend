@@ -12,7 +12,7 @@ def test_get_user_me_e2e_deployed_api(api_client):
     This is an end-to-end integration test that calls the deployed API Gateway
     endpoint and validates the response structure and data types.
     """
-    response = api_client.get("/users/me")
+    response = api_client.get("users/me")
     assert response.status_code == 200, \
         f"Expected 200 OK, but got {response.status_code}. Response: {response.text}"
 

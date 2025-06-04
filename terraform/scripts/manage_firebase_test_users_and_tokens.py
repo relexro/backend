@@ -55,7 +55,7 @@ TEST_USER_DEFINITIONS = {
     }
 }
 
-SERVICE_ACCOUNT_KEY_PATH = Path(__file__).resolve().parent.parent / "firebase-service-account-key.json"
+SERVICE_ACCOUNT_KEY_PATH = Path(__file__).resolve().parent.parent.parent / "firebase-service-account-key.json"
 FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_WEB_API_KEY", "AIzaSyDoAzsda-TOwoqcAt7DAsL1GDsp_2NSi30") # Default from test-auth.html
 
 ZSHENV_PATH = Path.home() / ".zshenv"
