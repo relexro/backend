@@ -80,12 +80,13 @@
             * [x] Create comprehensive unit tests for all functions in `organization.py`, mocking Firestore and `check_permission`. (Covers `create_organization`, `get_organization`, `update_organization`, `delete_organization` including transaction logic, validation, and permission scenarios).
         * 2.1.2. **Module: `functions/src/organization_membership.py`**
             * [x] Create comprehensive unit tests for all functions in `organization_membership.py`, mocking Firestore and `check_permission`. (Tests implemented in `tests/integration/test_organization_membership.py` cover unit-level logic for `add_organization_member`, `set_organization_member_role`, `list_organization_members`, `remove_organization_member`, `get_user_organization_role`, `list_user_organizations`).
-        * 2.1.3. **Module: `[module_name.py]`**
-            * **Executor Prompt:** "Analyze `functions/src/[module_name.py]`. Identify all functions and classes. Create comprehensive unit tests covering main logic paths, edge cases, and error handling. Mock all external dependencies (Firestore, other GCP services, external APIs). Store tests in `tests/unit/test_[module_name].py`. Report execution results and estimated coverage."
-            * **Sub-Tasks (Examples):**
-                * [x] **Module: `functions/src/party.py`**: Comprehensive unit tests implemented, covering all functions, validation (CNP, CUI, RegCom), permission checks, and edge cases.
-                * [x] **Module: `functions/src/cases.py`**: Comprehensive unit tests implemented for core logic, covering `create_case` (individual and org), `get_case`, `list_cases` (user and org, with filtering/pagination), `archive_case`, and `delete_case` (soft delete). Permission checks and error handling are included. (Note: `update_case` function not present in current module version).
-                * Modules to cover: `payments.py`, `agent_orchestrator.py`, `agent_nodes.py`, `llm_integration.py`, etc.
+        * 2.1.3. **Module: `functions/src/party.py`**
+            * [x] **Module: `functions/src/party.py`**: Comprehensive unit tests implemented, covering all functions, validation (CNP, CUI, RegCom), permission checks, and edge cases.
+        * 2.1.4. **Module: `functions/src/cases.py`**
+            * [x] **Module: `functions/src/cases.py`**: Comprehensive unit tests implemented for core logic, covering `create_case` (individual and org), `get_case`, `list_cases` (user and org, with filtering/pagination), `archive_case`, and `delete_case` (soft delete). Permission checks and error handling are included. (Note: `update_case` function not present in current module version).
+        * 2.1.5. **Module: `functions/src/llm_integration.py`**
+            * [x] **Module: `functions/src/llm_integration.py`**: Comprehensive unit tests implemented (16 tests, ~95%+ coverage), covering initialization, context preparation, API interactions (mocked), response formatting, conversation history, and core query processing logic. All tests passing. `pytest.ini` and `requirements-dev.txt` updated to handle `asyncio` tests and suppress warnings. Note: Some async-related warnings persist in other test files (`test_nodes.py`), but these are unrelated to `llm_integration.py` and may require environment setup adjustments.
+        * Modules to cover: `payments.py`, `agent_orchestrator.py`, `agent_nodes.py`, etc.
 
 ### 2.2. Comprehensive Integration Testing
     * **Objective:** Ensure all API endpoints defined in `terraform/openapi_spec.yaml` are covered by integration tests located in `tests/integration/`.
