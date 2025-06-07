@@ -17,6 +17,12 @@ pytestmark = pytest.mark.skipif(
     reason="RELEX_ORG_ADMIN_TEST_JWT environment variable is not set"
 )
 
+# Alias fixture to maintain backward compatibility with test instructions
+@pytest.fixture
+def individual_api_client(api_client):
+    """Alias for `api_client` representing a user not belonging to the organization."""
+    return api_client
+
 class TestOrganizationLifecycle:
     """Test the organization lifecycle API endpoints.
 
@@ -231,9 +237,9 @@ class TestOrganizationUpdateDelete:
                 cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id}", json=cleanup_payload)
                 assert cleanup_response.status_code == 200 or cleanup_response.status_code == 404
 
-    def test_non_member_cannot_update_organization(self, org_admin_api_client, api_client):
+    def test_non_member_cannot_update_organization(self, org_admin_api_client, individual_api_client):
         # org_admin_api_client creates the org.
-        # api_client (representing a user not member of this org) attempts the update.
+        # individual_api_client (representing a user not member of this org) attempts the update.
         org_id = None
         try:
             org_id = self._create_test_organization_for_test(org_admin_api_client, "NonMemberUpdateAttempt")
@@ -242,7 +248,7 @@ class TestOrganizationUpdateDelete:
                 "organizationId": org_id,  # Include the ID in the request body
                 "name": f"Attempted Update by Non-Member {uuid.uuid4()}"
             }
-            response = api_client.put(f"/organizations/{org_id}", json=update_payload)
+            response = individual_api_client.put(f"/organizations/{org_id}", json=update_payload)
 
             # As per openapi_spec.yaml, this should be 403 or 404. Prioritize 403 if resource exists but user is forbidden.
             assert response.status_code == 403, f"PUT /organizations/{org_id} Expected 403 (Forbidden), got {response.status_code}. Response: {response.text}"

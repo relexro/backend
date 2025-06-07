@@ -534,6 +534,479 @@ class TemplateValidator:
                     pattern=r'^\d+\s*RON$',
                     description="Depozitul de garanție (format: 2000 RON)"
                 )
+            },
+            # Civil law templates
+            "cerere_chemare_judecata": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "plaintiff_name": FieldDefinition(
+                    name="plaintiff_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele reclamantului"
+                ),
+                "plaintiff_address": FieldDefinition(
+                    name="plaintiff_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa reclamantului"
+                ),
+                "defendant_name": FieldDefinition(
+                    name="defendant_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele pârâtului"
+                ),
+                "defendant_address": FieldDefinition(
+                    name="defendant_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa pârâtului"
+                ),
+                "claim_value": FieldDefinition(
+                    name="claim_value",
+                    required=True,
+                    pattern=r'^\d+(\.\d{2})?$',
+                    description="Valoarea cererii"
+                ),
+                "claim_description": FieldDefinition(
+                    name="claim_description",
+                    required=True,
+                    min_length=100,
+                    description="Descrierea cererii"
+                ),
+                "legal_basis": FieldDefinition(
+                    name="legal_basis",
+                    required=True,
+                    description="Baza legală a cererii"
+                )
+            },
+            "intampinare": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "respondent_name": FieldDefinition(
+                    name="respondent_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele intimatului"
+                ),
+                "respondent_address": FieldDefinition(
+                    name="respondent_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa intimatului"
+                ),
+                "response_description": FieldDefinition(
+                    name="response_description",
+                    required=True,
+                    min_length=100,
+                    description="Descrierea răspunsului"
+                ),
+                "legal_basis": FieldDefinition(
+                    name="legal_basis",
+                    required=True,
+                    description="Baza legală a răspunsului"
+                )
+            },
+            "concluzii_scrise": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "party_name": FieldDefinition(
+                    name="party_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele părții"
+                ),
+                "party_quality": FieldDefinition(
+                    name="party_quality",
+                    required=True,
+                    description="Calitatea procesuală a părții"
+                ),
+                "conclusions": FieldDefinition(
+                    name="conclusions",
+                    required=True,
+                    min_length=100,
+                    description="Concluziile scrise"
+                ),
+                "legal_basis": FieldDefinition(
+                    name="legal_basis",
+                    required=True,
+                    description="Baza legală a concluziilor"
+                )
+            },
+            # Commercial law templates
+            "contract_comercial": {
+                "contract_number": FieldDefinition(
+                    name="contract_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul contractului"
+                ),
+                "party1_name": FieldDefinition(
+                    name="party1_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele primei părți"
+                ),
+                "party1_details": FieldDefinition(
+                    name="party1_details",
+                    required=True,
+                    description="Detaliile primei părți"
+                ),
+                "party2_name": FieldDefinition(
+                    name="party2_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele celei de-a doua părți"
+                ),
+                "party2_details": FieldDefinition(
+                    name="party2_details",
+                    required=True,
+                    description="Detaliile celei de-a doua părți"
+                ),
+                "contract_value": FieldDefinition(
+                    name="contract_value",
+                    required=True,
+                    pattern=r'^\d+(\.\d{2})?$',
+                    description="Valoarea contractului"
+                ),
+                "contract_terms": FieldDefinition(
+                    name="contract_terms",
+                    required=True,
+                    min_length=100,
+                    description="Clauzele contractuale"
+                )
+            },
+            "notificare_plata": {
+                "notice_number": FieldDefinition(
+                    name="notice_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul notificării"
+                ),
+                "debtor_name": FieldDefinition(
+                    name="debtor_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele debitorului"
+                ),
+                "debtor_address": FieldDefinition(
+                    name="debtor_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa debitorului"
+                ),
+                "amount_due": FieldDefinition(
+                    name="amount_due",
+                    required=True,
+                    pattern=r'^\d+(\.\d{2})?$',
+                    description="Suma datorată"
+                ),
+                "due_date": FieldDefinition(
+                    name="due_date",
+                    required=True,
+                    pattern=r'^\d{2}\.\d{2}\.\d{4}$',
+                    description="Data scadentă"
+                ),
+                "payment_instructions": FieldDefinition(
+                    name="payment_instructions",
+                    required=True,
+                    min_length=50,
+                    description="Instrucțiuni de plată"
+                )
+            },
+            "cerere_arbitraj": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "claimant_name": FieldDefinition(
+                    name="claimant_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele reclamantului"
+                ),
+                "claimant_details": FieldDefinition(
+                    name="claimant_details",
+                    required=True,
+                    description="Detaliile reclamantului"
+                ),
+                "respondent_name": FieldDefinition(
+                    name="respondent_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele pârâtului"
+                ),
+                "respondent_details": FieldDefinition(
+                    name="respondent_details",
+                    required=True,
+                    description="Detaliile pârâtului"
+                ),
+                "dispute_description": FieldDefinition(
+                    name="dispute_description",
+                    required=True,
+                    min_length=100,
+                    description="Descrierea disputei"
+                ),
+                "arbitration_clause": FieldDefinition(
+                    name="arbitration_clause",
+                    required=True,
+                    description="Clauza de arbitraj"
+                )
+            },
+            # Administrative law templates
+            "contestatie_administrativa": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "authority_name": FieldDefinition(
+                    name="authority_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele autorității"
+                ),
+                "authority_address": FieldDefinition(
+                    name="authority_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa autorității"
+                ),
+                "contested_decision": FieldDefinition(
+                    name="contested_decision",
+                    required=True,
+                    description="Decizia contestată"
+                ),
+                "contesting_reasons": FieldDefinition(
+                    name="contesting_reasons",
+                    required=True,
+                    min_length=100,
+                    description="Motivele contestației"
+                ),
+                "legal_basis": FieldDefinition(
+                    name="legal_basis",
+                    required=True,
+                    description="Baza legală a contestației"
+                )
+            },
+            "cerere_anulare": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "authority_name": FieldDefinition(
+                    name="authority_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele autorității"
+                ),
+                "authority_address": FieldDefinition(
+                    name="authority_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa autorității"
+                ),
+                "decision_to_annul": FieldDefinition(
+                    name="decision_to_annul",
+                    required=True,
+                    description="Decizia de anulat"
+                ),
+                "annulment_reasons": FieldDefinition(
+                    name="annulment_reasons",
+                    required=True,
+                    min_length=100,
+                    description="Motivele anulării"
+                ),
+                "legal_basis": FieldDefinition(
+                    name="legal_basis",
+                    required=True,
+                    description="Baza legală a cererii"
+                )
+            },
+            "cerere_suspendare": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "authority_name": FieldDefinition(
+                    name="authority_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele autorității"
+                ),
+                "authority_address": FieldDefinition(
+                    name="authority_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa autorității"
+                ),
+                "decision_to_suspend": FieldDefinition(
+                    name="decision_to_suspend",
+                    required=True,
+                    description="Decizia de suspendat"
+                ),
+                "suspension_reasons": FieldDefinition(
+                    name="suspension_reasons",
+                    required=True,
+                    min_length=100,
+                    description="Motivele suspendării"
+                ),
+                "urgency_level": FieldDefinition(
+                    name="urgency_level",
+                    required=True,
+                    choices=["high", "medium", "low"],
+                    description="Nivelul de urgență"
+                )
+            },
+            # Labor law templates
+            "contestatie_decizie": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "employer_name": FieldDefinition(
+                    name="employer_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele angajatorului"
+                ),
+                "employer_address": FieldDefinition(
+                    name="employer_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa angajatorului"
+                ),
+                "employee_name": FieldDefinition(
+                    name="employee_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele angajatului"
+                ),
+                "employee_address": FieldDefinition(
+                    name="employee_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa angajatului"
+                ),
+                "contested_decision": FieldDefinition(
+                    name="contested_decision",
+                    required=True,
+                    description="Decizia contestată"
+                ),
+                "contesting_reasons": FieldDefinition(
+                    name="contesting_reasons",
+                    required=True,
+                    min_length=100,
+                    description="Motivele contestației"
+                )
+            },
+            "cerere_drepturi_salariale": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "employer_name": FieldDefinition(
+                    name="employer_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele angajatorului"
+                ),
+                "employer_address": FieldDefinition(
+                    name="employer_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa angajatorului"
+                ),
+                "employee_name": FieldDefinition(
+                    name="employee_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele angajatului"
+                ),
+                "employee_address": FieldDefinition(
+                    name="employee_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa angajatului"
+                ),
+                "salary_claims": FieldDefinition(
+                    name="salary_claims",
+                    required=True,
+                    min_length=100,
+                    description="Cererile salariale"
+                ),
+                "legal_basis": FieldDefinition(
+                    name="legal_basis",
+                    required=True,
+                    description="Baza legală a cererii"
+                )
+            },
+            "plangere_itm": {
+                "case_number": FieldDefinition(
+                    name="case_number",
+                    required=True,
+                    pattern=r'^\d+/\d{4}$',
+                    description="Numărul dosarului"
+                ),
+                "employer_name": FieldDefinition(
+                    name="employer_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele angajatorului"
+                ),
+                "employer_address": FieldDefinition(
+                    name="employer_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa angajatorului"
+                ),
+                "employee_name": FieldDefinition(
+                    name="employee_name",
+                    required=True,
+                    min_length=2,
+                    description="Numele angajatului"
+                ),
+                "employee_address": FieldDefinition(
+                    name="employee_address",
+                    required=True,
+                    min_length=10,
+                    description="Adresa angajatului"
+                ),
+                "complaint_description": FieldDefinition(
+                    name="complaint_description",
+                    required=True,
+                    min_length=100,
+                    description="Descrierea plângerii"
+                ),
+                "violated_rights": FieldDefinition(
+                    name="violated_rights",
+                    required=True,
+                    description="Drepturile încălcate"
+                )
             }
         }
         

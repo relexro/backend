@@ -26,24 +26,31 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Node Functions
-async def determine_tier_node(state: AgentState) -> AgentState:
+async def determine_tier_node(state: AgentState):
     """
     Determine the appropriate pricing tier for the client.
     """
     try:
         logger.info("Processing determine_tier node")
         state.current_node = "determine_tier"
-        # Use check_quota instead of determine_pricing_tier
         quota_result = await check_quota(state.user_id, state.organization_id if hasattr(state, 'organization_id') else None)
         state.tier = quota_result.get("subscription_tier", "basic")
         state.tier_details = quota_result
+        state.completed_nodes.append("determine_tier")
         logger.info(f"Determined tier: {state.tier}")
-        return state
+        # Decide next node based on quota
+        if quota_result.get('available_requests', 0) > 0 and not quota_result.get('requires_payment', False):
+            state.quota_status = {"has_quota": True, "remaining_credits": quota_result.get('available_requests', 0)}
+            return "verify_payment", state
+        else:
+            state.response_data["status"] = "quota_exceeded"
+            state.quota_status = {"has_quota": False, "required_credits": 50}
+            return "end", state
     except Exception as e:
         logger.error(f"Error in determine_tier_node: {str(e)}")
         state.has_error = True
-        state.error_message = f"Failed to determine pricing tier: {str(e)}"
-        return state
+        state.error_message = f"Failed to check quota: {str(e)}"
+        return "end", state
 
 async def verify_payment_node(state: AgentState) -> AgentState:
     """
@@ -69,40 +76,26 @@ async def verify_payment_node(state: AgentState) -> AgentState:
         state.error_message = f"Failed to verify payment: {str(e)}"
         return state
 
-async def process_input_node(state: AgentState) -> AgentState:
+async def process_input_node(state: AgentState):
     """
     Process user input and perform initial legal analysis.
     """
     try:
-        # Process the input using gemini model
         model = create_gemini_model()
         system_prompt = get_system_prompt("legal_analysis")
-        
-        # Create user message from the input data
         user_message = f"Case details: {json.dumps(state.case_details)}"
-        
-        # Get response from Gemini
-        response = await model.generate_content_async(
-            system_prompt,
-            user_message
-        )
-        
-        # Process the response
+        response = await model.generate_content_async(system_prompt, user_message, None)
         analysis_result = analyze_gemini_response(response, "legal_analysis")
-        
-        # Update state with analysis results
         state.input_analysis = {
             'legal_analysis': analysis_result,
             'timestamp': datetime.now().isoformat()
         }
-        
-        return state
-
+        return "next_node", state
     except Exception as e:
         logger.error(f"Error in process_input_node: {str(e)}")
         state.has_error = True
         state.error_message = f"Failed to process input: {str(e)}"
-        return state
+        return "error", state
 
 async def research_node(state: AgentState) -> AgentState:
     """
@@ -271,31 +264,24 @@ async def final_review_node(state: AgentState) -> AgentState:
         state.error_message = f"Failed to perform final review: {str(e)}"
         return state
 
-async def error_node(state: AgentState) -> AgentState:
+async def error_node(state: AgentState):
     """
     Handle errors in the workflow.
     """
     try:
         logger.info(f"Processing error node for error in: {state.current_node}")
-        
-        # Increment retry count for the current node
         if state.current_node not in state.retry_count:
             state.retry_count[state.current_node] = 0
         state.retry_count[state.current_node] += 1
-        
-        # Log the error
         logger.error(f"Error in {state.current_node}: {state.error_message}")
         logger.info(f"Retry count for {state.current_node}: {state.retry_count[state.current_node]}")
-        
-        # Reset error flag for retry
         state.has_error = False
         state.error_message = ""
-        
-        return state
+        return state.current_node, state
     except Exception as e:
         logger.error(f"Error in error_node: {str(e)}")
         state.error_message = f"Failed to process error node: {str(e)}"
-        return state
+        return "end", state
 
 def create_agent_graph() -> Graph:
     """

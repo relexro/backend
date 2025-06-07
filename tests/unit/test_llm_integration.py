@@ -71,109 +71,110 @@ def test_format_llm_response_full():
 
 # --- Tests for GeminiProcessor and GrokProcessor ---
 @pytest.mark.asyncio
-def test_gemini_processor_initialize_success(gemini_env):
+async def test_gemini_processor_initialize_success(gemini_env):
     with patch('functions.src.llm_integration.ChatGoogleGenerativeAI') as mock_model:
         proc = llm.GeminiProcessor('gemini-pro', 0.7, 2048)
-        asyncio.run(proc.initialize())
+        await proc.initialize()
         mock_model.assert_called_once_with(
             model='gemini-pro', temperature=0.7, max_output_tokens=2048, google_api_key='fake-key'
         )
         assert hasattr(proc, 'model')
 
 @pytest.mark.asyncio
-def test_gemini_processor_initialize_no_key(monkeypatch):
+async def test_gemini_processor_initialize_no_key(monkeypatch):
     monkeypatch.delenv('GEMINI_API_KEY', raising=False)
     proc = llm.GeminiProcessor('gemini-pro', 0.7, 2048)
     with pytest.raises(llm.LLMError) as exc_info:
-        asyncio.run(proc.initialize())
+        await proc.initialize()
     assert "GEMINI_API_KEY environment variable is required" in str(exc_info.value)
 
 @pytest.mark.asyncio
-def test_grok_processor_initialize_success():
+async def test_grok_processor_initialize_success():
     with patch('functions.src.llm_integration.GrokClient') as mock_client:
         proc = llm.GrokProcessor('grok-1', 0.8, 4096)
-        asyncio.run(proc.initialize())
+        await proc.initialize()
         mock_client.assert_called_once_with(model='grok-1', temperature=0.8, max_tokens=4096)
         assert hasattr(proc, 'model')
 
 # --- Tests for process_with_gemini ---
 @pytest.mark.asyncio
-def test_process_with_gemini_success(gemini_env):
+async def test_process_with_gemini_success(gemini_env):
     proc = llm.GeminiProcessor('gemini-pro', 0.7, 2048)
     with patch('functions.src.llm_integration.ChatGoogleGenerativeAI') as mock_model:
         mock_instance = mock_model.return_value
         mock_instance.agenerate = AsyncMock(return_value=[MagicMock(content='Gemini response')])
-        result = asyncio.run(llm.process_with_gemini(proc, {'case_type': 'civil'}, 'Test prompt'))
+        result = await llm.process_with_gemini(proc, {'case_type': 'civil'}, 'Test prompt')
         assert result == 'Gemini response'
 
 @pytest.mark.asyncio
-def test_process_with_gemini_no_response(gemini_env):
+async def test_process_with_gemini_no_response(gemini_env):
     proc = llm.GeminiProcessor('gemini-pro', 0.7, 2048)
     with patch('functions.src.llm_integration.ChatGoogleGenerativeAI') as mock_model:
         mock_instance = mock_model.return_value
         mock_instance.agenerate = AsyncMock(return_value=[MagicMock(content='')])
         with pytest.raises(llm.LLMError):
-            asyncio.run(llm.process_with_gemini(proc, {}, 'Prompt'))
+            await llm.process_with_gemini(proc, {}, 'Prompt')
 
 @pytest.mark.asyncio
-def test_process_with_gemini_error(gemini_env):
+async def test_process_with_gemini_error(gemini_env):
     proc = llm.GeminiProcessor('gemini-pro', 0.7, 2048)
     with patch('functions.src.llm_integration.ChatGoogleGenerativeAI') as mock_model:
         mock_instance = mock_model.return_value
         mock_instance.agenerate = AsyncMock(side_effect=Exception('API fail'))
         with pytest.raises(llm.LLMError):
-            asyncio.run(llm.process_with_gemini(proc, {}, 'Prompt'))
+            await llm.process_with_gemini(proc, {}, 'Prompt')
 
 # --- Tests for process_with_grok ---
 @pytest.mark.asyncio
-def test_process_with_grok_success():
+async def test_process_with_grok_success():
     proc = llm.GrokProcessor('grok-1', 0.8, 4096)
     with patch('functions.src.llm_integration.GrokClient') as mock_client:
         mock_instance = mock_client.return_value
         mock_instance.generate = AsyncMock(return_value=MagicMock(content='Grok response'))
-        result = asyncio.run(llm.process_with_grok(proc, {'case_type': 'civil'}, 'Prompt'))
+        result = await llm.process_with_grok(proc, {'case_type': 'civil'}, 'Prompt')
         assert result == 'Grok response'
 
 @pytest.mark.asyncio
-def test_process_with_grok_no_response():
+async def test_process_with_grok_no_response():
     proc = llm.GrokProcessor('grok-1', 0.8, 4096)
     with patch('functions.src.llm_integration.GrokClient') as mock_client:
         mock_instance = mock_client.return_value
         mock_instance.generate = AsyncMock(return_value=MagicMock(content=''))
         with pytest.raises(llm.LLMError):
-            asyncio.run(llm.process_with_grok(proc, {}, 'Prompt'))
+            await llm.process_with_grok(proc, {}, 'Prompt')
 
 @pytest.mark.asyncio
-def test_process_with_grok_error():
+async def test_process_with_grok_error():
     proc = llm.GrokProcessor('grok-1', 0.8, 4096)
     with patch('functions.src.llm_integration.GrokClient') as mock_client:
         mock_instance = mock_client.return_value
         mock_instance.generate = AsyncMock(side_effect=Exception('API fail'))
         with pytest.raises(llm.LLMError):
-            asyncio.run(llm.process_with_grok(proc, {}, 'Prompt'))
+            await llm.process_with_grok(proc, {}, 'Prompt')
 
 # --- Tests for process_legal_query ---
 @pytest.mark.asyncio
-def test_process_legal_query_success():
+async def test_process_legal_query_success():
     with patch('functions.src.llm_integration.process_with_gemini', new=AsyncMock(return_value='Gemini A')):
         with patch('functions.src.llm_integration.process_with_grok', new=AsyncMock(return_value='Grok B')):
-            result = asyncio.run(llm.process_legal_query({'case_type': 'civil'}, 'Q?'))
+            result = await llm.process_legal_query({'case_type': 'civil'}, 'Q?')
             assert result['initial_analysis'] == 'Gemini A'
             assert result['expert_recommendations'] == 'Grok B'
             assert 'timestamp' in result
 
 @pytest.mark.asyncio
-def test_process_legal_query_error():
+async def test_process_legal_query_error():
     with patch('functions.src.llm_integration.process_with_gemini', new=AsyncMock(side_effect=Exception('fail'))):
-        result = asyncio.run(llm.process_legal_query({}, 'Q?'))
+        result = await llm.process_legal_query({}, 'Q?')
         assert result['error'] == 'fail'
         assert result['error_type'] == 'Exception'
         assert 'timestamp' in result
 
 # --- Tests for maintain_conversation_history ---
-def test_maintain_conversation_history_trims():
+@pytest.mark.asyncio
+async def test_maintain_conversation_history_trims():
     history = [{'role': 'user', 'content': 'A', 'timestamp': 't'}] * 12
-    result = asyncio.run(llm.maintain_conversation_history('sess', 'assistant', 'B', history))
+    result = await llm.maintain_conversation_history('sess', 'assistant', 'B', history)
     assert len(result) == 10
     assert result[-1]['role'] == 'assistant'
     assert result[-1]['content'] == 'B' 

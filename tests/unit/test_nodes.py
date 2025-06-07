@@ -72,8 +72,8 @@ def commercial_case_state(base_state):
 # Mock fixtures for external dependencies
 @pytest.fixture
 def mock_check_quota():
-    """Mock the check_quota function from agent_tools."""
-    with patch('functions.src.agent_tools.check_quota') as mock:
+    """Mock the check_quota function from agent_nodes."""
+    with patch('functions.src.agent_nodes.check_quota') as mock:
         mock.return_value = {
             'status': 'success',
             'available_requests': 100,
@@ -86,8 +86,8 @@ def mock_check_quota():
 
 @pytest.fixture
 def mock_verify_payment():
-    """Mock the verify_payment function from agent_tools."""
-    with patch('functions.src.agent_tools.verify_payment') as mock:
+    """Mock the verify_payment function from agent_nodes."""
+    with patch('functions.src.agent_nodes.verify_payment') as mock:
         mock.return_value = {
             'paid': True,
             'payment_details': {
@@ -100,8 +100,8 @@ def mock_verify_payment():
 
 @pytest.fixture
 def mock_search_legal_database():
-    """Mock the search_legal_database function from agent_tools."""
-    with patch('functions.src.agent_tools.search_legal_database') as mock:
+    """Mock the search_legal_database function from agent_nodes."""
+    with patch('functions.src.agent_nodes.search_legal_database') as mock:
         mock.return_value = {
             'status': 'success',
             'results': [
@@ -113,8 +113,8 @@ def mock_search_legal_database():
 
 @pytest.fixture
 def mock_get_relevant_legislation():
-    """Mock the get_relevant_legislation function from agent_tools."""
-    with patch('functions.src.agent_tools.get_relevant_legislation') as mock:
+    """Mock the get_relevant_legislation function from agent_nodes."""
+    with patch('functions.src.agent_nodes.get_relevant_legislation') as mock:
         mock.return_value = {
             'status': 'success',
             'legislation': [
@@ -126,17 +126,19 @@ def mock_get_relevant_legislation():
 
 @pytest.fixture
 def mock_gemini_model():
-    """Mock the create_gemini_model function from gemini_util."""
-    with patch('functions.src.gemini_util.create_gemini_model') as mock:
+    """Mock the create_gemini_model function as used in agent_nodes."""
+    with patch('functions.src.agent_nodes.create_gemini_model') as mock:
         model_mock = MagicMock()
-        model_mock.generate_content_async = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.text = "Legal analysis response"
+        model_mock.generate_content_async = AsyncMock(return_value=mock_response)
         mock.return_value = model_mock
         yield mock
 
 @pytest.fixture
 def mock_analyze_gemini_response():
-    """Mock the analyze_gemini_response function from gemini_util."""
-    with patch('functions.src.gemini_util.analyze_gemini_response') as mock:
+    """Mock the analyze_gemini_response function as used in agent_nodes."""
+    with patch('functions.src.agent_nodes.analyze_gemini_response') as mock:
         mock.return_value = {
             'domains': {'main': 'civil', 'secondary': ['contract', 'property']},
             'keywords': ['contract', 'breach', 'damages'],
@@ -218,7 +220,6 @@ async def test_process_input_node(mock_gemini_model, mock_analyze_gemini_respons
 
     # Configure mocks
     model_mock = mock_gemini_model.return_value
-    model_mock.generate_content_async.return_value = MagicMock()
     mock_analyze_gemini_response.return_value = {
         "domains": {"main": "civil", "secondary": ["contract"]},
         "keywords": ["breach", "contract", "damages"],
@@ -226,7 +227,7 @@ async def test_process_input_node(mock_gemini_model, mock_analyze_gemini_respons
     }
 
     # Execute
-    updated_state = await process_input_node(state)
+    _, updated_state = await process_input_node(state)
 
     # Verify
     assert "legal_analysis" in updated_state.input_analysis

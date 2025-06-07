@@ -3,7 +3,7 @@ Draft Templates - Specialized templates for generating legal documents
 """
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from .template_validation import TemplateValidator, ValidationError
+from functions.src.template_validation import TemplateValidator, ValidationError
 
 # Common sections that can be reused across different templates
 HEADER_TEMPLATE = """

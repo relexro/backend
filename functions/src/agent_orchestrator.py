@@ -18,7 +18,7 @@ from agent_tools import (
 )
 
 from template_validation import ValidationError
-from draft_templates import DraftGenerator
+from functions.src.draft_templates import DraftTemplates
 from response_templates import format_response
 
 # Configure logging
@@ -54,7 +54,12 @@ class AgentState:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert state to dictionary format for storage."""
-        return asdict(self)
+        data = asdict(self)
+        # Ensure datetime objects are serialized to strings for JSON/storage safety
+        for key in ["execution_start", "last_updated"]:
+            if isinstance(data.get(key), datetime):
+                data[key] = data[key].isoformat()
+        return data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'AgentState':
@@ -97,7 +102,7 @@ class AgentGraph:
     """Defines and executes the agent's workflow graph."""
 
     def __init__(self):
-        self.draft_generator = DraftGenerator()
+        self.draft_generator = DraftTemplates()
         self.max_retries = 3
 
         # Define the workflow graph structure

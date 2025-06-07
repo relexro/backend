@@ -20,6 +20,8 @@ class AgentState(BaseModel):
     has_error: bool = Field(default=False)
     error_message: str = Field(default="")
     retry_count: Dict[str, int] = Field(default_factory=dict)
+    errors: List[Dict[str, Any]] = Field(default_factory=list)
+    completed_nodes: List[str] = Field(default_factory=list)
     
     # Results from each processing step
     tier: str = Field(default="basic")
@@ -36,4 +38,7 @@ class AgentState(BaseModel):
     
     # Session metadata
     start_time: str = Field(default_factory=lambda: datetime.now().isoformat())
-    last_updated: str = Field(default_factory=lambda: datetime.now().isoformat()) 
+    last_updated: str = Field(default_factory=lambda: datetime.now().isoformat())
+    
+    # Quota status
+    quota_status: Dict[str, Any] = Field(default_factory=dict) 
