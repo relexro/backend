@@ -13,7 +13,7 @@ import time
 
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from custom_grok_client import GrokClient
+from langchain_xai import ChatXAI
 
 from functions.src.exceptions import LLMError
 from functions.src.utils import prepare_context
@@ -53,27 +53,6 @@ class GeminiProcessor:
         except Exception as e:
             logger.error(f"Error initializing Gemini: {str(e)}")
             raise LLMError(f"Eroare la inițializarea Gemini: {str(e)}")
-
-@dataclass
-class GrokProcessor:
-    """Processor for Grok model integration."""
-    model_name: str
-    temperature: float
-    max_tokens: int
-    model: Optional[GrokClient] = None
-
-    async def initialize(self) -> None:
-        """Initialize the Grok model."""
-        try:
-            self.model = GrokClient(
-                model=self.model_name,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens
-            )
-            logger.info(f"Successfully initialized Grok model {self.model_name}")
-        except Exception as e:
-            logger.error(f"Error initializing Grok: {str(e)}")
-            raise LLMError(f"Eroare la inițializarea Grok: {str(e)}")
 
 def format_llm_response(response: Dict[str, Any]) -> str:
     """Format LLM response in Romanian."""
@@ -142,14 +121,20 @@ Răspunde în limba română, folosind un ton profesional și juridic.
         raise LLMError(f"Eroare la procesarea cu Gemini: {str(e)}")
 
 async def process_with_grok(
-    processor: GrokProcessor,
     context: Dict[str, Any],
     prompt: str,
     session_id: Optional[str] = None
 ) -> str:
-    """Process request with Grok."""
+    """Process request with Grok from xAI using the official ChatXAI client."""
     try:
-        await processor.initialize()
+        # Note: The 'session_id' is not directly used by ChatXAI here. Conversation
+        # history should be managed at a higher level (e.g., RunnableWithMessageHistory)
+        # if needed in the future.
+        xai_model = ChatXAI(
+            model_name="grok-1",  # Correct model name for xAI's Grok service
+            temperature=0.8,
+            max_tokens=4096
+        )
 
         prepared_context = prepare_context(context)
         full_prompt = f"""
@@ -165,12 +150,9 @@ Oferă o analiză detaliată în limba română, concentrându-te pe:
 3. Factori de risc și considerații speciale
 """
 
-        response = await processor.model.generate(
-            prompt=full_prompt,
-            session_id=session_id
-        )
+        response = await xai_model.ainvoke(full_prompt)
 
-        if not response or not response.content:
+        if not response or not getattr(response, "content", None):
             raise LLMError("Nu s-a primit niciun răspuns de la Grok")
 
         return response.content
@@ -218,12 +200,6 @@ async def process_legal_query(
             max_tokens=2048
         )
 
-        grok_processor = GrokProcessor(
-            model_name="grok-1",
-            temperature=0.8,
-            max_tokens=4096
-        )
-
         # Track performance if requested
         start_time = time.time()
 
@@ -239,7 +215,6 @@ async def process_legal_query(
             if context.get("enable_fallback", False):
                 logger.info("Primary model failed, falling back to Grok")
                 initial_analysis = await process_with_grok(
-                    grok_processor,
                     context,
                     query,
                     session_id
@@ -254,14 +229,12 @@ async def process_legal_query(
         # For urgent administrative cases, add specific processing
         if context.get("case_type") == "administrative" and context.get("urgency"):
             expert_recommendations = await process_with_grok(
-                grok_processor,
                 context,
                 "Analizează condițiile suspendării actului administrativ și recomandă procedura de urgență",
                 session_id
             )
         else:
             expert_recommendations = await process_with_grok(
-                grok_processor,
                 context,
                 query,
                 session_id

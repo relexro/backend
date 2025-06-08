@@ -33,3 +33,6 @@ markdown2~=2.4.12  # For Markdown processing
 # PDF generation - using a pure Python library that works in Cloud Functions
 xhtml2pdf==0.2.11  # Pure Python HTML to PDF converter, no system dependencies
 weasyprint>=57.0,<58.0  # Modern HTML/CSS to PDF converter
+
+# New dependency
+langchain-xai
