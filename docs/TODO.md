@@ -163,3 +163,20 @@
 * Break down tasks into the smallest actionable steps suitable for an Executor.
 * Always reference the `docs/PLANNER_GUIDE.md` and `docs/guardrail.md` when creating prompts.
 * Executor prompts should be generated one at a time as you progress through these tasks.
+
+## Phase 2.1: Unit Testing
+- [x] Complete unit tests for `payments.py`
+- [x] Complete unit tests for `agent_orchestrator.py`
+- [x] Complete unit tests for `agent_nodes.py`
+
+## Phase 2.2: Comprehensive Integration Testing
+
+### Sub-Tasks:
+* [ ] **Fix Failing LLM Integration Tests:** Address the 18 failing tests in `tests/integration/test_llm_integration.py`.
+    * **Primary Issue:** The root cause is incorrect test mocking. Mocks are passing a `tuple` to the Gemini model's `agenerate` method instead of a `list` of `BaseMessage` objects (e.g., `HumanMessage`), causing a `ValueError`.
+    * **Action:** Investigate and fix the `pytest` patches and mocks in `tests/integration/test_llm_integration.py` to ensure they provide the correctly formatted `list` of `BaseMessage` objects to the functions under test.
+
+* [ ] **Integration Test for Organization Deletion with Active Subscription**
+    * [x] Test is now enabled via Stripe Test Clock
+    * [x] Marked as `@pytest.mark.slow`
+    * [ ] TODO: Replace direct database write with internal API endpoint

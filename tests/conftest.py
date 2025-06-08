@@ -8,6 +8,8 @@ import json
 from unittest.mock import MagicMock
 import sys
 import re
+import stripe, uuid, time
+from tests.helpers import stripe_test_helpers
 
 # Add functions/src to the Python path if not already there
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../functions/src')))
@@ -468,3 +470,40 @@ def org_user_api_client(api_base_url, org_user_token):
         APIClient: A client for making HTTP requests to the API.
     """
     return create_api_client(api_base_url, org_user_token)
+
+# -------------------- Stripe Test Clock Fixtures --------------------
+@pytest.fixture(scope="session")
+def stripe_test_clock():
+    """Session-scoped Stripe Test Clock.
+
+    Requires STRIPE_API_KEY env var to be set; otherwise skips Stripe-dependent tests.
+    """
+    stripe_api_key = os.getenv("STRIPE_API_KEY")
+    if not stripe_api_key:
+        pytest.skip("STRIPE_API_KEY environment variable not set. Skipping Stripe Test Clock dependent tests.")
+    stripe.api_key = stripe_api_key  # Ensure global API key is configured
+
+    clock = stripe_test_helpers.create_test_clock()
+    yield clock
+
+    # Teardown – delete the test clock to keep Stripe dashboard clean
+    try:
+        stripe_test_helpers.delete_test_clock(clock.id)
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def stripe_test_customer(stripe_test_clock):
+    """Create a Stripe test customer attached to the session's test clock."""
+    customer = stripe.Customer.create(
+        description="Relex integration-test customer",
+        email=f"it_{uuid.uuid4()}@example.com",
+        test_clock=stripe_test_clock.id,
+    )
+    yield customer
+    # Cleanup – delete customer
+    try:
+        stripe.Customer.delete(customer.id)
+    except Exception:
+        pass

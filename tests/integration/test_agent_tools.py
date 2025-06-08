@@ -22,7 +22,7 @@ from functions.src.agent_tools import (
     QuotaError,
     PaymentError,
     DatabaseError,
-    GrokAPIError,
+    GrokError,
     PDFGenerationError
 )
 
@@ -256,7 +256,7 @@ async def test_consult_grok_error():
     with patch("custom_grok_client.GrokClient") as mock_grok:
         mock_grok.return_value.generate.side_effect = Exception("API error")
 
-        with pytest.raises(GrokAPIError) as exc_info:
+        with pytest.raises(GrokError) as exc_info:
             await consult_grok("Test query", {"context": "test"})
         assert "API error" in str(exc_info.value)
 

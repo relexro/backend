@@ -365,3 +365,16 @@ As a result, all tests are now passing without warnings, confirming the stabilit
 - [ ] Cost tracking
 - [ ] Usage alerts
 - [ ] LLM performance metrics
+
+## Testing Status
+- Unit Test Suite: 100% passing (excluding intentionally skipped tests). All major modules now have >80% coverage.
+- Integration Test Suite: Partially failing. All organization, membership, and core endpoint tests are passing. The Stripe Test Clock has been successfully integrated.
+- Blocker: 18 tests are failing in tests/integration/test_llm_integration.py due to incorrect test-side mocking.
+
+## Known Issues
+- The primary known issue is that mocks in LLM integration tests are passing an incorrectly typed message (tuple instead of list) to the LLM functions, preventing verification of the full agent flow.
+
+## Recent Changes
+- Added Stripe Test Clock integration for subscription testing
+- Refactored imports to use absolute paths
+- Added pytest-asyncio for async test support

@@ -7,7 +7,9 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
 import time
+import os
 
+from langchain_core.messages import HumanMessage
 from functions.src.llm_integration import (
     GeminiProcessor,
     GrokProcessor,
@@ -136,22 +138,30 @@ def firestore_case_state():
 # Processor Tests
 @pytest.mark.asyncio
 async def test_gemini_processor_initialization():
+    """Test Gemini processor initialization."""
     processor = GeminiProcessor(
         model_name="gemini-pro",
         temperature=0.7,
         max_tokens=2048
     )
 
-    with patch("langchain_google_genai.ChatGoogleGenerativeAI") as mock_gemini:
+    with patch("os.environ.get", return_value="fake-api-key"), \
+         patch("langchain_google_genai.ChatGoogleGenerativeAI") as mock_gemini:
+        mock_instance = AsyncMock()
+        mock_gemini.return_value = mock_instance
+        mock_instance.agenerate = AsyncMock(return_value=[MagicMock(content="Test response")])
+        
         await processor.initialize()
         mock_gemini.assert_called_once_with(
             model="gemini-pro",
             temperature=0.7,
-            max_output_tokens=2048
+            max_output_tokens=2048,
+            google_api_key="fake-api-key"
         )
 
 @pytest.mark.asyncio
 async def test_grok_processor_initialization():
+    """Test Grok processor initialization."""
     processor = GrokProcessor(
         model_name="grok-1",
         temperature=0.8,
@@ -159,6 +169,7 @@ async def test_grok_processor_initialization():
     )
 
     with patch("custom_grok_client.GrokClient") as mock_grok:
+        mock_grok.return_value = AsyncMock()
         await processor.initialize()
         mock_grok.assert_called_once_with(
             model="grok-1",
@@ -210,27 +221,31 @@ def test_format_llm_response_error():
 # Processing Tests
 @pytest.mark.asyncio
 async def test_process_with_gemini(sample_context):
+    """Test processing with Gemini model."""
     processor = GeminiProcessor(
         model_name="gemini-pro",
         temperature=0.7,
         max_tokens=2048
     )
 
-    mock_response = MagicMock()
-    mock_response.content = "Răspuns de test de la Gemini"
-
-    with patch.object(processor, "initialize"), \
-         patch.object(processor, "model", new_callable=AsyncMock) as mock_model:
-        mock_model.agenerate.return_value = [mock_response]
-
+    with patch("os.environ.get", return_value="fake-api-key"), \
+         patch("langchain_google_genai.ChatGoogleGenerativeAI") as mock_gemini:
+        mock_instance = AsyncMock()
+        mock_gemini.return_value = mock_instance
+        mock_instance.agenerate = AsyncMock(return_value=[MagicMock(content="Test response")])
+        
         result = await process_with_gemini(
             processor,
             sample_context,
-            "Test prompt"
+            "Test query"
         )
-
-        assert result == "Răspuns de test de la Gemini"
-        assert mock_model.agenerate.called
+        
+        assert result == "Test response"
+        mock_instance.agenerate.assert_called_once()
+        call_args = mock_instance.agenerate.call_args[1]
+        assert isinstance(call_args["messages"], list)
+        assert len(call_args["messages"]) == 1
+        assert isinstance(call_args["messages"][0], HumanMessage)
 
 @pytest.mark.asyncio
 async def test_process_with_grok(sample_context):
@@ -321,6 +336,7 @@ async def test_maintain_conversation_history():
 
 @pytest.mark.asyncio
 async def test_error_handling():
+    """Test error handling in LLM processing."""
     processor = GeminiProcessor(
         model_name="gemini-pro",
         temperature=0.7,
@@ -332,8 +348,24 @@ async def test_error_handling():
 
         with pytest.raises(LLMError) as exc_info:
             await processor.initialize()
+        assert "Test error" in str(exc_info.value)
 
-        assert "Eroare la inițializarea Gemini" in str(exc_info.value)
+@pytest.mark.asyncio
+async def test_process_legal_query_error():
+    """Test error handling in legal query processing."""
+    with pytest.raises(LLMError) as exc_info:
+        await process_legal_query({}, "Test query")
+    assert "Context cannot be empty" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_process_with_invalid_claim_value():
+    """Test handling of invalid claim values."""
+    with pytest.raises(ValueError) as exc_info:
+        await process_legal_query(
+            {"claim_value": "invalid"},
+            "Test query"
+        )
+    assert "could not convert string to float" in str(exc_info.value)
 
 # Domain-Specific Processing Tests
 @pytest.mark.asyncio
@@ -428,6 +460,68 @@ Recomandări pentru procedura de urgență:
         assert mock_gemini.called
         assert mock_grok.called
 
+@pytest.mark.asyncio
+async def test_urgent_administrative_case():
+    """Test processing of urgent administrative cases."""
+    context = {
+        "case_id": "case_123",
+        "case_type": "administrative",
+        "urgency": "high",
+        "current_node": "legal_analysis",
+        "enable_fallback": True
+    }
+    query = "Test query"
+
+    with patch("functions.src.llm_integration.GeminiProcessor") as mock_gemini, \
+         patch("functions.src.llm_integration.GrokProcessor") as mock_grok:
+        # Mock Gemini failure
+        mock_gemini_instance = mock_gemini.return_value
+        mock_gemini_instance.process.side_effect = LLMError("Primary model failed")
+
+        # Mock Grok success
+        mock_grok_instance = mock_grok.return_value
+        mock_grok_instance.process.return_value = {
+            "initial_analysis": "Test analysis",
+            "expert_recommendations": "Test recommendations"
+        }
+
+        result = await process_legal_query(context, query)
+
+        assert result["initial_analysis"] == "Test analysis"
+        assert result["expert_recommendations"] == "Test recommendations"
+        assert "timestamp" in result
+        assert "fallback_model_used" in result
+
+@pytest.mark.asyncio
+async def test_process_urgent_administrative():
+    """Test processing of urgent administrative cases with specific requirements."""
+    context = {
+        "case_id": "case_123",
+        "case_type": "administrative",
+        "urgency": "high",
+        "current_node": "legal_analysis",
+        "enable_fallback": True
+    }
+    query = "Test query"
+
+    with patch("functions.src.llm_integration.GeminiProcessor") as mock_gemini, \
+         patch("functions.src.llm_integration.GrokProcessor") as mock_grok:
+        # Mock Gemini failure
+        mock_gemini_instance = mock_gemini.return_value
+        mock_gemini_instance.process.side_effect = LLMError("Primary model failed")
+
+        # Mock Grok success with specific content
+        mock_grok_instance = mock_grok.return_value
+        mock_grok_instance.process.return_value = {
+            "initial_analysis": "Test analysis",
+            "expert_recommendations": "Procedura de urgență recomandată"
+        }
+
+        result = await process_legal_query(context, query)
+
+        assert "procedura de urgență" in result["expert_recommendations"].lower()
+        assert result["fallback_model_used"] is True
+
 # Edge Cases and Error Handling
 @pytest.mark.asyncio
 async def test_process_with_empty_context():
@@ -438,17 +532,6 @@ async def test_process_with_empty_context():
         await process_legal_query(empty_context, "Analizează cazul")
 
     assert "context" in str(exc_info.value).lower()
-
-@pytest.mark.asyncio
-async def test_process_with_invalid_claim_value():
-    """Test processing with invalid claim value."""
-    invalid_context = {
-        "case_type": "civil",
-        "claim_value": "invalid"
-    }
-
-    prepared = prepare_context(invalid_context)
-    assert "claim_value" not in prepared
 
 @pytest.mark.asyncio
 async def test_process_with_special_characters():

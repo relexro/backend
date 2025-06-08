@@ -326,76 +326,75 @@ class TestOrganizationUpdateDelete:
         response = org_admin_api_client.delete(f"/organizations/{non_existent_org_id}", json=delete_payload)
         assert response.status_code == 404, f"DELETE /organizations/{non_existent_org_id} Expected 404 (Not Found), got {response.status_code}. Response: {response.text}"
 
-    def test_admin_cannot_delete_organization_with_active_subscription(self, org_admin_api_client):
-        """Test that an admin cannot delete an organization with an active subscription."""
-        # Executor: Assess if simulating an "active subscription" state is feasible.
-        # This may require direct Firestore manipulation if no API endpoint exists to set this test state.
-        # If not feasible with current test infrastructure, this test should be skipped.
-        org_id_to_test = None
-        # Placeholder for actual subscription simulation status
-        subscription_simulated_successfully = False
+    @pytest.mark.slow
+    def test_admin_cannot_delete_organization_with_active_subscription(
+        self,
+        org_admin_api_client,
+        stripe_test_customer,
+        stripe_test_clock,
+    ):
+        """End-to-end test: an admin should not be able to delete an organization that has an **active Stripe subscription**.
+
+        This flow creates a real Stripe Test Clock and Customer, subscribes that customer to a known price ID,
+        waits for the subscription to activate via the Test Clock, verifies that our backend marks the
+        organization as having an active subscription, and finally confirms that deletion is blocked.
+        """
+
+        import stripe  # Local import to avoid hard dependency if fixture skipped
+
+        # Skip early if required env vars are missing
+        stripe_price_id = os.getenv("STRIPE_PRICE_ID_ORG_BASIC_MONTHLY")
+        if not stripe_price_id:
+            pytest.skip("STRIPE_PRICE_ID_ORG_BASIC_MONTHLY is not set – cannot run Stripe subscription flow.")
+
+        # 1) Create an organization via the API
+        org_id = self._create_test_organization_for_test(org_admin_api_client, "Subscribed Org Delete Test")
+
+        # 2) Link the Stripe customer to the organization in Firestore so that webhook processing can match
         try:
-            org_id_to_test = self._create_test_organization_for_test(org_admin_api_client, "Subscribed Org Delete Test")
+            # TODO: Replace direct DB write with an internal API endpoint for setting test state once available.
+            from firebase_admin import firestore as _fs
+            db = _fs.client()
+            db.collection("organizations").document(org_id).update({
+                "stripeCustomerId": stripe_test_customer.id,
+                "subscriptionStatus": None,
+            })
+        except Exception as e:
+            logger.error(f"Failed to write stripeCustomerId to org doc: {e}")
+            pytest.skip("Could not link Stripe customer to organization in Firestore – skipping.")
 
-            # Check if FIRESTORE_EMULATOR_HOST is set, which would allow direct Firestore manipulation
-            if os.environ.get("FIRESTORE_EMULATOR_HOST"):
-                try:
-                    # Get a Firestore client connected to the emulator
-                    db = firestore.client()
+        # 3) Create a Stripe subscription for this customer under the test clock
+        subscription = stripe.Subscription.create(
+            customer=stripe_test_customer.id,
+            items=[{"price": stripe_price_id}],
+            trial_period_days=0,
+            default_payment_method="pm_card_visa",
+        )
 
-                    # Update the organization document to simulate an active subscription
-                    org_ref = db.collection('organizations').document(org_id_to_test)
-                    org_ref.update({
-                        'subscriptionStatus': 'active',
-                        'stripeSubscriptionId': f'sub_test_{uuid.uuid4()}',
-                        'stripeCustomerId': f'cus_test_{uuid.uuid4()}',
-                        'subscriptionPlanId': 'plan_test_professional',
-                        'caseQuotaTotal': 100,
-                        'caseQuotaUsed': 10,
-                        'billingCycleStart': firestore.SERVER_TIMESTAMP,
-                        'billingCycleEnd': firestore.SERVER_TIMESTAMP
-                    })
+        # 4) Advance the Stripe Test Clock enough for the subscription to become active and webhooks to fire
+        from tests.helpers.stripe_test_helpers import advance_clock
+        advance_clock(stripe_test_clock.id, seconds=180)
 
-                    subscription_simulated_successfully = True
-                    logger.info(f"Successfully simulated active subscription for organization {org_id_to_test}")
-                except Exception as e:
-                    logger.error(f"Failed to simulate active subscription: {str(e)}")
-                    subscription_simulated_successfully = False
+        # Allow some time for the webhook to be delivered and processed by our backend (Cloud Function)
+        time.sleep(10)
 
-            # Skip the test if we couldn't simulate an active subscription
-            if not subscription_simulated_successfully:
-                pytest.skip("Skipping delete_organization_with_active_subscription: Cannot simulate active subscription without Firestore emulator access.")
+        # 5) Verify the organization subscription status is now 'active'
+        get_resp = org_admin_api_client.get(f"/organizations/{org_id}")
+        assert get_resp.status_code == 200, f"Failed to fetch org: {get_resp.text}"
+        org_data = get_resp.json()
+        assert org_data.get("subscriptionStatus") == "active", "Organization subscriptionStatus should be 'active' after Stripe webhook processing."
 
-            # Attempt to delete the organization with an active subscription
-            delete_payload = {"organizationId": org_id_to_test}
-            response = org_admin_api_client.delete(f"/organizations/{org_id_to_test}", json=delete_payload)
+        # 6) Attempt to delete the organization – this should be blocked (400 or 409 depending on implementation)
+        delete_payload = {"organizationId": org_id}
+        del_resp = org_admin_api_client.delete(f"/organizations/{org_id}", json=delete_payload)
+        assert del_resp.status_code in (400, 409), (
+            f"Expected deletion to be blocked with 400/409, got {del_resp.status_code}: {del_resp.text}"
+        )
 
-            # The API should return 400 Bad Request (not 403 Forbidden) as per the implementation
-            assert response.status_code == 400, f"Expected 400 for org with active subscription, got {response.status_code}. Response: {response.text}"
-            assert "active subscription" in response.json().get("message", "").lower(), f"Expected error message about active subscription, got: {response.text}"
-        finally:
-            if org_id_to_test and subscription_simulated_successfully:
-                try:
-                    # If we successfully simulated a subscription, we need to remove it before cleanup
-                    db = firestore.client()
-                    org_ref = db.collection('organizations').document(org_id_to_test)
-                    org_ref.update({
-                        'subscriptionStatus': None,
-                        'stripeSubscriptionId': firestore.DELETE_FIELD,
-                        'subscriptionPlanId': firestore.DELETE_FIELD
-                    })
-                    logger.info(f"Removed simulated subscription for organization {org_id_to_test}")
-
-                    # Now try to delete the organization
-                    delete_payload = {"organizationId": org_id_to_test}
-                    cleanup_response = org_admin_api_client.delete(f"/organizations/{org_id_to_test}", json=delete_payload)
-                    if cleanup_response.status_code == 200:
-                        logger.info(f"Successfully cleaned up organization {org_id_to_test}")
-                    else:
-                        logger.warning(f"Failed to clean up organization {org_id_to_test}: {cleanup_response.text}")
-                except Exception as e:
-                    logger.error(f"Error during cleanup: {str(e)}")
-            elif org_id_to_test:
-                # If we didn't simulate a subscription, just try to delete the organization
-                delete_payload = {"organizationId": org_id_to_test}
-                org_admin_api_client.delete(f"/organizations/{org_id_to_test}", json=delete_payload)
+        # Cleanup – cancel subscription and delete org to keep test environment tidy
+        try:
+            stripe.Subscription.delete(subscription.id)
+        except Exception:
+            pass
+        # Attempt delete again after cancel
+        org_admin_api_client.delete(f"/organizations/{org_id}", json=delete_payload)

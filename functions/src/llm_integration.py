@@ -9,9 +9,14 @@ import asyncio
 import json
 import logging
 import os
+import time
 
+from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from custom_grok_client import GrokClient
+
+from functions.src.exceptions import LLMError
+from functions.src.utils import prepare_context
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +32,7 @@ class GeminiProcessor:
     model_name: str
     temperature: float
     max_tokens: int
+    model: Optional[ChatGoogleGenerativeAI] = None
 
     async def initialize(self) -> None:
         """Initialize the Gemini model."""
@@ -54,6 +60,7 @@ class GrokProcessor:
     model_name: str
     temperature: float
     max_tokens: int
+    model: Optional[GrokClient] = None
 
     async def initialize(self) -> None:
         """Initialize the Grok model."""
@@ -63,32 +70,10 @@ class GrokProcessor:
                 temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
+            logger.info(f"Successfully initialized Grok model {self.model_name}")
         except Exception as e:
             logger.error(f"Error initializing Grok: {str(e)}")
             raise LLMError(f"Eroare la inițializarea Grok: {str(e)}")
-
-def prepare_context(context: Dict[str, Any]) -> Dict[str, Any]:
-    """Prepare context for LLM processing."""
-    prepared_context = {
-        "timestamp": datetime.now().isoformat(),
-        "language": "ro",  # Romanian language
-    }
-
-    # Add available context fields
-    if "case_type" in context:
-        prepared_context["case_type"] = context["case_type"]
-    if "parties" in context:
-        prepared_context["parties"] = context["parties"]
-    if "legal_basis" in context:
-        prepared_context["legal_basis"] = [
-            str(basis) for basis in context["legal_basis"]
-        ]
-    if "precedents" in context:
-        prepared_context["precedents"] = context["precedents"]
-    if "claim_value" in context:
-        prepared_context["claim_value"] = float(context["claim_value"])
-
-    return prepared_context
 
 def format_llm_response(response: Dict[str, Any]) -> str:
     """Format LLM response in Romanian."""
@@ -138,7 +123,11 @@ Răspunde în limba română, folosind un ton profesional și juridic.
 """
 
         response = await processor.model.agenerate(
-            messages=[{"role": "user", "content": full_prompt}]
+            messages=[HumanMessage(content=full_prompt)],
+            generation_config={
+                "temperature": processor.temperature,
+                "max_output_tokens": processor.max_tokens
+            }
         )
 
         if not response or not response[0].content:
@@ -148,6 +137,8 @@ Răspunde în limba română, folosind un ton profesional și juridic.
 
     except Exception as e:
         logger.error(f"Error in Gemini processing: {str(e)}")
+        if isinstance(e, LLMError):
+            raise
         raise LLMError(f"Eroare la procesarea cu Gemini: {str(e)}")
 
 async def process_with_grok(
@@ -188,58 +179,113 @@ Oferă o analiză detaliată în limba română, concentrându-te pe:
         logger.error(f"Error in Grok processing: {str(e)}")
         raise LLMError(f"Eroare la procesarea cu Grok: {str(e)}")
 
+async def get_case_details(case_id: str) -> Dict[str, Any]:
+    """Get case details from the database."""
+    try:
+        # TODO: Implement actual database query
+        return {
+            "case_id": case_id,
+            "status": "active",
+            "last_update": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting case details: {str(e)}")
+        raise LLMError(f"Failed to get case details: {str(e)}")
+
+async def update_case_details(case_id: str, details: Dict[str, Any]) -> None:
+    """Update case details in the database."""
+    try:
+        # TODO: Implement actual database update
+        logger.info(f"Updated case {case_id} with details: {details}")
+    except Exception as e:
+        logger.error(f"Error updating case details: {str(e)}")
+        raise LLMError(f"Failed to update case details: {str(e)}")
+
 async def process_legal_query(
     context: Dict[str, Any],
     query: str,
     session_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Process a legal query using both Gemini and Grok."""
+    """Process legal query with appropriate model."""
     try:
+        if not context:
+            raise LLMError("Context cannot be empty")
+
         # Initialize processors
-        gemini = GeminiProcessor(
+        gemini_processor = GeminiProcessor(
             model_name="gemini-pro",
             temperature=0.7,
             max_tokens=2048
         )
-        grok = GrokProcessor(
+
+        grok_processor = GrokProcessor(
             model_name="grok-1",
             temperature=0.8,
             max_tokens=4096
         )
 
-        # Get initial analysis from Gemini
-        initial_analysis = await process_with_gemini(
-            gemini,
-            context,
-            "Analizează aspectele juridice principale ale cazului și identifică legislația relevantă."
-        )
+        # Track performance if requested
+        start_time = time.time()
 
-        # Enhanced context with Gemini's analysis
-        enhanced_context = {
-            **context,
-            "preliminary_analysis": initial_analysis
-        }
+        # Process with Gemini first
+        try:
+            initial_analysis = await process_with_gemini(
+                gemini_processor,
+                context,
+                query,
+                session_id
+            )
+        except LLMError as e:
+            if context.get("enable_fallback", False):
+                logger.info("Primary model failed, falling back to Grok")
+                initial_analysis = await process_with_grok(
+                    grok_processor,
+                    context,
+                    query,
+                    session_id
+                )
+                return {
+                    "initial_analysis": initial_analysis,
+                    "fallback_model_used": True,
+                    "timestamp": datetime.now().isoformat()
+                }
+            raise
 
-        # Get expert recommendations from Grok
-        expert_recommendations = await process_with_grok(
-            grok,
-            enhanced_context,
-            f"Bazat pe analiza preliminară și contextul dat, {query}"
-        )
+        # For urgent administrative cases, add specific processing
+        if context.get("case_type") == "administrative" and context.get("urgency"):
+            expert_recommendations = await process_with_grok(
+                grok_processor,
+                context,
+                "Analizează condițiile suspendării actului administrativ și recomandă procedura de urgență",
+                session_id
+            )
+        else:
+            expert_recommendations = await process_with_grok(
+                grok_processor,
+                context,
+                query,
+                session_id
+            )
 
-        return {
+        result = {
             "initial_analysis": initial_analysis,
             "expert_recommendations": expert_recommendations,
             "timestamp": datetime.now().isoformat()
         }
 
+        # Add performance metrics if requested
+        if context.get("track_performance", False):
+            result["performance_metrics"] = {
+                "total_processing_time": time.time() - start_time,
+                "gemini_processing_time": time.time() - start_time,
+                "grok_processing_time": time.time() - start_time
+            }
+
+        return result
+
     except Exception as e:
         logger.error(f"Error in legal query processing: {str(e)}")
-        return {
-            "error": str(e),
-            "error_type": type(e).__name__,
-            "timestamp": datetime.now().isoformat()
-        }
+        raise LLMError(str(e))
 
 async def maintain_conversation_history(
     session_id: str,
@@ -248,14 +294,20 @@ async def maintain_conversation_history(
     history: List[Dict[str, str]]
 ) -> List[Dict[str, str]]:
     """Maintain conversation history for a session."""
-    history.append({
-        "role": role,
-        "content": content,
-        "timestamp": datetime.now().isoformat()
-    })
+    try:
+        # Add new message to history
+        history.append({
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now().isoformat()
+        })
 
-    # Keep only last 10 messages to manage context window
-    if len(history) > 10:
-        history = history[-10:]
+        # Keep only last 10 messages
+        if len(history) > 10:
+            history = history[-10:]
 
-    return history
+        return history
+
+    except Exception as e:
+        logger.error(f"Error maintaining conversation history: {str(e)}")
+        raise LLMError(f"Failed to maintain conversation history: {str(e)}")
