@@ -3,84 +3,58 @@ Gemini API Utilities - Helper functions for using Google's Gemini API
 """
 import os
 import logging
-import google.generativeai as genai
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Set up the Gemini API client
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    logger.info("Using GEMINI_API_KEY from environment variables")
-    genai.configure(api_key=GEMINI_API_KEY)
-else:
-    logger.warning("GEMINI_API_KEY is not set. Gemini functionality will not work.")
+# Alias kept for older import paths
+genai = None  # type: ignore  # noqa: E701
 
-def create_gemini_model(model_name: str = "gemini-pro") -> Any:
-    """
-    Create and configure a Gemini model with the given model name.
-    
-    Args:
-        model_name: The model name to use. Default is "gemini-pro".
-        
-    Returns:
-        A configured Gemini model object.
-    """
-    try:
-        # Initialize the model
-        model = genai.GenerativeModel(model_name)
-        logger.info(f"Successfully initialized Gemini model {model_name}")
-        return model
-    except Exception as e:
-        logger.error(f"Error initializing Gemini model: {str(e)}")
-        raise RuntimeError(f"Failed to initialize Gemini model: {str(e)}")
+# ---------------------------------------------------------------------------
+# Helper wrappers to mirror the previous interface but delegate to LangChain
+# ---------------------------------------------------------------------------
+
+class _GeminiAsyncWrapper:
+    """Provide the old `generate_content_async` coroutine expected by agent nodes."""
+
+    def __init__(self, model: ChatGoogleGenerativeAI):
+        self._model = model
+
+    async def generate_content_async(self, system_prompt: str, user_message: str, *_args, **_kw):  # type: ignore
+        # Combine system and user prompt similar to old helper
+        prompt = f"{system_prompt}\n\n{user_message}"
+        return await self._model.ainvoke([HumanMessage(content=prompt)])
+
+
+def create_gemini_model(model_name: str = "gemini-pro", temperature: float = 0.7, max_tokens: int = 2048) -> _GeminiAsyncWrapper:
+    """Return a wrapper around ChatGoogleGenerativeAI matching the previous util API."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=temperature,
+        max_output_tokens=max_tokens,
+        google_api_key=api_key,
+    )
+    return _GeminiAsyncWrapper(model)
+
 
 def analyze_gemini_response(response: Any, analysis_type: str) -> Dict[str, Any]:
-    """
-    Process the response from Gemini and extract structured data.
-    
-    Args:
-        response: The raw response from Gemini
-        analysis_type: The type of analysis being performed (for logging)
-        
-    Returns:
-        Extracted structured data from the response
-    """
+    """Basic pass-through analysis compatible with previous tests."""
     try:
-        if not response.text:
-            raise ValueError("Empty response from Gemini API")
-            
-        # Basic preprocessing to handle different response formats
-        text = response.text.strip()
-        
-        # Try to extract JSON from the response if it contains JSON blocks
-        result = {}
-        
-        # For now, just return the raw text as the response
-        # In a production environment, this would be more sophisticated
-        result = {
+        text = getattr(response, "content", "").strip()
+        if not text:
+            raise ValueError("Empty response from Gemini")
+
+        result: Dict[str, Any] = {
             "full_text": text,
             "analysis_type": analysis_type,
-            "status": "success"
+            "status": "success",
         }
-            
-        # Add other fields based on analysis type
-        if analysis_type == "legal_analysis":
-            # Simple placeholder - in production, this would use a more robust extraction method
-            result["domains"] = {"main": "civil"}
-            result["keywords"] = ["contract", "agreement"]
-            result["complexity"] = {"level": 2, "reasoning": "Complex legal situation"}
-            
-        logger.info(f"Successfully processed {analysis_type} response")
         return result
-        
     except Exception as e:
-        logger.error(f"Error analyzing Gemini response: {str(e)}")
-        # Return a basic error result
-        return {
-            "status": "error",
-            "error": str(e),
-            "analysis_type": analysis_type
-        } 
+        logging.error(f"Error analyzing Gemini response: {str(e)}")
+        return {"status": "error", "error": str(e), "analysis_type": analysis_type} 

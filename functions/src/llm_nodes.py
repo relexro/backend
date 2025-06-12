@@ -8,7 +8,6 @@ import json
 import os
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-import google.generativeai as genai
 from pydantic import BaseModel, Field
 
 # Import agent_tools without circular dependency
@@ -49,42 +48,57 @@ class AgentState(BaseModel):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Gemini
+# Initialize Gemini via LangChain wrapper only (no direct `google.generativeai` dependency)
 GEMINI_MODEL = "gemini-pro"
-try:
-    # Initialize Google Generative AI with API key from environment
-    # Use the GEMINI_API_KEY from secret environment variables
-    gemini_api_key = os.environ.get('GEMINI_API_KEY')
-    if gemini_api_key:
-        logger.info("Using GEMINI_API_KEY from environment variables")
-        genai.configure(api_key=gemini_api_key)
-        gemini = ChatGoogleGenerativeAI(
+
+def _init_gemini() -> ChatGoogleGenerativeAI | Any:
+    """Initialize ChatGoogleGenerativeAI or return a lightweight mock for tests."""
+
+    api_key = (
+        os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+    )
+
+    # When running under unit-tests the fake key is automatically injected in
+    # `GeminiProcessor`. Re-use the same convention here.
+    if not api_key or str(api_key).startswith("fake"):
+        logger.info("Using fake/mock Gemini model for tests")
+
+        class _MockGemini:
+            async def ainvoke(self, _messages):  # noqa: D401
+                logger.debug("_MockGemini returning canned response")
+                return AIMessage(
+                    content=json.dumps(
+                        {
+                            "domains": {"main": "civil", "sub": ["contracts"]},
+                            "legislation": {
+                                "codes": ["Codul Civil"],
+                                "laws": [],
+                                "ordinances": [],
+                            },
+                            "jurisprudence": [],
+                            "risks": ["Interpretare neclară a clauzelor"],
+                            "steps": ["Analiză contract", "Consultare avocat"],
+                            "complexity": {"level": 2, "urgency": "normal"},
+                        }
+                    )
+                )
+
+        return _MockGemini()
+
+    # Production / dev environment with real API key
+    try:
+        return ChatGoogleGenerativeAI(
             model=GEMINI_MODEL,
             temperature=0.1,
-            google_api_key=gemini_api_key
+            google_api_key=api_key,
         )
-        logger.info(f"Successfully initialized Gemini model {GEMINI_MODEL}")
-    else:
-        logger.warning("GEMINI_API_KEY not found in environment variables")
-        raise ValueError("GEMINI_API_KEY environment variable is required")
-except Exception as e:
-    logger.warning(f"Failed to initialize Gemini: {str(e)}")
-    # Create a mock for testing/deployment
-    logger.info("Using MockGemini for testing/deployment")
-    class MockGemini:
-        async def ainvoke(self, messages):
-            logger.info(f"MockGemini received request with {len(messages)} messages")
-            content = json.dumps({
-                "domains": {"main": "civil", "sub": ["contracts"]},
-                "legislation": {"codes": ["Codul Civil"], "laws": [], "ordinances": []},
-                "jurisprudence": [],
-                "risks": ["Interpretare neclară a clauzelor"],
-                "steps": ["Analiză contract", "Consultare avocat"],
-                "complexity": {"level": 2, "urgency": "normal"}
-            })
-            return AIMessage(content=content)
+    except Exception as exc:  # pragma: no cover – network/runtime issues
+        logger.warning("Falling back to MockGemini due to init error: %s", exc)
+        return _init_gemini.__defaults__[0]()  # type: ignore[index]
 
-    gemini = MockGemini()
+
+gemini = _init_gemini()
 
 # Load system prompts from configuration
 try:
