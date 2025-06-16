@@ -566,6 +566,10 @@ def _check_document_permissions(db, user_id: str, req: PermissionCheckRequest) -
 
 def check_permission(user_id: str, req: PermissionCheckRequest) -> Tuple[bool, str]:
     """Checks if a user has permission to perform an action. Returns (allowed, message)."""
+    from cases import get_case
+    from organization import get_organization
+    from party import get_party
+    
     permission_check_functions = {
         TYPE_CASE: _check_case_permissions,
         TYPE_ORGANIZATION: _check_organization_permissions,
