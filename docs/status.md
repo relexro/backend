@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document tracks the implementation status of the Relex backend components.
+This document tracks the current implementation status and unresolved issues of the Relex backend components.
 
 ## Implemented Features
 
@@ -173,43 +173,6 @@ This document tracks the implementation status of the Relex backend components.
 * Verified that `test_create_checkout_session` now passes with correct `planId`, environment variables (`STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY`, JWTs), and Operator-configured Firestore `plans/individual_monthly` document.
 * Updated `PLANNER_GUIDE.MD` to reflect Operator communication preferences.
 * Updated `tests/README.MD` with details on `api_base_url` resolution and payment test prerequisites.
----
-**Date:** 2025-05-29
-**Update:** Payment system fully operational and all tests passing. Key achievements include:
-* Fixed Stripe secret configuration in Google Cloud Secret Manager by removing trailing newline character from `stripe-secret-key` secret.
-* Resolved authentication context mismatch by updating all payment functions to use `request.end_user_id` instead of `request.user_id` (4 instances in `functions/src/payments.py`).
-* Confirmed proper IAM permissions for Cloud Functions service account to access Secret Manager secrets.
-* Updated test assertions to match correct HTTP status codes (201 for payment intent creation, 400 for bad webhook requests).
-* All 7 payment integration tests now passing: payment intent creation, checkout sessions, webhook handling, products endpoint, and error scenarios.
-* Payment endpoints fully functional: `/products` (GET), `/payments/intent` (POST), `/webhooks/stripe` (POST), `/payments/checkout` (POST).
-* Stripe integration confirmed working with proper authentication, user context propagation, and secret management.
----
-**Date:** 2025-05-28
-**Update:** Successfully resolved several critical bugs and enhanced test robustness. Key changes include:
-* Corrected user identification by changing `request.user_id` to `request.end_user_id` in `functions/src/organization.py`, `functions/src/cases.py`, `functions/src/party.py`, and `functions/src/organization_membership.py`.
-* Standardized `datetime` usage in `functions/src/organization.py`, `functions/src/organization_membership.py`, and `functions/src/party.py`.
-* Fixed Firestore sentinel value serialization in `create_org_in_transaction`, `add_organization_member`, and `set_organization_member_role` functions.
-* Resolved Firestore client import issue in `functions/src/auth.py`.
-* Added detailed logging to `create_organization` and `_authenticate_and_call` in `main.py`.
-* Suppressed test warnings via `pytest.ini` and updated `tests/conftest.py` (SSL verification default, `RELEX_TEST_VERIFY_SSL` env var).
-* Implemented comprehensive unit tests for `organization.py` and `party.py`.
-As a result, all tests are now passing without warnings, confirming the stability of these fixes.
----
-**Date:** 2025-05-26
-**Update:** Implemented comprehensive unit tests for `functions/src/auth.py`, achieving 56% code coverage. Tests cover token validation (`validate_firebase_id_token`, `validate_gateway_sa_token`), user extraction (`get_authenticated_user`), the `requires_auth` decorator, `PermissionCheckRequest` model validation, and foundational permission checking logic (`_check_organization_permissions`, `_check_case_permissions`). Enhanced test fixtures for mocking Firestore interactions with complex scenarios. Remaining coverage gaps include HTTP endpoint functions, `add_cors_headers` decorator, and more detailed permission helper tests.
----
-**Date:** 2025-05-24
-**Update:** Implemented UI language preference feature in user profiles. User profiles now store `languagePreference` ('en'/'ro') with auto-detection from OAuth `locale` on initial user creation. The preference is returned via `GET /v1/users/me` and can be updated via `PUT /v1/users/me`. Comprehensive unit tests added in `tests/unit/test_user.py`. Also completed review of `response_templates.py` and `draft_templates.py` for Romanian language compliance (no changes needed per language policy).
----
-**Date:** 2025-05-22
-**Update:** Agent prompting strategy refactored. Consolidated system prompts into `functions/src/agent-config/agent_loop.txt` (content iteratively refined by Operator), implementing SoT/CoT/ToT methodologies, defined personas, Gemini-Grok protocol, and explicit tool/module usage, all in Romanian. Obsolete `prompt.txt` in `functions/src/agent-config/` confirmed deleted. All relevant documentation updated to reflect this architecture.
----
-**Date:** 2025-05-20
-**Update:** Standardized Python runtime to version 3.10 for all Cloud Functions. Updated all documentation to consistently specify Python 3.10 as the required runtime. This ensures compatibility with Google Cloud Functions and eliminates deprecation warnings that were occurring with Python 3.12+. All tests now run successfully with Python 3.10 without any warnings.
----
-**Date:** 2025-05-18
-**Update:** End-user identity propagation and user profile creation-on-demand via /v1/users/me endpoint is now fully implemented and tested. The endpoint creates the user profile if missing and returns it, ensuring idempotent and robust user onboarding. This closes the previous gap in user creation and profile retrieval. All related authentication flows are now working as intended.
----
 
 ### API Accessibility
 - **API Gateway URL**: The API is accessed via the default Google-provided URL found in `docs/terraform_outputs.log` as `api_gateway_url` (e.g., `relex-api-gateway-dev-mvef5dk.ew.gateway.dev`)
@@ -235,47 +198,38 @@ As a result, all tests are now passing without warnings, confirming the stabilit
 5. The backend function's `auth.py` (`get_authenticated_user`) validates this Google OIDC ID token and extracts the original end-user's Firebase UID from the `X-Endpoint-API-Userinfo` header
 6. The business logic in the backend uses this propagated end-user Firebase UID
 
-### Resolved Issues
-- **API Gateway Path Routing**: Fixed routing for default URL with `CONSTANT_ADDRESS` path translation - RESOLVED
-- **Backend Authentication of Gateway SA**: Properly validating Google OIDC ID token from API Gateway - RESOLVED
-- **End-User Identity Propagation**: Implemented extraction of end-user identity from `X-Endpoint-API-Userinfo` header and user creation-on-demand for `/v1/users/me` - IMPLEMENTED & VERIFIED for `/v1/users/me` and related endpoints
-- **Cloud Function Health Check Mechanism**: Standardized to use `X-Google-Health-Check` header - IMPLEMENTED
-- **User ID Propagation in API Handlers**: Corrected propagation of `end_user_id` (formerly `user_id`) in core API handlers - RESOLVED
-- **Datetime Handling Inconsistencies**: Addressed `datetime.datetime` vs `datetime` inconsistencies across multiple modules - RESOLVED
-- **Firestore Sentinel Serialization**: Resolved `SERVER_TIMESTAMP` sentinel serialization issues in Firestore transactions - RESOLVED
-- **Firestore Client Import**: Fixed duplicate/incorrect Firestore client import and usage in `auth.py` - RESOLVED
-- **Test Warnings**: Eliminated `pytest` warnings (Google protobuf, InsecureRequestWarning) via configuration - RESOLVED
+## Key Unresolved Issues
 
-### Key Unresolved Issues
+### API Gateway Logging
+- **Issue**: API Gateway logs are not being properly captured and analyzed
+- **Impact**: Difficulty in debugging API Gateway-related issues and monitoring system health
+- **Priority**: High
+- **Action Items**:
+  - [ ] Set up proper logging configuration for API Gateway
+  - [ ] Implement log aggregation and analysis tools
+  - [ ] Create alerts for critical API Gateway events
+  - [ ] Document logging best practices for API Gateway
 
-1. **API Gateway Logging**
-   - Logs are currently not appearing in Cloud Logging despite `roles/logging.logWriter` being granted to the Gateway's Google-managed SA
-   - This severely hinders debugging and monitoring of the API Gateway itself
-   - Investigation is ongoing to determine the root cause
-
-2. **Performance Optimization Needed**
-   - LLM response times can be variable and need optimization
-   - Large file uploads need performance improvements
-   - Some database queries need indexing for better performance
-
-3. **Security Enhancements Required**
-   - Rate limiting needs to be implemented
-   - Additional input validation required for edge cases
-   - Security headers to be configured
-
-4. **Reliability Improvements**
-   - Agent error handling needs more robust recovery mechanisms
-   - Retry logic for external services needed
-   - Better logging and monitoring needed
+### LLM Integration Tests
+- **Issue**: 18 failing tests in `tests/integration/test_llm_integration.py`
+- **Impact**: Unable to verify LLM integration functionality
+- **Priority**: High
+- **Root Cause**: Incorrect test mocking - passing `tuple` instead of `list` of `BaseMessage` objects to Gemini model's `agenerate` method
+- **Action Items**:
+  - [ ] Review and fix `pytest` patches and mocks in `tests/integration/test_llm_integration.py`
+  - [ ] Ensure mocks provide correctly formatted `list` of `BaseMessage` objects
+  - [ ] Verify all 18 tests pass after fixes
+  - [ ] Document the correct mocking approach for future reference
 
 ## Next Steps
 
 ### High Priority
 1. **Fix API Gateway Logging Issues**: Investigate why logs are not appearing in Cloud Logging
-2. **Comprehensive API Endpoint Testing**: Test all ~37 endpoints for routing, auth, end-user ID logic, and health checks
-3. **Review JWT Audience Configuration**: Consider explicit configuration in `openapi_spec.yaml` for clarity
-4. **Implement Rate Limiting**: Design and implement rate limiting strategy
-5. **Configure Security Headers**: Define and implement required security headers
+2. **Fix LLM Integration Tests**: Address the mocking issues in the test suite
+3. **Comprehensive API Endpoint Testing**: Test all ~37 endpoints for routing, auth, end-user ID logic, and health checks
+4. **Review JWT Audience Configuration**: Consider explicit configuration in `openapi_spec.yaml` for clarity
+5. **Implement Rate Limiting**: Design and implement rate limiting strategy
+6. **Configure Security Headers**: Define and implement required security headers
 
 ### Medium Priority
 1. **Optimize Permission Checks**: Implement Firebase Custom Claims for frequently used permissions

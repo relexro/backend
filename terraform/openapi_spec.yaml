@@ -783,10 +783,19 @@ paths:
         description: ID of the file to download
       responses:
         '200':
-          description: File content with appropriate Content-Type header
+          description: File download metadata
           schema:
-            type: string
-            format: binary
+            type: object
+            properties:
+              downloadUrl:
+                type: string
+                description: A time-limited, signed URL to download the file directly from cloud storage.
+              filename:
+                type: string
+                description: The original filename of the document.
+              documentId:
+                type: string
+                description: The unique identifier for the document's metadata record.
         '401':
           description: Unauthorized
           schema: {$ref: '#/definitions/Unauthorized'}
@@ -814,39 +823,23 @@ paths:
         required: true
         schema:
           type: object
-          required: [partyType]
+          required: [partyType, nameDetails, identityCodes, contactInfo]
           properties:
             partyType:
               type: string
-              enum: [individual, company, government, other]
-              description: Type of party
+              enum: [individual, organization]
             nameDetails:
               type: object
-              properties:
-                firstName: {type: string, description: First name for individuals}
-                lastName: {type: string, description: Last name for individuals}
-                middleName: {type: string, description: Middle name for individuals}
-                companyName: {type: string, description: Company or organization name for non-individuals}
+              description: Name details for the party (e.g., firstName, lastName for individual; companyName for organization).
             identityCodes:
               type: object
-              properties:
-                ssn: {type: string, description: Social Security Number (for US individuals)}
-                cnp: {type: string, description: Personal Numeric Code (for Romanian individuals)}
-                taxId: {type: string, description: Tax ID (for companies or organizations)}
-                registrationNumber: {type: string, description: Commercial registration number (for companies)}
+              description: Identification codes for the party (e.g., cnp for individual; cui, regCom for organization).
             contactInfo:
               type: object
-              properties:
-                email: {type: string, description: Email address}
-                phone: {type: string, description: Phone number}
-                address:
-                  type: object
-                  properties:
-                    street: {type: string, description: Street address}
-                    city: {type: string, description: City}
-                    state: {type: string, description: State or province}
-                    postalCode: {type: string, description: Postal or ZIP code}
-                    country: {type: string, description: Country}
+              description: Contact information for the party.
+            signatureData:
+              type: object
+              description: Optional signature data.
       responses:
         '201':
           description: Party created successfully
