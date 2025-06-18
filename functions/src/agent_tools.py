@@ -15,6 +15,8 @@ from google.cloud.exceptions import NotFound
 import tempfile
 import os
 import base64
+from langchain_xai import ChatXAI
+from langchain_core.messages import SystemMessage, HumanMessage
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -530,68 +532,56 @@ async def create_support_ticket(
             'error': str(e)
         }
 
-async def consult_grok(
-    case_id: str,
-    context: Dict[str, Any],
-    specific_question: str
-) -> Dict[str, Any]:
+async def consult_grok(case_id: str, context: dict, specific_question: str) -> dict:
     """
-    Consult Grok AI for guidance on legal matters.
+    Consults the Grok model via the official LangChain XAI integration.
+
+    Args:
+        case_id: The ID of the case for logging and context.
+        context: A dictionary containing the context for the query.
+        specific_question: The specific question to ask the model.
+
+    Returns:
+        A dictionary containing the model's response.
     """
+    logger.info(f"Consulting xAI's Grok for case_id: {case_id}")
     try:
-        # For now, return a mock response since Grok API is not available yet
-        # This prevents the deployment from failing due to API calls that can't succeed
-        logger.info(f"Mock Grok consultation for case {case_id} with question: {specific_question}")
+        # Use the correct GROK_API_KEY environment variable as defined in the project's terraform variables.
+        api_key = os.environ.get("GROK_API_KEY")
+        if not api_key:
+            logger.error("GROK_API_KEY environment variable not set.")
+            raise ValueError("GROK_API_KEY is not configured.")
 
-        # Create a simulated response based on the context
-        domain = context.get('domain', {}).get('main', 'general')
+        # Instantiate the ChatXAI client, passing the API key explicitly.
+        llm = ChatXAI(model="grok-1", api_key=api_key)
 
-        mock_response = {
-            'status': 'success',
-            'recommendations': f"Based on analysis of the {domain} legal domain, I recommend proceeding with caution and consulting relevant legislation.",
-            'confidence_score': 0.85,
-            'references': [
-                {'title': 'Romanian Civil Code', 'relevance': 'high'},
-                {'title': 'Case precedent examples', 'relevance': 'medium'}
-            ]
+        # Format the prompt using the provided context and question
+        prompt_content = f"""
+        Context: {json.dumps(context, indent=2, ensure_ascii=False)}
+
+        Question: {specific_question}
+        """
+
+        messages = [
+            SystemMessage(content="You are an expert legal analyst. Provide precise and strategic guidance based on the context."),
+            HumanMessage(content=prompt_content)
+        ]
+
+        # Invoke the model
+        response = await llm.ainvoke(messages)
+        
+        # Return the response content in a structured dictionary.
+        return {
+            "recommendations": response.content
         }
-
-        return mock_response
-
-        # TODO: Implement actual Grok API call when available
-        # Commented out to prevent deployment failures
-        '''
-        # Prepare request to Grok API
-        grok_request = {
-            'case_id': case_id,
-            'context': context,
-            'query': specific_question,
-            'language': 'ro'  # Romanian language
-        }
-
-        # TODO: Replace with actual Grok API endpoint
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                'https://api.grok.ai/v1/legal/guidance',
-                json=grok_request,
-                headers={'Authorization': 'Bearer YOUR_API_KEY'}
-            ) as response:
-                if response.status != 200:
-                    raise GrokError(f"Grok API returned status {response.status}")
-
-                result = await response.json()
-
-                return {
-                    'status': 'success',
-                    'guidance': result.get('guidance', {}),
-                    'confidence_score': result.get('confidence', 0.0),
-                    'references': result.get('references', [])
-                }
-        '''
 
     except Exception as e:
-        logger.error(f"Error consulting Grok: {str(e)}")
-        raise GrokError(f"Failed to get Grok guidance: {str(e)}")
+        logger.error(f"Error consulting Grok for case {case_id}: {str(e)}", exc_info=True)
+        # Return a structured error to be handled by the agent.
+        return {
+            "error": "Failed to consult Grok expert.",
+            "details": str(e)
+        }
 
 # Additional utility functions
 
