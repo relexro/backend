@@ -1,22 +1,16 @@
 # Relex Backend - TODO List
 
-**Overall Goal:** Ensure all API endpoints are fully functional, robustly tested (unit and integration), and any identified issues are systematically resolved. The immediate priority is to address the API Gateway logging issues and LLM integration test failures.
+**Overall Goal:** Ensure all API endpoints are fully functional, robustly tested (unit and integration), and any identified issues are systematically resolved. The immediate priority is to address the LLM integration test failures.
 
 ## Current Tasks
 
-### 1. Fix API Gateway Logging Issues
-- [ ] Set up proper logging configuration for API Gateway
-- [ ] Implement log aggregation and analysis tools
-- [ ] Create alerts for critical API Gateway events
-- [ ] Document logging best practices for API Gateway
-
-### 2. Fix LLM Integration Tests
+### 1. Fix LLM Integration Tests
 - [ ] Review and fix `pytest` patches and mocks in `tests/integration/test_llm_integration.py`
 - [ ] Ensure mocks provide correctly formatted `list` of `BaseMessage` objects
 - [ ] Verify all 18 tests pass after fixes
 - [ ] Document the correct mocking approach for future reference
 
-### 3. Complete Organization Management Integration Tests
+### 2. Complete Organization Management Integration Tests
 - [ ] Organization Update (`PUT /organizations/{organizationId}`)
   - [ ] Verify org admin can update
   - [ ] Verify staff cannot update
@@ -26,23 +20,11 @@
   - [ ] Verify staff cannot delete
   - [ ] Verify non-member cannot delete
 
-### 4. Complete Stripe Integration Tests
+### 3. Complete Stripe Integration Tests
 - [ ] Promotion code/coupon handling for both payment intents and checkout sessions
 - [ ] Webhook event handling for all relevant Stripe events
 - [ ] Quota management based on subscription purchases and one-time payments
 - [ ] Organization-specific subscription and payment handling
-
-### 5. API Documentation Updates
-- [ ] Audit and update OpenAPI spec to match implemented behavior
-- [ ] Update API documentation with latest changes
-- [ ] Document authentication flow and requirements
-- [ ] Add examples for all endpoints
-
-### 6. Monitoring & Alerting
-- [ ] Review existing monitoring and logging setup
-- [ ] Set up alerts for critical errors
-- [ ] Implement performance monitoring
-- [ ] Create dashboard for system health
 
 ## Development Environment
 
