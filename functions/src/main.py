@@ -28,7 +28,43 @@ from payments import (
     logic_redeem_voucher,
     get_products as logic_get_products
 )
-# ... other necessary imports ...
+# --- Additional logic imports (organization, party, membership, auth, user) ---
+from organization import (
+    create_organization as logic_create_organization,
+    get_organization as logic_get_organization,
+    update_organization as logic_update_organization,
+    delete_organization as logic_delete_organization
+)
+
+from party import (
+    create_party as logic_create_party,
+    get_party as logic_get_party,
+    update_party as logic_update_party,
+    delete_party as logic_delete_party,
+    list_parties as logic_list_parties
+)
+
+from organization_membership import (
+    add_organization_member as logic_add_organization_member,
+    set_organization_member_role as logic_set_org_member_role,
+    list_organization_members as logic_list_organization_members,
+    remove_organization_member as logic_remove_organization_member,
+    get_user_organization_role as logic_get_user_organization_role,
+    list_user_organizations as logic_list_user_organizations
+)
+
+from auth import (
+    check_permissions as logic_check_permissions,
+    validate_user as logic_validate_user,
+    get_user_role as logic_get_user_role
+)
+
+from user import (
+    get_user_profile as logic_get_user_profile,
+    update_user_profile as logic_update_user_profile
+)
+
+from agent import handle_agent_request as logic_handle_agent_request
 
 # Initialize logging once.
 logging.basicConfig(level=logging.INFO)
@@ -104,7 +140,97 @@ def relex_backend_redeem_voucher(request: Request):
 def relex_backend_get_products(request: Request):
     return logic_get_products(request)
 
-# ... add all other required function entry points as needed ...
+# --- Organization cases listing wrapper (uses existing list_cases logic) ---
+@functions_framework.http
+def relex_backend_list_organization_cases(request: Request):
+    """Alias for list_cases; can filter by organizationId via query params."""
+    return logic_list_cases(request)
+
+@functions_framework.http
+def relex_backend_create_organization(request: Request):
+    return logic_create_organization(request)
+
+@functions_framework.http
+def relex_backend_get_organization(request: Request):
+    return logic_get_organization(request)
+
+@functions_framework.http
+def relex_backend_update_organization(request: Request):
+    return logic_update_organization(request)
+
+@functions_framework.http
+def relex_backend_delete_organization(request: Request):
+    return logic_delete_organization(request)
+
+# --- Party management ---
+@functions_framework.http
+def relex_backend_create_party(request: Request):
+    return logic_create_party(request)
+
+@functions_framework.http
+def relex_backend_get_party(request: Request):
+    return logic_get_party(request)
+
+@functions_framework.http
+def relex_backend_update_party(request: Request):
+    return logic_update_party(request)
+
+@functions_framework.http
+def relex_backend_delete_party(request: Request):
+    return logic_delete_party(request)
+
+@functions_framework.http
+def relex_backend_list_parties(request: Request):
+    return logic_list_parties(request)
+
+# --- Organization membership ---
+@functions_framework.http
+def relex_backend_add_organization_member(request: Request):
+    return logic_add_organization_member(request)
+
+@functions_framework.http
+def relex_backend_set_organization_member_role(request: Request):
+    return logic_set_org_member_role(request)
+
+@functions_framework.http
+def relex_backend_list_organization_members(request: Request):
+    return logic_list_organization_members(request)
+
+@functions_framework.http
+def relex_backend_remove_organization_member(request: Request):
+    return logic_remove_organization_member(request)
+
+@functions_framework.http
+def relex_backend_get_user_organization_role(request: Request):
+    return logic_get_user_organization_role(request)
+
+@functions_framework.http
+def relex_backend_list_user_organizations(request: Request):
+    return logic_list_user_organizations(request)
+
+# --- Auth / Permissions ---
+@functions_framework.http
+def relex_backend_check_permissions(request: Request):
+    return logic_check_permissions(request)
+
+@functions_framework.http
+def relex_backend_validate_user(request: Request):
+    return logic_validate_user(request)
+
+@functions_framework.http
+def relex_backend_get_user_role(request: Request):
+    return logic_get_user_role(request)
+
+# --- User profile ---
+@functions_framework.http
+def relex_backend_get_user_profile(request: Request):
+    user_id = getattr(request, 'end_user_id', None)
+    return logic_get_user_profile(request, user_id)
+
+@functions_framework.http
+def relex_backend_update_user_profile(request: Request):
+    user_id = getattr(request, 'end_user_id', None)
+    return logic_update_user_profile(request, user_id)
 
 @functions_framework.http
 def relex_backend_smoke_test(request):
@@ -124,3 +250,7 @@ def relex_backend_smoke_test(request):
     except Exception as e:
         logging.error(f"Smoke Test Failed: Could not connect to Firestore. Error: {e}", exc_info=True)
         return "Smoke Test Failed: Could not initialize Firestore client.", 500
+
+@functions_framework.http
+def relex_backend_agent_handler(request: Request):
+    return logic_handle_agent_request(request)
