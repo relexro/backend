@@ -71,6 +71,9 @@ locals {
 
   functions_service_account_email = "serviceAccount:${google_service_account.functions.email}"
 
+  # API Gateway service account email
+  api_gateway_service_account_email = "serviceAccount:${google_service_account.api_gateway.email}"
+
   # Use only the actual deployed function URIs for the API Gateway
   # This ensures the API Gateway only routes to real, deployed functions
   complete_function_uris = module.cloud_functions.function_uris
@@ -93,7 +96,21 @@ resource "google_service_account" "functions" {
   }
 }
 
-# IAM bindings for the service account
+# Service Account for API Gateway
+resource "google_service_account" "api_gateway" {
+  account_id   = "api-gateway${local.env_suffix}"
+  display_name = "Service Account for API Gateway ${var.environment}"
+  description  = "Used by API Gateway in the ${var.environment} environment"
+
+  lifecycle {
+    ignore_changes = [
+      description,
+      display_name
+    ]
+  }
+}
+
+# IAM bindings for the functions service account
 resource "google_project_iam_member" "functions_invoker" {
   project = var.project_id
   role    = "roles/cloudfunctions.invoker"
@@ -181,13 +198,14 @@ module "api_gateway" {
   region               = var.region
   openapi_spec_path    = "${path.module}/openapi_spec.yaml"
   function_uris        = local.complete_function_uris
-  api_gateway_sa_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
+  api_gateway_sa_email = trimprefix(local.api_gateway_service_account_email, "serviceAccount:")
   # api_domain           = local.api_domain
   environment          = var.environment
 
   depends_on = [
     module.apis,
-    module.cloud_functions
+    module.cloud_functions,
+    google_service_account.api_gateway
   ]
 }
 
@@ -211,10 +229,11 @@ module "cloudflare" {
 module "iam" {
   source                                = "./modules/iam"
   project_id                            = var.project_id
-  api_gateway_sa_email                  = trimprefix(local.functions_service_account_email, "serviceAccount:")
+  api_gateway_sa_email                  = trimprefix(local.api_gateway_service_account_email, "serviceAccount:")
   relex_functions_service_account_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
 
   depends_on = [
-    google_service_account.functions
+    google_service_account.functions,
+    google_service_account.api_gateway
   ]
 }

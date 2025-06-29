@@ -23,6 +23,81 @@ When a client makes a request to the API:
 
 ## API Endpoints
 
+### Authentication
+
+#### GET /auth/validate-user
+Validates a user's authentication token and creates a user record if it doesn't exist.
+
+**Headers:**
+- `Authorization` (string, required): Firebase Authentication token (Bearer format)
+
+**Responses:**
+- `200 OK`: User validation successful
+  ```json
+  {
+    "userId": "string",
+    "email": "string",
+    "displayName": "string",
+    "isNewUser": "boolean",
+    "validationTimestamp": "string"
+  }
+  ```
+- `401 Unauthorized`: Unauthorized (invalid token)
+- `500 Internal Server Error`: Internal server error
+
+#### POST /auth/check-permissions
+Checks if a user has specific permissions for a resource.
+
+**Headers:**
+- `Authorization` (string, required): Firebase Authentication token (Bearer format)
+
+**Request Body:**
+```json
+{
+  "resourceType": "case|organization|party|document",
+  "resourceId": "string",
+  "permission": "read|write|delete|admin"
+}
+```
+
+**Responses:**
+- `200 OK`: Permission check result
+  ```json
+  {
+    "userId": "string",
+    "resourceType": "string",
+    "resourceId": "string",
+    "permission": "string",
+    "hasPermission": "boolean",
+    "reason": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized (invalid token)
+- `500 Internal Server Error`: Internal server error
+
+#### GET /auth/user-role
+Gets a user's role in a specific organization.
+
+**Query Parameters:**
+- `organizationId` (string, required): ID of the organization
+- `userId` (string, optional): Optional user ID (if not provided, uses the authenticated user)
+
+**Responses:**
+- `200 OK`: User role information
+  ```json
+  {
+    "userId": "string",
+    "organizationId": "string",
+    "role": "string",
+    "isMember": "boolean"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `404 Not Found`: Organization not found
+- `500 Internal Server Error`: Internal server error
+
 ### Agent Interaction
 
 #### POST /cases/{caseId}/agent/messages
@@ -42,12 +117,30 @@ Interact with the Lawyer AI Agent for a specific case.
 - `200 OK`: Successful agent response or status update
   ```json
   {
-    "status": "string",  // The status of the agent's operation (e.g., 'success' or 'error')
-    "message": "string",  // The agent's textual response to the user
-    "timestamp": "string",  // ISO 8601 timestamp of when the response was generated
-    "metadata": {           // Optional metadata including confidence scores and execution time
-      // ...
-    }
+    "status": "string",
+    "message": "string",
+    "response": {
+      "content": "string",
+      "recommendations": ["string"],
+      "next_steps": ["string"],
+      "draft_documents": [
+        {
+          "id": "string",
+          "title": "string",
+          "url": "string"
+        }
+      ],
+      "research_summary": "string"
+    },
+    "completed_steps": ["string"],
+    "errors": [
+      {
+        "node": "string",
+        "error": "string",
+        "timestamp": "string"
+      }
+    ],
+    "timestamp": "string"
   }
   ```
 - `400 Bad Request`: Bad request (e.g., invalid input format)
@@ -82,9 +175,9 @@ Updates the profile of the authenticated user.
 **Request Body:**
 ```json
 {
-  "displayName": "string",  // User's display name
-  "photoURL": "string",  // URL to the user's profile photo
-  "languagePreference": "en|ro"  // User's preferred language
+  "displayName": "string",
+  "photoURL": "string",
+  "languagePreference": "en|ro"
 }
 ```
 
@@ -113,11 +206,11 @@ Lists all organizations the authenticated user is a member of.
   {
     "organizations": [
       {
-        "organizationId": "string",  // The unique identifier of the organization
-        "name": "string",  // Name of the organization
-        "description": "string",  // Description of the organization
-        "role": "string",  // User's role in the organization (administrator or staff)
-        "joinedAt": "string"  // ISO 8601 timestamp when the user joined
+        "organizationId": "string",
+        "name": "string",
+        "description": "string",
+        "role": "string",
+        "joinedAt": "string"
       }
     ]
   }
@@ -147,9 +240,9 @@ Lists all cases owned by the authenticated user.
         "updatedAt": "string"
       }
     ],
-    "total": "integer",  // Total number of cases that match the filter
-    "limit": "integer",  // Maximum number of cases returned
-    "offset": "integer"  // Offset for pagination
+    "total": "integer",
+    "limit": "integer",
+    "offset": "integer"
   }
   ```
 - `401 Unauthorized`: Unauthorized
@@ -163,12 +256,12 @@ Creates a new organization with the authenticated user as administrator.
 **Request Body:**
 ```json
 {
-  "name": "string",  // Name of the organization
-  "type": "string",  // Type of organization (e.g., law_firm)
-  "description": "string",  // Description of the organization
-  "address": "string",  // Address of the organization
-  "phone": "string",  // Phone number of the organization
-  "email": "string"  // Email of the organization
+  "name": "string",
+  "type": "string",
+  "description": "string",
+  "address": "string",
+  "phone": "string",
+  "email": "string"
 }
 ```
 
@@ -176,15 +269,15 @@ Creates a new organization with the authenticated user as administrator.
 - `201 Created`: Organization created successfully
   ```json
   {
-    "organizationId": "string",  // Unique identifier for the organization
-    "name": "string",  // Name of the organization
-    "type": "string",  // Type of the organization
-    "description": "string",  // Description of the organization
-    "address": "string",  // Address of the organization
-    "phone": "string",  // Phone number of the organization
-    "email": "string",  // Email of the organization
-    "createdAt": "string",  // Creation timestamp (ISO 8601)
-    "createdBy": "string"  // ID of the user who created the organization
+    "organizationId": "string",
+    "name": "string",
+    "type": "string",
+    "description": "string",
+    "address": "string",
+    "phone": "string",
+    "email": "string",
+    "createdAt": "string",
+    "createdBy": "string"
   }
   ```
 - `400 Bad Request`: Bad request
@@ -201,22 +294,22 @@ Retrieves detailed information about a specific organization. Accessible by orga
 - `200 OK`: Organization details
   ```json
   {
-    "organizationId": "string",  // Unique identifier for the organization
-    "name": "string",  // Name of the organization
-    "type": "string",  // Type of the organization
-    "description": "string",  // Description of the organization
-    "address": "string",  // Address of the organization
-    "phone": "string",  // Phone number of the organization
-    "email": "string",  // Email of the organization
-    "createdAt": "string",  // Creation timestamp (ISO 8601)
-    "updatedAt": "string",  // Last update timestamp (ISO 8601)
-    "memberCount": "integer",  // Number of members in the organization
+    "organizationId": "string",
+    "name": "string",
+    "type": "string",
+    "description": "string",
+    "address": "string",
+    "phone": "string",
+    "email": "string",
+    "createdAt": "string",
+    "updatedAt": "string",
+    "memberCount": "integer",
     "subscription": {
-      "status": "string",  // Subscription status
-      "plan": "string",  // Current subscription plan
-      "currentPeriodEnd": "string",  // End of the current billing period (ISO 8601)
-      "caseQuota": "integer",  // Number of cases allowed under current plan
-      "casesUsed": "integer"  // Number of cases created under current plan
+      "status": "string",
+      "plan": "string",
+      "currentPeriodEnd": "string",
+      "caseQuota": "integer",
+      "casesUsed": "integer"
     }
   }
   ```
@@ -234,11 +327,11 @@ Updates information for an existing organization. Accessible by organization adm
 **Request Body:**
 ```json
 {
-  "name": "string",  // Name of the organization
-  "description": "string",  // Description of the organization
-  "address": "string",  // Address of the organization
-  "phone": "string",  // Phone number of the organization
-  "email": "string"  // Email of the organization
+  "name": "string",
+  "description": "string",
+  "address": "string",
+  "phone": "string",
+  "email": "string"
 }
 ```
 
@@ -246,14 +339,14 @@ Updates information for an existing organization. Accessible by organization adm
 - `200 OK`: Organization updated successfully
   ```json
   {
-    "organizationId": "string",  // Unique identifier for the organization
-    "name": "string",  // Name of the organization
-    "type": "string",  // Type of the organization
-    "description": "string",  // Description of the organization
-    "address": "string",  // Address of the organization
-    "phone": "string",  // Phone number of the organization
-    "email": "string",  // Email of the organization
-    "updatedAt": "string"  // Update timestamp (ISO 8601)
+    "organizationId": "string",
+    "name": "string",
+    "type": "string",
+    "description": "string",
+    "address": "string",
+    "phone": "string",
+    "email": "string",
+    "updatedAt": "string"
   }
   ```
 - `400 Bad Request`: Bad request
@@ -272,13 +365,127 @@ Deletes an organization. Only possible if there's no active subscription and cal
 - `200 OK`: Organization deleted successfully
   ```json
   {
-    "success": "boolean",  // Indicates successful operation
-    "organizationId": "string"  // ID of the deleted organization
+    "success": "boolean",
+    "organizationId": "string"
   }
   ```
 - `401 Unauthorized`: Unauthorized
 - `403 Forbidden`: Forbidden (caller is not an administrator or organization has active subscription)
 - `404 Not Found`: Organization not found
+- `500 Internal Server Error`: Internal server error
+
+#### POST /organizations/{organizationId}/members
+Adds a new member to an organization with a specific role. Only administrators can add members.
+
+**Path Parameters:**
+- `organizationId` (string, required): ID of the organization
+
+**Request Body:**
+```json
+{
+  "userId": "string",
+  "role": "staff|administrator"
+}
+```
+
+**Responses:**
+- `200 OK`: Member added successfully
+  ```json
+  {
+    "success": "boolean",
+    "membershipId": "string",
+    "userId": "string",
+    "organizationId": "string",
+    "role": "string",
+    "email": "string",
+    "displayName": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (caller is not an administrator)
+- `404 Not Found`: Organization not found
+- `409 Conflict`: Conflict (user is already a member)
+- `500 Internal Server Error`: Internal server error
+
+#### GET /organizations/{organizationId}/members
+Lists all members of an organization. Accessible by organization members.
+
+**Path Parameters:**
+- `organizationId` (string, required): ID of the organization
+
+**Responses:**
+- `200 OK`: List of members
+  ```json
+  {
+    "members": [
+      {
+        "userId": "string",
+        "role": "string",
+        "addedAt": "string",
+        "email": "string",
+        "displayName": "string"
+      }
+    ]
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden
+- `404 Not Found`: Organization not found
+- `500 Internal Server Error`: Internal server error
+
+#### PUT /organizations/{organizationId}/members/{userId}
+Updates a member's role in the organization. Only administrators can update roles.
+
+**Path Parameters:**
+- `organizationId` (string, required): ID of the organization
+- `userId` (string, required): ID of the member to update
+
+**Request Body:**
+```json
+{
+  "newRole": "staff|administrator"
+}
+```
+
+**Responses:**
+- `200 OK`: Role updated successfully
+  ```json
+  {
+    "success": "boolean",
+    "membershipId": "string",
+    "userId": "string",
+    "organizationId": "string",
+    "role": "string",
+    "email": "string",
+    "displayName": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (caller is not an administrator)
+- `404 Not Found`: Member or organization not found
+- `500 Internal Server Error`: Internal server error
+
+#### DELETE /organizations/{organizationId}/members/{userId}
+Removes a member from an organization. Only administrators can remove members.
+
+**Path Parameters:**
+- `organizationId` (string, required): ID of the organization
+- `userId` (string, required): ID of the member to remove
+
+**Responses:**
+- `200 OK`: Member removed successfully
+  ```json
+  {
+    "success": "boolean",
+    "userId": "string",
+    "organizationId": "string"
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (caller is not an administrator)
+- `404 Not Found`: Member or organization not found
 - `500 Internal Server Error`: Internal server error
 
 ### Case Management
@@ -289,13 +496,13 @@ Creates a new individual case for the authenticated user or an organization case
 **Request Body:**
 ```json
 {
-  "title": "string",  // Title of the case
-  "description": "string",  // Description of the case
-  "caseTier": "integer",  // Case tier level
-  "caseTypeId": "string",  // The ID of the case type for this case
-  "organizationId": "string",  // Organization ID for organization cases
-  "paymentIntentId": "string",  // Stripe payment intent ID
-  "initialPartyIds": ["string"]  // Optional array of party IDs to attach initially
+  "title": "string",
+  "description": "string",
+  "caseTier": "integer",
+  "caseTypeId": "string",
+  "organizationId": "string",
+  "paymentIntentId": "string",
+  "initialPartyIds": ["string"]
 }
 ```
 
@@ -303,14 +510,144 @@ Creates a new individual case for the authenticated user or an organization case
 - `201 Created`: Case created successfully
   ```json
   {
-    "caseId": "string",  // Unique identifier for the case
-    "status": "string"  // Status of the case (initially "open")
+    "caseId": "string",
+    "status": "string"
   }
   ```
 - `400 Bad Request`: Bad request (e.g., invalid input format)
 - `401 Unauthorized`: Unauthorized
 - `402 Payment Required`: Payment Required
 - `403 Forbidden`: Forbidden (e.g., insufficient permissions)
+- `500 Internal Server Error`: Internal server error
+
+#### GET /cases/{caseId}
+Retrieves detailed information about a specific case.
+
+**Path Parameters:**
+- `caseId` (string, required): ID of the case to retrieve
+
+**Responses:**
+- `200 OK`: Case details retrieved successfully
+  ```json
+  {
+    "caseId": "string",
+    "title": "string",
+    "description": "string",
+    "status": "open|archived|deleted",
+    "caseTier": "integer",
+    "caseTypeId": "string",
+    "createdAt": "string",
+    "updatedAt": "string",
+    "createdBy": "string",
+    "organizationId": "string",
+    "assignedTo": "string",
+    "parties": [
+      {
+        "partyId": "string",
+        "role": "string",
+        "addedAt": "string",
+        "notes": "string"
+      }
+    ],
+    "labels": [
+      {
+        "labelId": "string",
+        "name": "string",
+        "color": "string"
+      }
+    ],
+    "files": [
+      {
+        "fileId": "string",
+        "filename": "string",
+        "contentType": "string",
+        "size": "integer",
+        "uploadedAt": "string",
+        "downloadUrl": "string"
+      }
+    ],
+    "agentProgress": {
+      "isActive": "boolean",
+      "lastInteraction": "string",
+      "completedSteps": ["string"],
+      "recommendations": ["string"]
+    }
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (e.g., user doesn't have access to the case)
+- `404 Not Found`: Case not found
+- `500 Internal Server Error`: Internal server error
+
+#### DELETE /cases/{caseId}
+Marks a case as deleted. Changes a case status to "deleted". Deleted cases are only shown when specifically requested.
+
+**Path Parameters:**
+- `caseId` (string, required): ID of the case to mark as deleted
+
+**Responses:**
+- `200 OK`: Case marked as deleted successfully
+  ```json
+  {
+    "success": "boolean",
+    "caseId": "string",
+    "status": "string"
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (e.g., user doesn't have access to the case)
+- `404 Not Found`: Case not found
+- `500 Internal Server Error`: Internal server error
+
+#### PUT /cases/{caseId}/archive
+Archives a case. Changes a case status to "archived". Archived cases are not shown in the default case listing.
+
+**Path Parameters:**
+- `caseId` (string, required): ID of the case to archive
+
+**Responses:**
+- `200 OK`: Case archived successfully
+  ```json
+  {
+    "success": "boolean",
+    "caseId": "string",
+    "status": "string"
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (e.g., user doesn't have access to the case)
+- `404 Not Found`: Case not found
+- `500 Internal Server Error`: Internal server error
+
+#### POST /cases/{caseId}/assign
+Assigns a case to a user. Assigns an organization case to a specific user. Only available for organization administrators.
+
+**Path Parameters:**
+- `caseId` (string, required): ID of the case to assign
+
+**Request Body:**
+```json
+{
+  "userId": "string",
+  "notes": "string"
+}
+```
+
+**Responses:**
+- `200 OK`: Case assigned successfully
+  ```json
+  {
+    "success": "boolean",
+    "caseId": "string",
+    "userId": "string",
+    "assignedAt": "string",
+    "notes": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (not an administrator of the organization)
+- `404 Not Found`: Case or user not found
 - `500 Internal Server Error`: Internal server error
 
 #### POST /organizations/{organizationId}/cases
@@ -322,13 +659,13 @@ Creates a new case for a specific organization.
 **Request Body:**
 ```json
 {
-  "title": "string",  // Title of the case
-  "description": "string",  // Description of the case
-  "caseTier": "integer",  // Case tier level
-  "caseTypeId": "string",  // The ID of the case type for this case
-  "paymentIntentId": "string",  // Stripe payment intent ID
-  "initialPartyIds": ["string"],  // Optional array of party IDs to attach initially
-  "assignedUserId": "string"  // Optional staff user ID to assign the case to
+  "title": "string",
+  "description": "string",
+  "caseTier": "integer",
+  "caseTypeId": "string",
+  "paymentIntentId": "string",
+  "initialPartyIds": ["string"],
+  "assignedUserId": "string"
 }
 ```
 
@@ -336,8 +673,8 @@ Creates a new case for a specific organization.
 - `201 Created`: Case created successfully
   ```json
   {
-    "caseId": "string",  // Unique identifier for the case
-    "status": "string"  // Status of the case (initially "open")
+    "caseId": "string",
+    "status": "string"
   }
   ```
 - `400 Bad Request`: Bad request
@@ -347,22 +684,88 @@ Creates a new case for a specific organization.
 - `404 Not Found`: Organization not found
 - `500 Internal Server Error`: Internal server error
 
+#### GET /organizations/{organizationId}/cases
+Lists cases associated with the specified organization.
+
+**Path Parameters:**
+- `organizationId` (string, required): ID of the organization
+
+**Query Parameters:**
+- `limit` (integer, optional): Maximum number of cases to return (default 20, max 100)
+- `offset` (integer, optional): Offset for pagination (default 0)
+- `status` (string, optional): Filter by case status (open, archived, deleted)
+
+**Responses:**
+- `200 OK`: List of cases
+  ```json
+  {
+    "cases": [
+      {
+        "caseId": "string",
+        "title": "string",
+        "description": "string",
+        "status": "string",
+        "createdAt": "string",
+        "updatedAt": "string"
+      }
+    ],
+    "total": "integer",
+    "limit": "integer",
+    "offset": "integer"
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden
+- `404 Not Found`: Organization not found
+- `500 Internal Server Error`: Internal server error
+
 ### File Management
 
+#### POST /cases/{caseId}/files
+Uploads a file and attaches it to a specific case.
+
+**Path Parameters:**
+- `caseId` (string, required): ID of the case to attach the file to
+
+**Content-Type:** `application/octet-stream`, `image/jpeg`, `image/png`, `application/pdf`, `text/plain`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `application/msword`
+
+**Responses:**
+- `200 OK`: File uploaded successfully
+  ```json
+  {
+    "fileId": "string",
+    "caseId": "string",
+    "filename": "string",
+    "contentType": "string",
+    "size": "integer",
+    "downloadUrl": "string",
+    "uploadedAt": "string",
+    "metadata": {
+      "fileType": "string",
+      "description": "string"
+    }
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden
+- `404 Not Found`: Case not found
+- `500 Internal Server Error`: Internal server error
+
 #### GET /cases/{caseId}/files/{fileId}
-Download a file attached to a specific case.
+Downloads a file attached to a specific case.
 
 **Path Parameters:**
 - `caseId` (string, required): ID of the case the file is attached to
 - `fileId` (string, required): ID of the file to download
 
 **Responses:**
-- `200 OK`: Returns a JSON object containing a time-limited, signed URL to download the file, the original filename, and the document's metadata ID.
+- `200 OK`: File download metadata
   ```json
   {
-    "downloadUrl": "string",  // A time-limited, signed URL to download the file directly from cloud storage
-    "filename": "string",     // The original filename of the document
-    "documentId": "string"    // The unique identifier for the document's metadata record
+    "downloadUrl": "string",
+    "filename": "string",
+    "documentId": "string"
   }
   ```
 - `401 Unauthorized`: Unauthorized
@@ -378,21 +781,31 @@ Creates a new party record in the system.
 **Request Body:**
 ```json
 {
-  "partyType": "individual", // or "organization"
+  "partyType": "individual|organization",
   "nameDetails": {
-    // For individual: firstName, lastName, etc.
-    // For organization: companyName
+    "firstName": "string",
+    "lastName": "string",
+    "middleName": "string",
+    "companyName": "string"
   },
   "identityCodes": {
-    // For individual: cnp, etc.
-    // For organization: cui, regCom, etc.
+    "ssn": "string",
+    "cnp": "string",
+    "taxId": "string",
+    "registrationNumber": "string"
   },
   "contactInfo": {
-    // Contact information fields
+    "email": "string",
+    "phone": "string",
+    "address": {
+      "street": "string",
+      "city": "string",
+      "state": "string",
+      "postalCode": "string",
+      "country": "string"
+    }
   },
-  "signatureData": {
-    // Optional signature data
-  }
+  "signatureData": {}
 }
 ```
 
@@ -400,10 +813,362 @@ Creates a new party record in the system.
 - `201 Created`: Party created successfully
   ```json
   {
-    "partyId": "string",  // ID of the created party
-    "status": "success"   // Status of the operation
+    "partyId": "string",
+    "status": "success"
   }
   ```
 - `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `500 Internal Server Error`: Internal server error
+
+#### GET /parties
+Lists parties created by the authenticated user.
+
+**Query Parameters:**
+- `limit` (integer, optional): Maximum number of results to return
+- `offset` (integer, optional): Number of results to skip (for pagination)
+- `partyType` (string, optional): Filter by party type (individual, company, etc.)
+
+**Responses:**
+- `200 OK`: List of parties
+  ```json
+  {
+    "parties": [
+      {
+        "partyId": "string",
+        "partyType": "individual|company|government|other",
+        "nameDetails": {
+          "firstName": "string",
+          "lastName": "string",
+          "middleName": "string",
+          "companyName": "string"
+        },
+        "identityCodes": {
+          "ssn": "string",
+          "cnp": "string",
+          "taxId": "string",
+          "registrationNumber": "string"
+        },
+        "contactInfo": {
+          "email": "string",
+          "phone": "string",
+          "address": {
+            "street": "string",
+            "city": "string",
+            "state": "string",
+            "postalCode": "string",
+            "country": "string"
+          }
+        },
+        "createdAt": "string",
+        "updatedAt": "string",
+        "createdBy": "string"
+      }
+    ],
+    "total": "integer",
+    "limit": "integer",
+    "offset": "integer"
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `500 Internal Server Error`: Internal server error
+
+#### GET /parties/{partyId}
+Retrieves detailed information about a specific party.
+
+**Path Parameters:**
+- `partyId` (string, required): ID of the party to retrieve
+
+**Responses:**
+- `200 OK`: Party details retrieved successfully
+  ```json
+  {
+    "partyId": "string",
+    "partyType": "individual|company|government|other",
+    "nameDetails": {
+      "firstName": "string",
+      "lastName": "string",
+      "middleName": "string",
+      "companyName": "string"
+    },
+    "identityCodes": {
+      "ssn": "string",
+      "cnp": "string",
+      "taxId": "string",
+      "registrationNumber": "string"
+    },
+    "contactInfo": {
+      "email": "string",
+      "phone": "string",
+      "address": {
+        "street": "string",
+        "city": "string",
+        "state": "string",
+        "postalCode": "string",
+        "country": "string"
+      }
+    },
+    "createdAt": "string",
+    "updatedAt": "string",
+    "createdBy": "string"
+  }
+  ```
+- `401 Unauthorized`: Unauthorized
+- `404 Not Found`: Party not found
+- `500 Internal Server Error`: Internal server error
+
+#### PUT /parties/{partyId}
+Updates an existing party's information.
+
+**Path Parameters:**
+- `partyId` (string, required): ID of the party to update
+
+**Request Body:**
+```json
+{
+  "partyType": "individual|company|government|other",
+  "nameDetails": {
+    "firstName": "string",
+    "lastName": "string",
+    "middleName": "string",
+    "companyName": "string"
+  },
+  "identityCodes": {
+    "ssn": "string",
+    "cnp": "string",
+    "taxId": "string",
+    "registrationNumber": "string"
+  },
+  "contactInfo": {
+    "email": "string",
+    "phone": "string",
+    "address": {
+      "street": "string",
+      "city": "string",
+      "state": "string",
+      "postalCode": "string",
+      "country": "string"
+    }
+  }
+}
+```
+
+**Responses:**
+- `200 OK`: Party updated successfully
+  ```json
+  {
+    "partyId": "string",
+    "status": "success"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `404 Not Found`: Party not found
+- `500 Internal Server Error`: Internal server error
+
+#### DELETE /parties/{partyId}
+Deletes a party. This operation may be restricted if the party is associated with cases.
+
+**Path Parameters:**
+- `partyId` (string, required): ID of the party to delete
+
+**Responses:**
+- `204 No Content`: Party deleted successfully
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (e.g., party is associated with cases)
+- `404 Not Found`: Party not found
+- `500 Internal Server Error`: Internal server error
+
+#### POST /cases/{caseId}/parties
+Associates an existing party with a case.
+
+**Path Parameters:**
+- `caseId` (string, required): ID of the case
+
+**Request Body:**
+```json
+{
+  "userId": "string",
+  "notes": "string"
+}
+```
+
+**Responses:**
+- `200 OK`: Case assigned successfully
+  ```json
+  {
+    "success": "boolean",
+    "caseId": "string",
+    "userId": "string",
+    "assignedAt": "string",
+    "notes": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (not an administrator of the organization)
+- `404 Not Found`: Case or user not found
+- `500 Internal Server Error`: Internal server error
+
+### Payment Management
+
+#### POST /payments/intent
+Creates a Stripe payment intent for purchasing a specific case tier.
+
+**Request Body:**
+```json
+{
+  "amount": "integer",
+  "currency": "string",
+  "caseTier": "integer",
+  "organizationId": "string",
+  "metadata": {}
+}
+```
+
+**Responses:**
+- `200 OK`: Payment intent created successfully
+  ```json
+  {
+    "clientSecret": "string",
+    "paymentIntentId": "string",
+    "amount": "integer",
+    "currency": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden
+- `500 Internal Server Error`: Internal server error
+
+#### POST /payments/checkout
+Creates a Stripe checkout session for subscription plans.
+
+**Request Body:**
+```json
+{
+  "priceId": "string",
+  "organizationId": "string",
+  "successUrl": "string",
+  "cancelUrl": "string"
+}
+```
+
+**Responses:**
+- `200 OK`: Checkout session created successfully
+  ```json
+  {
+    "sessionId": "string",
+    "url": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden
+- `500 Internal Server Error`: Internal server error
+
+#### POST /webhooks/stripe
+Processes webhook events from Stripe for payment and subscription management.
+
+**Headers:**
+- `Stripe-Signature` (string, required): Stripe signature for validating the webhook event
+
+**Request Body:**
+```json
+{}
+```
+
+**Responses:**
+- `200 OK`: Webhook processed successfully
+  ```json
+  {
+    "received": "boolean",
+    "event": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request (invalid webhook payload)
+- `500 Internal Server Error`: Internal server error
+
+#### POST /subscriptions/{subscriptionId}/cancel
+Cancels an active subscription. The subscription will remain active until the end of the current billing period.
+
+**Path Parameters:**
+- `subscriptionId` (string, required): ID of the subscription to cancel
+
+**Responses:**
+- `200 OK`: Subscription canceled successfully
+  ```json
+  {
+    "success": "boolean",
+    "subscriptionId": "string",
+    "status": "string",
+    "cancelAt": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request
+- `401 Unauthorized`: Unauthorized
+- `403 Forbidden`: Forbidden (not authorized to cancel this subscription)
+- `404 Not Found`: Subscription not found
+- `500 Internal Server Error`: Internal server error
+
+#### POST /vouchers/redeem
+Redeems a voucher code to add case credits or activate a subscription.
+
+**Request Body:**
+```json
+{
+  "code": "string",
+  "organizationId": "string"
+}
+```
+
+**Responses:**
+- `200 OK`: Voucher redeemed successfully
+  ```json
+  {
+    "success": "boolean",
+    "voucherId": "string",
+    "type": "string",
+    "value": "integer",
+    "expiresAt": "string"
+  }
+  ```
+- `400 Bad Request`: Bad request (invalid or expired voucher)
+- `401 Unauthorized`: Unauthorized
+- `404 Not Found`: Voucher not found
+- `409 Conflict`: Conflict (voucher already redeemed)
+- `500 Internal Server Error`: Internal server error
+
+#### GET /products
+Retrieves the list of available products, subscription plans, and pricing information.
+
+**Responses:**
+- `200 OK`: List of products and pricing
+  ```json
+  {
+    "casePricing": [
+      {
+        "tier": "integer",
+        "amount": "integer",
+        "currency": "string",
+        "description": "string"
+      }
+    ],
+    "subscriptionPlans": [
+      {
+        "id": "string",
+        "name": "string",
+        "description": "string",
+        "priceId": "string",
+        "amount": "integer",
+        "currency": "string",
+        "interval": "string",
+        "caseQuota": "integer",
+        "features": ["string"]
+      }
+    ]
+  }
+  ```
 - `401 Unauthorized`: Unauthorized
 - `500 Internal Server Error`: Internal server error

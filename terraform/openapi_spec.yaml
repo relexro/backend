@@ -12,6 +12,7 @@ produces:
   - application/json
 consumes:
   - application/json
+
 securityDefinitions:
   firebase:
     authorizationUrl: ""

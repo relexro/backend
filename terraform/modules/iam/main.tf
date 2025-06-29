@@ -62,6 +62,13 @@ resource "google_project_iam_member" "invoker_role_for_api_gateway" {
   member  = "serviceAccount:${var.api_gateway_sa_email}"
 }
 
+# Grant the API Gateway service account permission to write logs
+resource "google_project_iam_member" "api_gateway_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${var.api_gateway_sa_email}"
+}
+
 
 # --- REMOVED: Old permissions targeting default SAs (if they existed here) ---
 # Remove any blocks that granted roles to:
