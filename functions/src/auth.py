@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Dict, Set, Tuple, Any, Literal, Optional
 from flask import Request, jsonify
 import datetime
-# Removed duplicate import: from google.cloud import firestore
+from common.clients import get_db_client
 
 logging.basicConfig(level=logging.INFO)
 

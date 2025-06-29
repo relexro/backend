@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field, field_validator
 import uuid
+from common.clients import get_db_client
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +20,7 @@ except ValueError:
     firebase_admin.initialize_app()
 
 # Initialize Firestore client
-db = firestore.client()
+db = get_db_client()
 
 # Import auth functions
 from auth import check_permission, PermissionCheckRequest, TYPE_ORGANIZATION

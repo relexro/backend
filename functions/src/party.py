@@ -9,6 +9,7 @@ import logging
 import uuid
 # Removed google.cloud.firestore import
 from auth import check_permission, PermissionCheckRequest, TYPE_PARTY as RESOURCE_TYPE_PARTY, ACTION_READ, ACTION_UPDATE, ACTION_DELETE, get_authenticated_user # Corrected import
+from common.clients import get_db_client
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,8 +17,6 @@ try:
     firebase_admin.get_app()
 except ValueError:
     firebase_admin.initialize_app()
-
-db = firestore.client() # Use firebase_admin's firestore client
 
 def create_party(request: Request):
     logging.info("Logic function create_party called")
@@ -95,7 +94,7 @@ def create_party(request: Request):
             if storage_path:
                 party_data["signatureData"] = {"storagePath": storage_path, "capturedAt": firestore.SERVER_TIMESTAMP}
 
-        party_ref = db.collection("parties").document()
+        party_ref = get_db_client().collection("parties").document()
         party_ref.set(party_data)
         party_id = party_ref.id
 
@@ -127,7 +126,7 @@ def get_party(request: Request):
             if not party_id:
                  return {"error": "Bad Request", "message": "partyId is required in query parameters or URL path"}, 400
 
-        party_ref = db.collection("parties").document(party_id)
+        party_ref = get_db_client().collection("parties").document(party_id)
         party_doc = party_ref.get()
         if not party_doc.exists:
             return {"error": "Not Found", "message": "Party not found"}, 404
@@ -165,7 +164,7 @@ def update_party(request: Request):
         party_id = request_data.get("partyId") # ID must be in body for updates
         if not party_id: return {"error": "Bad Request", "message": "partyId is required in request body"}, 400
 
-        party_ref = db.collection("parties").document(party_id)
+        party_ref = get_db_client().collection("parties").document(party_id)
         party_doc = party_ref.get()
         if not party_doc.exists: return {"error": "Not Found", "message": "Party not found"}, 404
 
@@ -270,7 +269,7 @@ def delete_party(request: Request):
             if not party_id:
                  return {"error": "Bad Request", "message": "partyId is required in query parameters or URL path"}, 400
 
-        party_ref = db.collection("parties").document(party_id)
+        party_ref = get_db_client().collection("parties").document(party_id)
         party_doc = party_ref.get()
         if not party_doc.exists: return {"error": "Not Found", "message": "Party not found"}, 404
 
@@ -283,7 +282,7 @@ def delete_party(request: Request):
 
         # Check if party is attached to any *active* cases?
         # Use where() method with keyword arguments instead of positional arguments
-        cases_query = db.collection("cases").where(field_path="attachedPartyIds", op_string="array_contains", value=party_id).where(field_path="status", op_string="!=", value="deleted").limit(1).stream()
+        cases_query = get_db_client().collection("cases").where(field_path="attachedPartyIds", op_string="array_contains", value=party_id).where(field_path="status", op_string="!=", value="deleted").limit(1).stream()
         if list(cases_query):
             return {"error": "Conflict", "message": "Cannot delete party attached to active cases"}, 409
 
@@ -301,7 +300,7 @@ def list_parties(request: Request):
         user_id = request.end_user_id
 
         # Use where() method with keyword arguments instead of positional arguments
-        parties_query = db.collection("parties").where(field_path="userId", op_string="==", value=user_id).order_by("createdAt", direction=firestore.Query.DESCENDING)
+        parties_query = get_db_client().collection("parties").where(field_path="userId", op_string="==", value=user_id).order_by("createdAt", direction=firestore.Query.DESCENDING)
 
         party_type_filter = request.args.get("partyType")
         if party_type_filter:

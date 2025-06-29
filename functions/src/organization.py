@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 from auth import check_permission, PermissionCheckRequest, TYPE_ORGANIZATION as RESOURCE_TYPE_ORGANIZATION # Corrected import
 from flask import Request
+from common.clients import get_db_client
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,8 +18,6 @@ try:
     firebase_admin.get_app()
 except ValueError:
     firebase_admin.initialize_app()
-
-db = firestore.client() # Use firebase_admin's firestore client
 
 def create_organization(request: Request):
     logging.info("Logic function create_organization called")
@@ -42,11 +41,11 @@ def create_organization(request: Request):
         contact_info = request_json.get('contactInfo', {})
 
         organization_id = str(uuid.uuid4())
-        transaction = db.transaction()
+        transaction = get_db_client().transaction()
 
         @firestore.transactional # Use decorator from firebase_admin.firestore
         def create_org_in_transaction(transaction, organization_id, name, description, address, contact_info, user_id):
-            org_ref = db.collection('organizations').document(organization_id)
+            org_ref = get_db_client().collection('organizations').document(organization_id)
             org_data = {
                 'id': organization_id, 'name': name.strip(), 'description': description,
                 'address': address, 'contactInfo': contact_info,
@@ -65,7 +64,7 @@ def create_organization(request: Request):
 
             member_id = str(uuid.uuid4())
             # Changed collection name from 'organizationMembers' to 'organization_memberships'
-            member_ref = db.collection('organization_memberships').document(member_id)
+            member_ref = get_db_client().collection('organization_memberships').document(member_id)
             member_data = {
                 'id': member_id, 'organizationId': organization_id, 'userId': user_id,
                 'role': 'administrator', # Role is correctly set to 'administrator'
@@ -106,7 +105,7 @@ def get_organization(request: Request):
              return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
 
-        org_ref = db.collection('organizations').document(organization_id)
+        org_ref = get_db_client().collection('organizations').document(organization_id)
         org_doc = org_ref.get()
         if not org_doc.exists:
             return flask.jsonify({"error": "Not Found", "message": f"Organization {organization_id} not found"}), 404
@@ -151,7 +150,7 @@ def update_organization(request: Request):
         organization_id = request_json.get('organizationId') # Get ID from body
         if not organization_id: return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required in request body"}), 400
 
-        org_ref = db.collection('organizations').document(organization_id)
+        org_ref = get_db_client().collection('organizations').document(organization_id)
         org_doc = org_ref.get()
         if not org_doc.exists:
             return flask.jsonify({"error": "Not Found", "message": f"Organization {organization_id} not found"}), 404
@@ -219,7 +218,7 @@ def delete_organization(request: Request):
         if not organization_id:
             return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
 
-        org_ref = db.collection('organizations').document(organization_id)
+        org_ref = get_db_client().collection('organizations').document(organization_id)
         org_doc = org_ref.get()
         if not org_doc.exists:
             return flask.jsonify({"error": "Not Found", "message": f"Organization {organization_id} not found"}), 404
@@ -245,18 +244,18 @@ def delete_organization(request: Request):
             }), 400
 
         # Start a transaction to delete the organization and all related data
-        transaction = db.transaction()
+        transaction = get_db_client().transaction()
 
         @firestore.transactional
         def delete_org_in_transaction(transaction, org_id):
             # Delete all organization memberships
-            members_query = db.collection('organization_memberships').where('organizationId', '==', org_id)
+            members_query = get_db_client().collection('organization_memberships').where('organizationId', '==', org_id)
             members = list(members_query.stream())
             for member in members:
                 transaction.delete(member.reference)
 
             # Mark all organization cases as deleted
-            cases_query = db.collection('cases').where('organizationId', '==', org_id)
+            cases_query = get_db_client().collection('cases').where('organizationId', '==', org_id)
             cases = list(cases_query.stream())
             for case in cases:
                 transaction.update(case.reference, {

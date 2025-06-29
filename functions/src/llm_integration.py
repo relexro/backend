@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock
 
 from functions.src.exceptions import LLMError
 from functions.src.utils import prepare_context
+from common.clients import get_db_client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

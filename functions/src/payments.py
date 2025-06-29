@@ -7,7 +7,9 @@ import stripe
 import os
 import json
 from datetime import datetime, timezone, timedelta
+from common.clients import get_db_client, initialize_stripe
 from vouchers import validate_voucher_code
+from common.database import db
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -18,9 +20,6 @@ try:
 except ValueError:
     # Use the application default credentials
     firebase_admin.initialize_app()
-
-# Initialize Firestore client (using the client from firebase_admin)
-db = firestore.client()
 
 # Initialize Stripe
 # It's crucial to set STRIPE_SECRET_KEY as an environment variable in your Cloud Function
@@ -37,6 +36,8 @@ CACHE_TTL = 3600  # Cache duration in seconds (1 hour)
 CACHE_DOC_PATH = "cache/stripe_products"  # Firestore path for cache
 
 def logic_get_products(request):
+    db = get_db_client()
+    initialize_stripe()
     """Fetches active products and prices directly from Stripe, using Firestore for caching.
 
     Handles GET requests for the /v1/products endpoint. This endpoint does not require user authentication.
@@ -177,6 +178,8 @@ def logic_get_products(request):
 
 # Renamed function to avoid conflict with framework decorator if deployed individually
 def create_payment_intent(request):
+    db = get_db_client()
+    initialize_stripe()
     """Create a Stripe Payment Intent.
 
     Args:
@@ -287,6 +290,8 @@ def create_payment_intent(request):
 
 # Renamed function to avoid conflict with framework decorator if deployed individually
 def create_checkout_session(request):
+    db = get_db_client()
+    initialize_stripe()
     """Create a Stripe Checkout Session.
 
     Args:
@@ -493,6 +498,7 @@ def create_checkout_session(request):
 
 # Placeholder for voucher logic if needed later
 def logic_redeem_voucher(request):
+    db = get_db_client()
     """Redeems a voucher code for a user or organization.
 
     Handles POST requests for /v1/vouchers/redeem.
@@ -700,6 +706,8 @@ def logic_redeem_voucher(request):
 #     pass
 
 def handle_stripe_webhook(request):
+    db = get_db_client()
+    initialize_stripe()
     """Handle Stripe webhook events. IMPORTANT: Secure this endpoint properly.
 
     Args:
@@ -1189,6 +1197,8 @@ def handle_stripe_webhook(request):
 
 # Renamed function to avoid conflict with framework decorator if deployed individually
 def cancel_subscription(request):
+    db = get_db_client()
+    initialize_stripe()
     """Cancel a Stripe subscription at the end of the current billing period.
 
     Args:

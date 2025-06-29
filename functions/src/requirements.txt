@@ -12,9 +12,6 @@ google-cloud-aiplatform~=1.48.0
 # --- Payments ----------------------------------------------------------------
 stripe~=9.0.0
 
-# --- Web server --------------------------------------------------------------
-gunicorn~=20.1.0
-
 # --- Pydantic ----------------------------------------------------------------
 pydantic<3.0.0,>=2.0.0
 typing-extensions>=4.12.2
@@ -23,7 +20,6 @@ typing-extensions>=4.12.2
 aiohttp~=3.9.3
 
 # --- LLM stack (pinned to mutually-compatible versions) ----------------------
-# NOTE: keep these versions in lock-step; bump together only after verifying.
 langchain-core==0.3.64
 langchain==0.3.25
 langchain-openai==0.3.21
@@ -31,16 +27,10 @@ langchain-community==0.3.24
 langchain-xai==0.2.4
 langchain-google-genai==2.1.5
 langgraph==0.4.8
-# Google generative AI proto runtime required by langchain-google-genai
 google-ai-generativelanguage==0.6.18
 
 # --- Optional / nice-to-have utilities --------------------------------------
-markdown2~=2.4.12  # Markdown processing
+markdown2~=2.4.12
 tenacity!=8.4.0,<10.0.0,>=8.1.0
 jsonpatch<2.0,>=1.33
 PyYAML>=5.3
-
-# --- PDF generation (heavy, install only if you really need them) -----------
-# Commented-out because they pull many OS-level deps and slow CI significantly.
-# xhtml2pdf==0.2.11
-# weasyprint>=57.0,<58.0

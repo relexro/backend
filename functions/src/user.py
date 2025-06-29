@@ -8,8 +8,9 @@ from flask import Request
 import auth as local_auth_module # Import local auth module for get_authenticated_user
 import flask
 import uuid
-from google.cloud import firestore
 import datetime
+from common.database import db
+from common.clients import get_db_client
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -23,8 +24,8 @@ except ValueError:
     firebase_admin.initialize_app()
 
 # Initialize Firestore client
-# Fixed: use firestore.Client() not firestore.client()
-db = firestore.Client()
+# FIXED: use firestore.client() to get client from firebase-admin app
+# db = firestore.client()
 
 # NOTE: This function (`create_user_profile_trigger`) seems intended as a Firebase Authentication *trigger*,
 #       not a standard HTTP function. It should be deployed differently.
@@ -80,7 +81,7 @@ def get_user_profile(request: Request, user_id_for_profile):
     if not user_id_for_profile:
         return flask.jsonify({"error": "Unauthorized", "message": "User authentication context missing"}), 401
 
-    db = firestore.Client()
+    db = get_db_client()
     user_ref = db.collection('users').document(user_id_for_profile)
     user_doc = user_ref.get()
 
@@ -141,6 +142,7 @@ def update_user_profile(request: Request, user_id_for_profile):
             return ({"error": "Bad Request", "message": "No JSON data provided"}, 400)
 
         # Get user document reference
+        db = get_db_client()
         user_ref = db.collection("users").document(user_id_for_profile)
         user_doc = user_ref.get() # Check if profile exists before updating
 
