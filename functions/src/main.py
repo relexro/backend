@@ -42,6 +42,12 @@ from payments import (
     logic_redeem_voucher,
     logic_get_products
 )
+from vouchers import (
+    logic_create_voucher,
+    logic_get_voucher,
+    logic_update_voucher,
+    logic_delete_voucher
+)
 from organization_membership import (
     add_organization_member as logic_add_organization_member,
     set_organization_member_role as logic_set_organization_member_role,
@@ -688,3 +694,99 @@ def relex_backend_agent_handler(request: Request):
 
     # If this is a normal request, process it through the agent handler
     return _authenticate_and_call(request, logic_handle_agent_request)
+
+# Voucher Management Endpoints
+
+@functions_framework.http
+def relex_backend_create_voucher(request: Request):
+    """Create a new voucher (admin only)."""
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info("Function relex_backend_create_voucher: Responding to X-Google-Health-Check header.")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
+            "function_name": "relex_backend_create_voucher",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
+    return _authenticate_and_call(request, logic_create_voucher)
+
+@functions_framework.http
+def relex_backend_get_voucher(request: Request):
+    """Retrieve a voucher's details."""
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info("Function relex_backend_get_voucher: Responding to X-Google-Health-Check header.")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
+            "function_name": "relex_backend_get_voucher",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
+    # Extract voucher ID from the request path
+    # The path should be something like /v1/vouchers/{voucherId}
+    path_parts = request.path.split('/')
+    if len(path_parts) < 4:
+        return flask.jsonify({"error": "Bad Request", "message": "Voucher ID is required"}), 400
+    
+    voucher_id = path_parts[-1]  # Get the last part as voucher ID
+    
+    # Create a wrapper function to pass the voucher_id
+    def get_voucher_with_id(req):
+        return logic_get_voucher(req, voucher_id)
+    
+    return _authenticate_and_call(request, get_voucher_with_id)
+
+@functions_framework.http
+def relex_backend_update_voucher(request: Request):
+    """Update a voucher's details (admin only)."""
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info("Function relex_backend_update_voucher: Responding to X-Google-Health-Check header.")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
+            "function_name": "relex_backend_update_voucher",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
+    # Extract voucher ID from the request path
+    path_parts = request.path.split('/')
+    if len(path_parts) < 4:
+        return flask.jsonify({"error": "Bad Request", "message": "Voucher ID is required"}), 400
+    
+    voucher_id = path_parts[-1]  # Get the last part as voucher ID
+    
+    # Create a wrapper function to pass the voucher_id
+    def update_voucher_with_id(req):
+        return logic_update_voucher(req, voucher_id)
+    
+    return _authenticate_and_call(request, update_voucher_with_id)
+
+@functions_framework.http
+def relex_backend_delete_voucher(request: Request):
+    """Delete a voucher (admin only)."""
+    # Check for the X-Google-Health-Check header first
+    if request.headers.get("X-Google-Health-Check"):
+        logging.info("Function relex_backend_delete_voucher: Responding to X-Google-Health-Check header.")
+        return flask.jsonify({
+            "status": "healthy",
+            "message": "Service is running, health check via X-Google-Health-Check header successful.",
+            "function_name": "relex_backend_delete_voucher",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+
+    # Extract voucher ID from the request path
+    path_parts = request.path.split('/')
+    if len(path_parts) < 4:
+        return flask.jsonify({"error": "Bad Request", "message": "Voucher ID is required"}), 400
+    
+    voucher_id = path_parts[-1]  # Get the last part as voucher ID
+    
+    # Create a wrapper function to pass the voucher_id
+    def delete_voucher_with_id(req):
+        return logic_delete_voucher(req, voucher_id)
+    
+    return _authenticate_and_call(request, delete_voucher_with_id)

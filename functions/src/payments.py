@@ -7,6 +7,7 @@ import stripe
 import os
 import json
 from datetime import datetime, timezone, timedelta
+from vouchers import validate_voucher_code
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -322,6 +323,7 @@ def create_checkout_session(request):
         amount = data.get("amount")
         currency = data.get("currency", "eur") # Default to EUR
         product_name = data.get("productName", "Relex Legal Service") # Default product name
+        voucher_code = data.get("voucherCode")  # New: Extract voucher code
         # Define success/cancel URLs - consider making these configurable via env vars
         success_url = data.get("successUrl", os.environ.get("STRIPE_SUCCESS_URL", "https://relex.ro/success")) # Example default
         cancel_url = data.get("cancelUrl", os.environ.get("STRIPE_CANCEL_URL", "https://relex.ro/cancel"))   # Example default
@@ -386,6 +388,22 @@ def create_checkout_session(request):
                     logging.error("Organization ID is required for business plans")
                     return ({"error": "Bad Request", "message": "Organization ID is required for business plans"}, 400)
 
+        # Validate and process voucher code if provided
+        voucher_data = None
+        if voucher_code:
+            if not isinstance(voucher_code, str) or not voucher_code.strip():
+                return ({"error": "Bad Request", "message": "Voucher code must be a non-empty string"}, 400)
+            
+            # Validate voucher code
+            is_valid, voucher_data, error_message = validate_voucher_code(voucher_code.strip())
+            if not is_valid:
+                return ({"error": "InvalidVoucher", "message": error_message}, 400)
+            
+            # Add voucher information to metadata
+            metadata["voucherCode"] = voucher_code.upper()
+            metadata["voucherDiscountPercentage"] = voucher_data["discountPercentage"]
+            logging.info(f"Voucher {voucher_code} validated with {voucher_data['discountPercentage']}% discount")
+
         # Define line items based on whether it's a subscription or one-time payment
         line_items = []
         if plan_id and price_id:
@@ -411,17 +429,27 @@ def create_checkout_session(request):
             logging.error("Invalid state: No planId/priceId or amount provided for line items.")
             return ({"error": "Internal Server Error", "message": "Could not determine items for checkout"}, 500)
 
+        # Prepare checkout session parameters
+        checkout_params = {
+            "payment_method_types": ["card"],
+            "line_items": line_items,
+            "mode": mode,
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            "metadata": metadata
+        }
+
+        # Apply voucher discount if voucher is valid
+        if voucher_data and voucher_data.get("discountPercentage", 0) > 0:
+            # For Stripe, we can apply discounts using promotion codes or coupons
+            # For now, we'll store the discount information in metadata and handle it in webhooks
+            # In a more advanced implementation, you might create Stripe coupons dynamically
+            checkout_params["metadata"]["appliedDiscountPercentage"] = voucher_data["discountPercentage"]
+            logging.info(f"Applied {voucher_data['discountPercentage']}% discount from voucher {voucher_code}")
 
         # Create the checkout session in Stripe
         try:
-            checkout_session = stripe.checkout.Session.create(
-                payment_method_types=["card"],
-                line_items=line_items,
-                mode=mode,
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata=metadata # Pass our metadata to Stripe
-            )
+            checkout_session = stripe.checkout.Session.create(**checkout_params)
 
             # Store checkout session details in Firestore for tracking
             session_ref = db.collection("checkoutSessions").document(checkout_session.get('id'))
@@ -433,17 +461,29 @@ def create_checkout_session(request):
                 "organizationId": organization_id,
                 "caseId": case_id,
                 "planId": plan_id if plan_id else None,
+                "voucherCode": voucher_code.upper() if voucher_code else None,
+                "voucherDiscountPercentage": voucher_data["discountPercentage"] if voucher_data else None,
                 "creationDate": firestore.SERVER_TIMESTAMP
             }
             session_ref.set(session_data)
 
             # Return the session ID and URL (frontend redirects user to this URL)
             logging.info(f"Checkout session created with ID: {checkout_session.get('id')}")
-            return ({
+            response_data = {
                 "sessionId": checkout_session.get('id'),
                 "url": checkout_session.get('url'),
                 "message": "Checkout session created successfully"
-            }, 201) # 201 Created
+            }
+            
+            # Add voucher information to response if voucher was applied
+            if voucher_data:
+                response_data["voucherApplied"] = {
+                    "code": voucher_code.upper(),
+                    "discountPercentage": voucher_data["discountPercentage"],
+                    "description": voucher_data.get("description")
+                }
+            
+            return (response_data, 201) # 201 Created
         except stripe.error.StripeError as e:
             logging.error(f"Stripe error creating checkout session: {str(e)}")
             return ({"error": "Payment Processing Error", "message": str(e)}, 400)
