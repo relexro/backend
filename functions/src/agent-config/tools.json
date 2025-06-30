@@ -2,161 +2,107 @@
     {
       "type": "function",
       "function": {
-        "name": "query_bigquery",
-        "description": "Executes a SQL query against the specified Romanian legal BigQuery table (`legislatie` or `jurisprudenta`) to retrieve legislation or case law summaries/full text. Formulate queries carefully based on guidance.",
+        "name": "find_legislation",
+        "description": "Searches for official legislation, statutes, or laws using the Exa API. Use for finding the text of a law.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query_string": {
-              "type": "string",
-              "description": "The SQL query string to execute on BigQuery."
-            },
-            "table_name": {
-              "type": "string",
-              "enum": ["legislatie", "jurisprudenta"],
-              "description": "The target table name ('legislatie' or 'jurisprudenta')."
-            }
+            "query": { "type": "string", "description": "The search query for the legislation." },
+            "country_domain_filter": { "type": "string", "description": "Optional 'site:' filter for a government domain (e.g., 'site:legislation.gov.uk')." }
           },
-          "required": ["query_string", "table_name"]
+          "required": ["query"]
         }
       }
     },
     {
       "type": "function",
       "function": {
-        "name": "get_party_id_by_name",
-        "description": "Looks up the internal partyId (e.g., 'party0', 'party1') for a party mentioned by name within the current case context. Used to resolve names for document placeholders.",
+        "name": "find_case_law",
+        "description": "Searches for case law and court decisions using the Exa API.",
         "parameters": {
           "type": "object",
           "properties": {
-            "case_id": {
-              "type": "string",
-              "description": "The ID of the current case context."
-            },
-            "mentioned_name": {
-              "type": "string",
-              "description": "The first name or alias used by the user to refer to the party."
-            }
+            "query": { "type": "string", "description": "The search query for the case law." },
+            "jurisdiction": { "type": "string", "description": "Optional jurisdiction to narrow the search." }
           },
-          "required": ["case_id", "mentioned_name"]
+          "required": ["query"]
         }
+      }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_verbatim_content",
+            "description": "Retrieves the full, clean text of web pages from a list of Exa result IDs.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "result_ids": { "type": "array", "items": { "type": "string" }, "description": "A list of result IDs from a previous Exa search." }
+                },
+                "required": ["result_ids"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "find_contact_info",
+            "description": "Searches for contact information for a legal institution using the Exa API.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "institution_name": { "type": "string", "description": "The name of the institution to find contact info for." }
+                },
+                "required": ["institution_name"]
+            }
+        }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_party_id_by_name",
+        "description": "Looks up the internal partyId for a party mentioned by name within the current case context.",
+        "parameters": { "type": "object", "properties": { "case_id": { "type": "string" }, "mentioned_name": { "type": "string" } }, "required": ["case_id", "mentioned_name"] }
       }
     },
     {
       "type": "function",
       "function": {
         "name": "generate_draft_pdf",
-        "description": "Takes Markdown content with placeholders (e.g., {{party0.cnp}}), securely substitutes PII from attached parties, converts to PDF (UTF-8), stores in Cloud Storage (versioned), and updates case details. Only this tool handles PII.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "case_id": {
-              "type": "string",
-              "description": "The ID of the current case."
-            },
-            "markdown_content": {
-              "type": "string",
-              "description": "The full draft content in Markdown format with placeholders."
-            },
-            "draft_name": {
-              "type": "string",
-              "description": "The base name for the document (e.g., 'Cerere_chemare_judecata')."
-            },
-            "revision": {
-              "type": "integer",
-              "description": "The revision number for this draft version."
-            }
-          },
-          "required": ["case_id", "markdown_content", "draft_name", "revision"]
-        }
+        "description": "Takes Markdown content with placeholders, securely substitutes PII, converts to PDF, and stores in Cloud Storage.",
+        "parameters": { "type": "object", "properties": { "case_id": { "type": "string" }, "markdown_content": { "type": "string" }, "draft_name": { "type": "string" }, "revision": { "type": "integer" } }, "required": ["case_id", "markdown_content", "draft_name", "revision"] }
       }
     },
     {
       "type": "function",
       "function": {
         "name": "check_quota",
-        "description": "Checks if the user or organization associated with the case has available quota for the specified case tier based on their active subscription.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "user_id": {
-              "type": "string",
-              "description": "The ID of the user initiating the check."
-            },
-            "organization_id": {
-              "type": "string",
-              "description": "The ID of the organization, if applicable (null otherwise)."
-            },
-            "tier": {
-              "type": "integer",
-              "description": "The case tier (1, 2, or 3) determined by the agent."
-            }
-          },
-          "required": ["user_id", "tier"]
-        }
+        "description": "Checks if the user has available quota for the specified case tier.",
+        "parameters": { "type": "object", "properties": { "user_id": { "type": "string" }, "organization_id": { "type": "string" }, "tier": { "type": "integer" } }, "required": ["user_id", "tier"] }
       }
     },
     {
       "type": "function",
       "function": {
         "name": "get_case_details",
-        "description": "Retrieves the entire `case_details` object (which contains the agent's understanding of the case context, facts, documents, research, etc.) from the Firestore document for the specified case.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "case_id": {
-              "type": "string",
-              "description": "The ID of the case to retrieve details for."
-            }
-          },
-          "required": ["case_id"]
-        }
+        "description": "Retrieves the entire `case_details` object from Firestore.",
+        "parameters": { "type": "object", "properties": { "case_id": { "type": "string" } }, "required": ["case_id"] }
       }
     },
     {
       "type": "function",
       "function": {
         "name": "update_case_details",
-        "description": "Updates specific fields within the `case_details` object in the Firestore document for the specified case. Used frequently to persist the agent's evolving understanding and progress.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "case_id": {
-              "type": "string",
-              "description": "The ID of the case to update."
-            },
-            "updates": {
-              "type": "object",
-              "description": "A dictionary containing fields and values to update within `case_details` (e.g., {\"summary.current\": \"new text\", \"facts\": [...]}). Appends to lists where appropriate."
-            }
-          },
-          "required": ["case_id", "updates"]
-        }
+        "description": "Updates specific fields within the `case_details` object in Firestore.",
+        "parameters": { "type": "object", "properties": { "case_id": { "type": "string" }, "updates": { "type": "object" } }, "required": ["case_id", "updates"] }
       }
     },
     {
       "type": "function",
       "function": {
         "name": "create_support_ticket",
-        "description": "Creates a support ticket when the agent encounters an unrecoverable error. Also pauses the case.",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "case_id": {
-              "type": "string",
-              "description": "The ID of the case experiencing the issue."
-            },
-            "issue_description": {
-              "type": "string",
-              "description": "Detailed description of the problem encountered by the agent."
-            },
-            "agent_state_snapshot": {
-              "type": "object",
-              "description": "(Optional) Snapshot of relevant agent state at time of failure."
-            }
-          },
-          "required": ["case_id", "issue_description"]
-        }
+        "description": "Creates a support ticket for unrecoverable errors.",
+        "parameters": { "type": "object", "properties": { "case_id": { "type": "string" }, "issue_description": { "type": "string" }, "agent_state_snapshot": { "type": "object" } }, "required": ["case_id", "issue_description"] }
       }
     }
-  ]
+]

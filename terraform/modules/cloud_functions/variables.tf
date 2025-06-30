@@ -309,6 +309,11 @@ variable "functions" {
           key     = "GROK_API_KEY"
           secret  = "grok-api-key"
           version = "latest"
+        },
+        {
+          key     = "EXA_API_KEY"
+          secret  = "exa-api-key"
+          version = "latest"
         }
       ]
       timeout = 500  # 5 minutes

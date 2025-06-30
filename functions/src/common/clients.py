@@ -45,4 +45,14 @@ def initialize_stripe():
         if not stripe.api_key:
             # This will be logged by the payments module if the key is missing
             pass
-        _stripe_initialized = True 
+        _stripe_initialized = True
+
+def get_secret(secret_name: str) -> str:
+    """
+    Retrieves a secret value from environment variables.
+    Raises KeyError if the secret is not found.
+    """
+    value = os.environ.get(secret_name)
+    if value is None:
+        raise KeyError(f"Secret '{secret_name}' not found in environment variables.")
+    return value 

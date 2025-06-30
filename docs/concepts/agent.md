@@ -111,7 +111,7 @@ The agent operates in an iterative loop with distinct phases:
 8. **Select Action/Tool**: Based on user input and Grok's guidance, choose the next action:
    - `get_case_details`: To refresh context
    - `update_case_details`: To save progress/findings
-   - `query_bigquery`: To research legislation/jurisprudence
+   - `find_legislation` / `find_case_law`: To research legislation/jurisprudence using Exa
    - `get_party_id_by_name`: To resolve party references for drafts
    - `generate_draft_pdf`: To create and store official documents
    - Ask User: Formulate clarifying questions
@@ -181,7 +181,7 @@ The agent implements a robust error handling strategy:
 
 1. **Knowledge Distillation**: Implementing methods to reuse insights from past cases for similar legal scenarios.
 
-2. **Enhanced Legal Research**: Expanding the capabilities of the `query_bigquery` tool to provide more targeted legal research.
+2. **Enhanced Legal Research**: Expanding the capabilities of the Exa-powered research tools to provide more targeted legal research.
 
 3. **Multi-language Support**: Extending beyond Romanian to support additional languages.
 

@@ -28,6 +28,7 @@ langchain-xai==0.2.4
 langchain-google-genai==2.1.5
 langgraph==0.4.8
 google-ai-generativelanguage==0.6.18
+exa-py>=1.0.0
 
 # --- Utilities ---------------------------------------------------------------
 markdown2~=2.4.12

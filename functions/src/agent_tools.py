@@ -10,13 +10,17 @@ import markdown2
 # Pure Python PDF libraries without system dependencies
 from xhtml2pdf import pisa
 import io
-from google.cloud import bigquery, firestore, storage
+from google.cloud import firestore, storage
 from google.cloud.exceptions import NotFound
 import tempfile
 import os
 import base64
 from langchain_xai import ChatXAI
 from langchain_core.messages import SystemMessage, HumanMessage
+import os
+from exa_py import Exa
+from langchain.tools import tool
+from common.clients import get_secret
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +29,101 @@ logger = logging.getLogger(__name__)
 # Initialize clients
 db = firestore.Client()
 storage_client = storage.Client()
+
+# --- Tool-specific Errors ---
+class ExaToolError(Exception):
+    """Custom exception for Exa API tool errors."""
+    pass
+
+# --- Exa Client Initialization ---
+try:
+    exa_api_key = get_secret("EXA_API_KEY")
+    exa = Exa(api_key=exa_api_key)
+except Exception as e:
+    # If the secret is not available at import time, handle it gracefully.
+    # The tools will fail at runtime if the client is not initialized.
+    exa = None
+    print(f"WARNING: Exa client could not be initialized at import time: {e}")
+
+# --- New Exa Tools ---
+
+@tool
+def find_legislation(query: str, country_domain_filter: str = None) -> str:
+    """
+    Searches for official legislation, statutes, or laws using Exa.
+    `country_domain_filter` should be a 'site:' filter for a government domain.
+    """
+    if not exa:
+        raise ExaToolError("Exa client is not initialized. Check API key secret.")
+    print(f"---EXA_TOOL: Searching for legislation with query: '{query}'---")
+    try:
+        search_results = exa.search(
+            f"{query} {country_domain_filter if country_domain_filter else ''}",
+            use_autoprompt=True,
+            type="neural",
+            num_results=5
+        )
+        return str(search_results)
+    except Exception as e:
+        raise ExaToolError(f"Exa find_legislation failed: {e}")
+
+@tool
+def find_case_law(query: str, jurisdiction: str = None) -> str:
+    """
+    Searches for case law, court decisions, or legal precedents using Exa.
+    """
+    if not exa:
+        raise ExaToolError("Exa client is not initialized. Check API key secret.")
+    print(f"---EXA_TOOL: Searching for case law with query: '{query}'---")
+    try:
+        full_query = f"case law {query}"
+        if jurisdiction:
+            full_query += f" in {jurisdiction}"
+        
+        search_results = exa.search(
+            full_query,
+            use_autoprompt=True,
+            type="neural",
+            num_results=5
+        )
+        return str(search_results)
+    except Exception as e:
+        raise ExaToolError(f"Exa find_case_law failed: {e}")
+
+@tool
+def get_verbatim_content(result_ids: list[str]) -> str:
+    """
+    Retrieves the full, clean, verbatim text of web pages from a list of Exa result IDs.
+    """
+    if not exa:
+        raise ExaToolError("Exa client is not initialized. Check API key secret.")
+    print(f"---EXA_TOOL: Getting verbatim content for IDs: {result_ids}---")
+    try:
+        contents = exa.get_contents(result_ids, text=True, highlights=False)
+        return str(contents)
+    except Exception as e:
+        raise ExaToolError(f"Exa get_verbatim_content failed: {e}")
+
+@tool
+def find_contact_info(institution_name: str) -> str:
+    """
+    Searches for contact information for a specific legal institution using Exa.
+    """
+    if not exa:
+        raise ExaToolError("Exa client is not initialized. Check API key secret.")
+    print(f"---EXA_TOOL: Searching for contact info for: '{institution_name}'---")
+    try:
+        search_results = exa.search(
+            f"contact information for {institution_name} official website",
+            use_autoprompt=True,
+            num_results=3
+        )
+        return str(search_results)
+    except Exception as e:
+        raise ExaToolError(f"Exa find_contact_info failed: {e}")
+
+# List of the new tools to be used by the agent orchestrator
+legal_tools = [find_legislation, find_case_law, get_verbatim_content, find_contact_info]
 
 class QuotaError(Exception):
     """Custom exception for quota-related errors."""
@@ -182,54 +281,6 @@ async def get_party_id_by_name(
     except Exception as e:
         logger.error(f"Error getting party ID: {str(e)}")
         raise DatabaseError(f"Failed to get party ID: {str(e)}")
-
-async def query_bigquery(
-    query_string: str,
-    table_name: str
-) -> Dict[str, Any]:
-    """
-    Execute a SQL query against the specified Romanian legal BigQuery table.
-
-    Args:
-        query_string: The SQL query string to execute on BigQuery
-        table_name: The target table name ('legislatie' or 'jurisprudenta')
-
-    Returns:
-        Dictionary containing the query results and metadata
-    """
-    try:
-        client = bigquery.Client()
-
-        # Validate table name
-        if table_name not in ['legislatie', 'jurisprudenta']:
-            raise ValueError(f"Invalid table_name: {table_name}. Must be 'legislatie' or 'jurisprudenta'.")
-
-        # Prepare full query with proper table reference
-        full_query = query_string
-
-        # Ensure the query has a reasonable limit
-        if 'LIMIT' not in full_query.upper():
-            full_query += " LIMIT 100"
-
-        # Run query
-        query_job = client.query(full_query)
-        results = query_job.result()
-
-        # Convert results to list of dicts
-        rows = []
-        for row in results:
-            rows.append(dict(row.items()))
-
-        return {
-            'status': 'success',
-            'results': rows,
-            'total_rows': len(rows),
-            'table_name': table_name
-        }
-
-    except Exception as e:
-        logger.error(f"Error querying BigQuery: {str(e)}")
-        raise DatabaseError(f"Failed to query legal database: {str(e)}")
 
 async def generate_draft_pdf(
     case_id: str,

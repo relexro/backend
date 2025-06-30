@@ -138,7 +138,7 @@ Split across multiple files for different aspects:
   - Manages the LangGraph agent workflow
   - Processes user input and generates responses
   - Interacts with Gemini and Grok LLMs
-  - Performs legal research using BigQuery
+  - Performs legal research using Exa
   - Generates document drafts
   - Manages case state in Firestore
 
@@ -424,7 +424,7 @@ The Relex backend logic is implemented as a set of Python Cloud Functions trigge
 
 ## Dependencies
 
-* Key Python libraries listed in `requirements.txt` (e.g., `google-cloud-firestore`, `google-cloud-storage`, `google-cloud-bigquery`, `langgraph`, `google-generativeai`, potentially `stripe`, PDF generation library like `weasyprint` or `markdown-pdf`, API framework like `Flask` or `FastAPI`).
+* Key Python libraries listed in `requirements.txt` (e.g., `google-cloud-firestore`, `google-cloud-storage`, `exa-py`, `langgraph`, `google-generativeai`, potentially `stripe`, PDF generation library like `weasyprint` or `markdown-pdf`, API framework like `Flask` or `FastAPI`).
 
 ## Deployment & Infrastructure
 
@@ -707,3 +707,9 @@ main.py
         │           └── agent_config.py
         └── cases.py
 ```
+
+* `find_legislation(...)`: Searches for official legislation using Exa.
+* `find_case_law(...)`: Searches for case law using Exa.
+
+- `find_legislation`: Searches for official legislation using Exa.
+- `find_case_law`: Searches for case law using Exa.

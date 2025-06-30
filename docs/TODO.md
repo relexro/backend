@@ -40,3 +40,25 @@
 2. Local development server
 3. Test environment
 4. Development database
+
+## High Priority
+
+- [ ] **Comprehensive API Testing:** Test all API endpoints for correct behavior, error handling, and edge cases.
+- [ ] **Integration Testing for Exa Tools:** Write and run integration tests specifically targeting the new `find_legislation` and `find_case_law` tools to validate their outputs.
+- [ ] **End-to-End (E2E) Workflow Test:** Perform a full E2E test by running a complex query through the deployed agent to ensure the entire workflow from input to response generation functions correctly with the new Exa research node.
+
+## Medium Priority
+
+- [ ] **Performance Benchmarking:** Measure the latency of the new `_research_node` and compare it to the legacy BigQuery implementation (now replaced by Exa).
+- [ ] **Error Handling Validation:** Test the agent's ability to gracefully handle potential errors from the Exa API (e.g., API key errors, empty results).
+
+## Low Priority
+
+- [ ] **Explore Exa Highlights Feature:** Investigate using the "highlights" feature in the Exa `get_contents` endpoint to potentially improve summary generation in downstream nodes.
+
+## Done
+
+- [x] **Exa Secret Manager Integration & Deployment Fix.**
+- [x] **Refactor Research Backend from BigQuery to Exa API.**
+- [x] **Add `exa-py` dependency and update Terraform for `EXA_API_KEY` secret.**
+- [x] **Initial project setup and CI/CD pipeline.**

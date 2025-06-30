@@ -103,7 +103,7 @@ Relex is an AI-driven legal assistance platform designed to simplify legal case 
 - Frontend: SvelteKit with responsive design
 - Backend: Python on Google Cloud Functions
 - Database: Firestore (NoSQL)
-- Legal Data: BigQuery
+- Legal Data: Exa API
 - AI Orchestration: LangGraph with Gemini and Grok LLMs
 - File Storage: Google Cloud Storage
 - Authentication: Firebase Authentication

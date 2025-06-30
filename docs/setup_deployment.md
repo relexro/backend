@@ -343,3 +343,23 @@ To update an existing deployment:
    ```
 
 The deployment script handles incremental updates, only redeploying functions that have changed.
+
+### Secret Manager Setup
+
+Before deploying, ensure all required secrets are created in Google Secret Manager:
+
+- `gemini-api-key`
+- `grok-api-key`
+- `exa-api-key`
+- `stripe-secret-key`
+- `stripe-webhook-secret`
+
+Example for Exa:
+```bash
+gcloud secrets create exa-api-key --replication-policy="automatic"
+echo -n "$EXA_API_KEY" | gcloud secrets versions add exa-api-key --data-file=-
+```
+
+If you see an error about a missing secret during deployment, create the secret as shown above and re-run the deployment script.
+
+Deployment is now stable. Next step: comprehensive API testing.

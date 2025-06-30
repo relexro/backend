@@ -7,7 +7,8 @@ from datetime import datetime
 import logging
 import asyncio
 from agent_tools import (
-    query_bigquery,
+    find_legislation,
+    find_case_law,
     get_party_id_by_name,
     generate_draft_pdf,
     check_quota,
@@ -215,34 +216,41 @@ class AgentGraph:
             raise
 
     async def _research_node(self, state: AgentState) -> Dict[str, Any]:
-        """Query legal databases for relevant cases and information."""
+        """Query legal databases for relevant cases and information using Exa."""
         try:
-            query = state.input_analysis['query']
+            query = state.input_analysis.get('query', state.case_details.get('input', ''))
+            legal_domain = state.input_analysis.get('context', {}).get('legal_domain', '')
 
-            # Search legal database
-            legal_results = await self._search_legal_database(query)
-
-            # Search case law
-            case_law = await self._search_case_law(query)
-
-            # Get relevant legislation
-            legislation = await self._get_relevant_legislation(
-                state.input_analysis['context']['legal_domain']
+            # --- MODIFIED LOGIC ---
+            # Use the new Exa tools for research.
+            # We will run them concurrently for efficiency.
+            
+            # Task for searching case law
+            case_law_task = asyncio.create_task(
+                find_case_law(query=query, jurisdiction=legal_domain)
             )
+            
+            # Task for searching legislation
+            legislation_task = asyncio.create_task(
+                find_legislation(query=query)
+            )
+
+            # Await results
+            case_law_results = await case_law_task
+            legislation_results = await legislation_task
+            
+            # The new research results are strings from the Exa tools.
+            # The agent's downstream nodes (`guidance`, `generate_response`) will need to be
+            # aware of this new data format.
 
             return {
                 'status': 'success',
-                'legal_references': legal_results,
-                'case_law': case_law,
-                'legislation': legislation,
-                'relevance_scores': self._calculate_relevance(
-                    query,
-                    legal_results + case_law + legislation
-                )
+                'case_law_results': case_law_results,
+                'legislation_results': legislation_results,
             }
 
         except Exception as e:
-            logger.error(f"Legal research failed: {str(e)}")
+            logger.error(f"Legal research with Exa failed: {str(e)}")
             raise
 
     async def _guidance_node(self, state: AgentState) -> Dict[str, Any]:

@@ -40,7 +40,7 @@
     * Gemini: Sintetizează (PIGG); Formulează max. 3 întrebări strategice.
     * Grok: Analiză (ToT pt. opțiuni); Răspuns (raționament, strategie, instrucțiuni Gemini, riscuri/presupuneri).
 
-**5. Execuție Dirijată (CoT per sub-sarcină)**: Gemini: Execută instrucțiuni Grok (cercetare `query_bigquery`, redactare schițe Markdown cu `modules.txt`); `update_case_details`.
+**5. Execuție Dirijată (CoT per sub-sarcină)**: Gemini: Execută instrucțiuni Grok (cercetare `find_legislation`/`find_case_law`, redactare schițe Markdown cu `modules.txt`); `update_case_details`.
 
 **6. Revizuire Iterativă (la nevoie)**: Gemini -> Grok (rezultate); Grok -> Gemini (feedback/aprobare). Repetă Faza 5-6.
 
@@ -58,7 +58,7 @@
     * `get_case_details`: Inițial; la cerere Grok.
     * `update_case_details`: După modificări stare caz.
     * `check_quota`: Faza 2 SoT.
-    * `query_bigquery`: Strict la indicația Grok, termeni preciși.
+    * `find_legislation`/`find_case_law`: Strict la indicația Grok, termeni preciși.
     * `generate_draft_pdf`: Doar post-aprobare finală conținut de către Grok.
     * `create_support_ticket`: Conform Secțiunii VIII (Erori).
 

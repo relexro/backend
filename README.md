@@ -111,15 +111,29 @@ By following this onboarding process, the Lead Planner will be equipped to analy
    export TF_VAR_cloudflare_zone_id=your_cloudflare_zone_id
    export TF_VAR_cloudflare_account_id=your_cloudflare_account_id
    ```
-4. Configure LLM API keys:
+4. Configure LLM and Exa API keys:
    ```bash
    export GEMINI_API_KEY=your_gemini_api_key
    export GROK_API_KEY=your_grok_api_key
+   export EXA_API_KEY=your_exa_api_key
    ```
 5. Configure Stripe API keys:
    ```bash
    export TF_VAR_stripe_secret_key=your_stripe_secret_key
    export TF_VAR_stripe_webhook_secret=your_stripe_webhook_secret
+   ```
+
+6. **Create all required secrets in Google Secret Manager:**
+   - `gemini-api-key` (value: your GEMINI_API_KEY)
+   - `grok-api-key` (value: your GROK_API_KEY)
+   - `exa-api-key` (value: your EXA_API_KEY)
+   - `stripe-secret-key` (value: your Stripe secret key)
+   - `stripe-webhook-secret` (value: your Stripe webhook secret)
+
+   Example for Exa:
+   ```bash
+   gcloud secrets create exa-api-key --replication-policy="automatic"
+   echo -n "$EXA_API_KEY" | gcloud secrets versions add exa-api-key --data-file=-
    ```
 
 ### Secret Manager Permissions
@@ -172,6 +186,8 @@ Here's how to resolve this:
    ```
 
 ### Deployment
+
+Deployment is now stable with all required secrets managed in Google Secret Manager. If you encounter a secret error, ensure the secret exists and is populated as described above.
 
 The recommended way to deploy is using the provided deployment script:
 
@@ -388,3 +404,8 @@ For more detailed testing instructions, see the [Tests README](tests/README.md).
 - [Prompts](docs/concepts/prompts.md): Prompt design for LLM interactions
 - [Tiers](docs/concepts/tiers.md): Case tier system for complexity determination
 - [Functions](docs/functions.md): Cloud Functions implementation details
+
+## Status
+
+- All secrets (Gemini, Grok, Exa, Stripe) are now managed in Google Secret Manager and injected at deploy/runtime.
+- Deployment is stable and ready for API testing.

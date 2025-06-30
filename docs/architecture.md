@@ -20,7 +20,7 @@ Relex is a cloud-native legal assistant platform built on Google Cloud Platform 
                                                        │
                                                        ▼
 ┌───────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│ Secret Manager│     │    BigQuery     │     │  Cloud Scheduler │
+│ Secret Manager│     │    Exa API     │     │  Cloud Scheduler │
 │  (API Keys)   │     │ (Legal Research)│     │   (Background)   │
 └───────────────┘     └─────────────────┘     └──────────────────┘
 ```
@@ -70,7 +70,7 @@ Relex is a cloud-native legal assistant platform built on Google Cloud Platform 
    - Custom prompt engineering for legal domain expertise
    - Context management techniques for efficient token usage
 
-8. **BigQuery**
+8. **Exa API**
    - Legal research database
    - Query capability for Romanian legislation and case law
    - Analytics for system usage and performance

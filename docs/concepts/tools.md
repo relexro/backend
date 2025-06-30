@@ -53,16 +53,12 @@ Updates or adds information to a case in Firestore.
 
 ### Research Tools
 
-#### `query_bigquery`
+#### Exa Research Tools
 
-Searches Romanian legal databases for relevant legislation and case law.
-
-**Parameters:**
-- `query_string` (string): SQL query to execute on BigQuery
-- `table_name` (string): Target table name ('legislatie' or 'jurisprudenta')
-
-**Returns:**
-- Results from the legal database matching the query
+- `find_legislation`: Searches for official legislation, statutes, or laws using the Exa API.
+- `find_case_law`: Searches for case law and court decisions using the Exa API.
+- `get_verbatim_content`: Retrieves the full, clean text of web pages from a list of Exa result IDs.
+- `find_contact_info`: Searches for contact information for a legal institution using the Exa API.
 
 ### Document Generation Tools
 
