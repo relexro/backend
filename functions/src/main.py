@@ -26,7 +26,7 @@ from payments import (
     handle_stripe_webhook as logic_handle_stripe_webhook,
     cancel_subscription as logic_cancel_subscription,
     logic_redeem_voucher,
-    get_products as logic_get_products
+    logic_get_products
 )
 # --- Additional logic imports (organization, party, membership, auth, user) ---
 from organization import (

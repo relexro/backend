@@ -6,8 +6,8 @@ from datetime import datetime
 import logging
 from pydantic import BaseModel, Field
 
-from functions.src.agent_nodes import AgentState
-from functions.src.llm_nodes import (
+from agent_nodes import AgentState
+from llm_nodes import (
     legal_analysis_node,
     expert_consultation_node
 )

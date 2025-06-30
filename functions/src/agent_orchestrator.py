@@ -18,7 +18,7 @@ from agent_tools import (
 )
 
 from template_validation import ValidationError
-from functions.src.draft_templates import DraftTemplates
+from draft_templates import DraftTemplates
 from response_templates import format_response
 
 # Configure logging

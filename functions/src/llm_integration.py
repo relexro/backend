@@ -16,8 +16,8 @@ import langchain_google_genai as lg
 from langchain_xai import ChatXAI
 from unittest.mock import AsyncMock
 
-from functions.src.exceptions import LLMError
-from functions.src.utils import prepare_context
+from exceptions import LLMError
+from utils import prepare_context
 from common.clients import get_db_client
 
 # Configure logging

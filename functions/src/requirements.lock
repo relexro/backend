@@ -17,6 +17,13 @@ anyio==4.9.0
     # via
     #   httpx
     #   openai
+arabic-reshaper==3.0.0
+    # via xhtml2pdf
+asn1crypto==1.5.1
+    # via
+    #   oscrypto
+    #   pyhanko
+    #   pyhanko-certvalidator
 async-timeout==4.0.3
     # via
     #   aiohttp
@@ -37,7 +44,9 @@ certifi==2025.6.15
 cffi==1.17.1
     # via cryptography
 charset-normalizer==3.4.2
-    # via requests
+    # via
+    #   reportlab
+    #   requests
 click==8.2.1
     # via
     #   flask
@@ -45,7 +54,12 @@ click==8.2.1
 cloudevents==1.12.0
     # via functions-framework
 cryptography==45.0.4
-    # via pyjwt
+    # via
+    #   pyhanko
+    #   pyhanko-certvalidator
+    #   pyjwt
+cssselect2==0.8.0
+    # via svglib
 dataclasses-json==0.6.7
     # via langchain-community
 deprecation==2.1.0
@@ -146,6 +160,8 @@ gunicorn==20.1.0
     # via functions-framework
 h11==0.16.0
     # via httpcore
+html5lib==1.1
+    # via xhtml2pdf
 httpcore==1.0.9
     # via httpx
 httplib2==0.22.0
@@ -220,6 +236,10 @@ langsmith==0.3.45
     #   langchain
     #   langchain-community
     #   langchain-core
+lxml==6.0.0
+    # via
+    #   pyhanko
+    #   svglib
 markdown2==2.4.13
     # via -r functions/src/requirements.txt
 markupsafe==3.0.2
@@ -248,6 +268,8 @@ orjson==3.10.18
     #   langsmith
 ormsgpack==1.10.0
     # via langgraph-checkpoint
+oscrypto==1.3.0
+    # via pyhanko-certvalidator
 packaging==24.2
     # via
     #   deprecation
@@ -256,6 +278,10 @@ packaging==24.2
     #   langchain-core
     #   langsmith
     #   marshmallow
+pillow==11.2.1
+    # via
+    #   reportlab
+    #   xhtml2pdf
 propcache==0.3.2
     # via yarl
 proto-plus==1.26.1
@@ -299,10 +325,20 @@ pydantic-core==2.33.2
     # via pydantic
 pydantic-settings==2.10.1
     # via langchain-community
+pyhanko==0.29.1
+    # via xhtml2pdf
+pyhanko-certvalidator==0.27.0
+    # via
+    #   pyhanko
+    #   xhtml2pdf
 pyjwt[crypto]==2.10.1
     # via firebase-admin
 pyparsing==3.2.3
     # via httplib2
+pypdf==5.7.0
+    # via xhtml2pdf
+python-bidi==0.6.6
+    # via xhtml2pdf
 python-dateutil==2.9.0.post0
     # via google-cloud-bigquery
 python-dotenv==1.0.1
@@ -315,8 +351,13 @@ pyyaml==6.0.2
     #   langchain
     #   langchain-community
     #   langchain-core
+    #   pyhanko
 regex==2024.11.6
     # via tiktoken
+reportlab==4.4.2
+    # via
+    #   svglib
+    #   xhtml2pdf
 requests==2.31.0
     # via
     #   -r functions/src/requirements.txt
@@ -328,6 +369,8 @@ requests==2.31.0
     #   langchain-community
     #   langchain-xai
     #   langsmith
+    #   pyhanko
+    #   pyhanko-certvalidator
     #   requests-toolbelt
     #   stripe
     #   tiktoken
@@ -338,7 +381,9 @@ rsa==4.9.1
 shapely==2.1.1
     # via google-cloud-aiplatform
 six==1.17.0
-    # via python-dateutil
+    # via
+    #   html5lib
+    #   python-dateutil
 sniffio==1.3.1
     # via
     #   anyio
@@ -349,6 +394,8 @@ sqlalchemy==2.0.41
     #   langchain-community
 stripe==9.0.0
     # via -r functions/src/requirements.txt
+svglib==1.5.1
+    # via xhtml2pdf
 tenacity==9.1.2
     # via
     #   -r functions/src/requirements.txt
@@ -356,6 +403,10 @@ tenacity==9.1.2
     #   langchain-core
 tiktoken==0.9.0
     # via langchain-openai
+tinycss2==1.4.0
+    # via
+    #   cssselect2
+    #   svglib
 tqdm==4.67.1
     # via openai
 typing-extensions==4.14.0
@@ -368,6 +419,7 @@ typing-extensions==4.14.0
     #   openai
     #   pydantic
     #   pydantic-core
+    #   pypdf
     #   sqlalchemy
     #   stripe
     #   typing-inspect
@@ -378,14 +430,25 @@ typing-inspection==0.4.1
     # via
     #   pydantic
     #   pydantic-settings
+tzlocal==5.3.1
+    # via pyhanko
 uritemplate==4.2.0
     # via google-api-python-client
+uritools==5.0.0
+    # via pyhanko-certvalidator
 urllib3==2.5.0
     # via requests
 watchdog==6.0.0
     # via functions-framework
+webencodings==0.5.1
+    # via
+    #   cssselect2
+    #   html5lib
+    #   tinycss2
 werkzeug==3.1.3
     # via flask
+xhtml2pdf==0.2.17
+    # via -r functions/src/requirements.txt
 xxhash==3.5.0
     # via langgraph
 yarl==1.20.1

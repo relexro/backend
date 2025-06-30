@@ -6,7 +6,7 @@ import firebase_admin
 from firebase_admin import firestore
 import functions_framework
 from flask import Request
-from agent_orchestrator import AgentOrchestrator
+from agent_orchestrator import AgentGraph, AgentState
 from common.database import db
 from common.clients import get_db_client, get_storage_client, initialize_stripe
 
@@ -30,6 +30,19 @@ def handle_agent_request(request: Request):
     if not case_id:
         return {"error": "Bad Request", "message": "caseId query parameter is required."}, 400
 
+    # Fetch case details and user info (dummy placeholders, replace with real logic)
+    case_details = {"input": request.args.get('input', '')}
+    user_info = {"id": end_user_id}
+
+    # Create agent state
+    state = AgentState(case_id=case_id, user_id=end_user_id, case_details=case_details, user_info=user_info)
+    graph = AgentGraph()
+
+    # Run the agent workflow (must run async)
+    import asyncio
+    final_response = asyncio.run(graph.execute(state))
+
+    logging.info("Agent request processing complete")
     # Create an instance of the orchestrator
     orchestrator = AgentOrchestrator(end_user_id=end_user_id, case_id=case_id)
     

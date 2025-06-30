@@ -29,8 +29,9 @@ langchain-google-genai==2.1.5
 langgraph==0.4.8
 google-ai-generativelanguage==0.6.18
 
-# --- Optional / nice-to-have utilities --------------------------------------
+# --- Utilities ---------------------------------------------------------------
 markdown2~=2.4.12
 tenacity!=8.4.0,<10.0.0,>=8.1.0
 jsonpatch<2.0,>=1.33
 PyYAML>=5.3
+xhtml2pdf
