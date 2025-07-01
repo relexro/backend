@@ -56,11 +56,12 @@ from organization_membership import (
 from auth import (
     check_permissions as logic_check_permissions,
     validate_user as logic_validate_user,
-    get_user_role as logic_get_user_role
+    get_user_role as logic_get_user_role,
+    get_user_profile as robust_get_user_profile,
+    list_user_organizations as robust_list_user_organizations
 )
 
 from user import (
-    get_user_profile as logic_get_user_profile,
     update_user_profile as logic_update_user_profile
 )
 
@@ -224,8 +225,7 @@ def relex_backend_get_user_role(request: Request):
 # --- User profile ---
 @functions_framework.http
 def relex_backend_get_user_profile(request: Request):
-    user_id = getattr(request, 'end_user_id', None)
-    return logic_get_user_profile(request, user_id)
+    return robust_get_user_profile(request)
 
 @functions_framework.http
 def relex_backend_update_user_profile(request: Request):
