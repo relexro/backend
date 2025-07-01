@@ -1172,3 +1172,14 @@ Retrieves the list of available products, subscription plans, and pricing inform
   ```
 - `401 Unauthorized`: Unauthorized
 - `500 Internal Server Error`: Internal server error
+
+# API Readiness Checklist (July 2024)
+
+- [x] All major endpoints implemented
+- [x] Local tests passing
+- [ ] Deployed to GCP and validated via API Gateway
+- [ ] End-to-end tested with frontend and real tokens
+- [ ] All endpoints marked as production-ready or not
+- [ ] OpenAPI spec finalized and validated
+
+> Note: Some endpoints may require further testing or are not yet production-ready. See endpoint notes below.

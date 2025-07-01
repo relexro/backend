@@ -6,7 +6,7 @@ from firebase_admin import firestore
 from functions.src import auth
 
 # Create a simple JSON response function for testing
-def test_jsonify(data):
+def _test_jsonify(data):
     return data
 
 class TestAuthPermissions:
@@ -20,7 +20,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test check_permissions with missing required fields."""
         # Test missing required fields
         mock_request = MagicMock()
@@ -71,7 +71,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test permissions for individual case owner.
 
         Owner should have access to read, update, delete, and upload_file.
@@ -118,7 +118,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test permissions for non-owner on individual case.
 
         Non-owner should not have access to individual case.
@@ -165,7 +165,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test permissions for admin on organization case.
 
         Admin should have access to read, update, delete, upload_file, and manage_access.
@@ -237,7 +237,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test permissions for staff on organization case.
 
         Staff should have access to read, update, and upload_file.
@@ -325,7 +325,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test permissions for staff who is also the owner on organization case.
 
         Staff who is also the case owner should have access to delete.
@@ -389,7 +389,7 @@ class TestAuthPermissions:
 
     def test_organization_resource_permissions(self, mocker):
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test permissions for users on organization resources.
 
         Admin should have full access.
@@ -472,7 +472,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test permissions for non-member of organization.
 
         Non-member should not have access to organization resources or cases.
@@ -547,7 +547,7 @@ class TestAuthPermissions:
         # Mock the get_authenticated_user function
         mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
         # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=test_jsonify)
+        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
         """Test when the resource (case) does not exist."""
         # Mock the Firestore client and document
         mock_db = MagicMock()

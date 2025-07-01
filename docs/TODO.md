@@ -62,3 +62,18 @@
 - [x] **Refactor Research Backend from BigQuery to Exa API.**
 - [x] **Add `exa-py` dependency and update Terraform for `EXA_API_KEY` secret.**
 - [x] **Initial project setup and CI/CD pipeline.**
+
+# TODO for API Readiness
+
+- [ ] Ensure all secrets (Gemini, Grok, Exa, Stripe) are set and accessible in Secret Manager
+- [ ] Deploy latest backend to GCP using terraform/deploy.sh
+- [ ] Validate all endpoints via API Gateway (see terraform_outputs.log for URL)
+- [ ] Implement/verify all required authentication and authorization flows (Firebase JWT, OIDC, etc.)
+- [ ] End-to-end test all endpoints with real tokens from the frontend
+- [ ] Document any missing or unstable endpoints in docs/api.md
+- [ ] Finalize OpenAPI spec (terraform/openapi_spec.yaml) and validate with Redocly
+- [ ] Update docs/status.md with deployment and test results
+- [ ] Confirm frontend integration readiness with API
+- [ ] Clean up obsolete/legacy code and tests
+- [ ] Mark any endpoints that are not yet production-ready
+- [ ] Add any additional tasks discovered during deployment/testing

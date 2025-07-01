@@ -601,11 +601,11 @@ def check_permissions(request: flask.Request):
     try:
         data = request.get_json(silent=True)
         if not data:
-            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
+            return {"error": "Bad Request", "message": "Validation Failed: No JSON data provided"}, 400
 
         user_data, status_code, error_message = get_authenticated_user(request)
         if status_code != 200:
-            return flask.jsonify({"error": "Unauthorized", "message": error_message}), status_code
+            return {"error": "Unauthorized", "message": error_message}, status_code
         user_id = user_data.firebase_user_id
 
         try:
@@ -614,15 +614,15 @@ def check_permissions(request: flask.Request):
             logging.info(f"Validated permission check request for user {user_id}")
         except ValidationError as e:
             logging.error(f"Bad Request: Validation failed: {e}")
-            return flask.jsonify({"error": "Bad Request", "message": "Validation Failed", "details": e.errors()}), 400
+            return {"error": "Bad Request", "message": "Validation Failed", "details": e.errors()}, 400
 
         allowed, message = check_permission(user_id=user_id, req=req_data)
 
-        return flask.jsonify({"allowed": allowed, "message": message}), 200
+        return {"allowed": allowed, "message": message}, 200
 
     except Exception as e:
         logging.error(f"Error checking permissions: {str(e)}", exc_info=True)
-        return flask.jsonify({"error": "Internal Server Error", "message": "Failed to check permissions"}), 500
+        return {"error": "Internal Server Error", "message": "Failed to check permissions"}, 500
 
 
 @functions_framework.http

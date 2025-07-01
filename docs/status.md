@@ -44,3 +44,16 @@ This document tracks the status of major features and components in the Relex ba
 - **Initial Project Scaffolding & Core Architecture (2025-06-08):**
   - **Status:** Done
   - **Details:** Established the initial project structure, including the agent orchestrator, tool definitions, and core application logic.
+
+# Status Update (July 2024)
+
+- Backend is locally tested, all core endpoints implemented
+- All required secrets (Gemini, Grok, Exa, Stripe) are set in Secret Manager
+- Ready for deployment to GCP
+- Next steps:
+  - Deploy to GCP using terraform/deploy.sh
+  - Validate all endpoints via API Gateway (see terraform_outputs.log)
+  - Run end-to-end tests with real tokens and frontend
+  - Finalize and validate OpenAPI spec
+  - Document any issues or missing endpoints in docs/api.md
+- API is nearing production-ready, pending full integration and live testing

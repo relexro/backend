@@ -45,10 +45,16 @@ def sample_request():
             self.user_id = "user_456"
             self.user_email = "user@example.com"
             self._json = {"message": "Analyze my contract dispute"}
-
+            self.end_user_id = "user_456"  # Add as expected by handler
+            self.args = self  # Provide args with get method
         def get_json(self, silent=False):
             return self._json
-
+        def get(self, key, default=None):
+            if key == 'caseId':
+                return "case_123"
+            if key == 'input':
+                return "Analyze my contract dispute"
+            return default
     return MockRequest()
 
 # Handler Function Tests
