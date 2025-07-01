@@ -1,38 +1,38 @@
 # --- Lightweight core runtime -------------------------------------------------
-flask<3.0,>=2.0.0
-functions-framework~=3.4.0
-requests~=2.31.0
-python-dotenv~=1.0.0
+flask==2.3.3
+functions-framework==3.4.0
+# requests==2.31.0  # Removed pin to allow exa_py and other deps to resolve
+python-dotenv==1.0.0
 
 # --- Google Cloud ------------------------------------------------------------
-google-cloud-storage~=2.16.0
-firebase-admin~=6.5.0
-google-cloud-aiplatform~=1.48.0
+google-cloud-storage==2.16.0
+google-cloud-firestore==2.16.0
+firebase-admin==6.5.0
+google-cloud-aiplatform==1.48.0
 
 # --- Payments ----------------------------------------------------------------
-stripe~=9.0.0
+stripe==9.0.0
 
 # --- Pydantic ----------------------------------------------------------------
-pydantic<3.0.0,>=2.0.0
-typing-extensions>=4.12.2
+pydantic==2.11.7
+typing-extensions==4.14.0
 
 # --- Async & HTTP ------------------------------------------------------------
-aiohttp~=3.9.3
+aiohttp==3.12.13
 
 # --- LLM stack (pinned to mutually-compatible versions) ----------------------
-langchain-core==0.3.64
-langchain==0.3.25
-langchain-openai==0.3.21
-langchain-community==0.3.24
+langchain==0.3.26
+langchain-core==0.3.67
+langchain-openai==0.3.27
+langchain-community==0.3.26
 langchain-xai==0.2.4
-langchain-google-genai==2.1.5
 langgraph==0.4.8
-google-ai-generativelanguage==0.6.18
-exa-py>=1.0.0
 
 # --- Utilities ---------------------------------------------------------------
-markdown2~=2.4.12
-tenacity!=8.4.0,<10.0.0,>=8.1.0
-jsonpatch<2.0,>=1.33
-PyYAML>=5.3
-xhtml2pdf
+markdown2==2.4.12
+tenacity==8.2.3
+jsonpatch==1.33
+PyYAML==6.0.2
+xhtml2pdf==0.2.17
+exa_py==1.11.0
+git+https://github.com/deeplook/svglib.git@v1.5.1

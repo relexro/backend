@@ -20,6 +20,7 @@ from functions.src.domain_nodes import (
     administrative_law_node,
     labor_law_node
 )
+from functions.src.gemini_util import analyze_gemini_response, build_gemini_contents
 
 # Test fixtures
 @pytest.fixture

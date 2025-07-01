@@ -7,7 +7,6 @@ import logging
 import json
 import os
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 # Import agent_tools without circular dependency
@@ -48,99 +47,6 @@ class AgentState(BaseModel):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Gemini via LangChain wrapper only (no direct `google.generativeai` dependency)
-GEMINI_MODEL = "gemini-pro"
-
-def _init_gemini() -> ChatGoogleGenerativeAI | Any:
-    """Initialize ChatGoogleGenerativeAI or return a lightweight mock for tests."""
-
-    api_key = (
-        os.environ.get("GOOGLE_API_KEY")
-        or os.environ.get("GEMINI_API_KEY")
-    )
-
-    # When running under unit-tests the fake key is automatically injected in
-    # `GeminiProcessor`. Re-use the same convention here.
-    if not api_key or str(api_key).startswith("fake"):
-        logger.info("Using fake/mock Gemini model for tests")
-
-        class _MockGemini:
-            async def ainvoke(self, _messages):  # noqa: D401
-                logger.debug("_MockGemini returning canned response")
-                return AIMessage(
-                    content=json.dumps(
-                        {
-                            "domains": {"main": "civil", "sub": ["contracts"]},
-                            "legislation": {
-                                "codes": ["Codul Civil"],
-                                "laws": [],
-                                "ordinances": [],
-                            },
-                            "jurisprudence": [],
-                            "risks": ["Interpretare neclară a clauzelor"],
-                            "steps": ["Analiză contract", "Consultare avocat"],
-                            "complexity": {"level": 2, "urgency": "normal"},
-                        }
-                    )
-                )
-
-        return _MockGemini()
-
-    # Production / dev environment with real API key
-    try:
-        return ChatGoogleGenerativeAI(
-            model=GEMINI_MODEL,
-            temperature=0.1,
-            google_api_key=api_key,
-        )
-    except Exception as exc:  # pragma: no cover – network/runtime issues
-        logger.warning("Falling back to MockGemini due to init error: %s", exc)
-        return _init_gemini.__defaults__[0]()  # type: ignore[index]
-
-
-gemini = _init_gemini()
-
-# Load system prompts from configuration
-try:
-    LEGAL_ANALYSIS_PROMPT = get_system_prompt()
-    DOCUMENT_GENERATION_PROMPT = get_system_prompt()  # We use the same prompt for now
-    GROK_PROMPT_TEMPLATE = get_grok_prompt_template()
-    logger.info("Successfully loaded prompts from configuration")
-except Exception as e:
-    logger.error(f"Error loading prompts from configuration: {str(e)}")
-    # Fallback prompts in case configuration loading fails
-    LEGAL_ANALYSIS_PROMPT = """
-    You are a Romanian Legal Assistant AI. Your role is to:
-    1. Analyze legal queries with precision and attention to detail
-    2. Consider Romanian legal framework and jurisdiction
-    3. Identify key legal concepts and requirements
-    4. Maintain professional and formal communication
-    5. Provide clear, actionable advice
-    6. Flag high-risk or complex issues for expert review
-
-    Respond in Romanian unless specifically asked otherwise.
-    """
-
-    DOCUMENT_GENERATION_PROMPT = """
-    You are a Romanian Legal Document Generator AI. Your role is to:
-    1. Create professional legal documents following Romanian standards
-    2. Use formal legal language and proper formatting
-    3. Include all required legal elements and clauses
-    4. Maintain consistency in terminology
-    5. Structure documents logically and clearly
-    6. Add proper headers, footers, and reference numbers
-
-    Generate all content in Romanian unless specifically asked otherwise.
-    """
-
-    GROK_PROMPT_TEMPLATE = """
-    Context: {context}
-
-    Question: {question}
-
-    Please provide expert legal analysis and guidance based on Romanian law.
-    """
-
 async def legal_analysis_node(state: AgentState) -> Tuple[str, AgentState]:
     """
     Specialized node for in-depth legal analysis using Gemini.
@@ -175,8 +81,7 @@ async def legal_analysis_node(state: AgentState) -> Tuple[str, AgentState]:
         ]
 
         # Get Gemini's analysis
-        response = await gemini.ainvoke(messages)
-        analysis = json.loads(response.content.strip())
+        raise NotImplementedError("Gemini integration in llm_nodes.py must use direct REST API. Refactor required.")
 
         # Update state
         state.input_analysis.update({

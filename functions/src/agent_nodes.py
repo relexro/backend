@@ -17,7 +17,8 @@ from agent_tools import (
     update_quota_usage
 )
 
-from gemini_util import create_gemini_model, analyze_gemini_response
+from gemini_util import create_gemini_model, analyze_gemini_response, build_gemini_contents
+from gemini_direct import gemini_generate_rest
 from agent_state import AgentState
 from agent_config import load_system_prompt, get_system_prompt
 
@@ -81,10 +82,18 @@ async def process_input_node(state: AgentState):
     Process user input and perform initial legal analysis.
     """
     try:
-        model = create_gemini_model()
+        # --- Build prompt parts ---
         system_prompt = get_system_prompt("legal_analysis")
         user_message = f"Case details: {json.dumps(state.case_details)}"
-        response = await model.generate_content_async(system_prompt, user_message, None)
+        # TODO: Add enriched_prompt, tool_outputs, grok_output as needed
+        contents = build_gemini_contents(system_prompt, user_message)
+        # --- Call Gemini REST API with structured prompt ---
+        response = await gemini_generate_rest(
+            contents=contents,
+            model_name="gemini-2.5-flash",  # or configurable
+            temperature=1.0,
+            max_tokens=512
+        )
         analysis_result = analyze_gemini_response(response, "legal_analysis")
         state.input_analysis = {
             'legal_analysis': analysis_result,

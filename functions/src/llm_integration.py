@@ -12,20 +12,19 @@ import os
 import time
 
 from langchain_core.messages import HumanMessage
-import langchain_google_genai as lg
 from langchain_xai import ChatXAI
 from unittest.mock import AsyncMock
 
 from exceptions import LLMError
 from utils import prepare_context
 from common.clients import get_db_client
+from gemini_direct import gemini_generate
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Re-export for backward-compat with tests that patch these names directly.
-ChatGoogleGenerativeAI = lg.ChatGoogleGenerativeAI  # type: ignore
 GrokClient = ChatXAI  # alias used by older unit tests
 
 # ---------------------------------------------------------------------------
@@ -63,6 +62,7 @@ class GeminiProcessor:
         temperature: float = 0.7,
         max_tokens: int = 2048,
         model: Optional[Any] = None,
+        use_direct: Optional[bool] = None,  # New flag
     ):
         """Initialize Gemini processor.
 
@@ -71,12 +71,18 @@ class GeminiProcessor:
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum number of tokens to generate
             model: Optional pre-initialized model instance (for testing)
+            use_direct: If True, use direct Gemini API (bypass LangChain)
         """
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.model = model
         self._initialized = False
+        # Allow override by env var or constructor
+        self.use_direct = (
+            use_direct if use_direct is not None
+            else os.getenv("USE_DIRECT_GEMINI", "0") in ("1", "true", "True")
+        )
 
     async def initialize(self) -> None:
         """Initialize the Gemini model."""
@@ -95,13 +101,15 @@ class GeminiProcessor:
                 self._initialized = True
                 return
 
+            if self.use_direct:
+                # Direct Gemini API: no model instance needed
+                self.model = None
+                self._initialized = True
+                return
+
             if self.model is None:
-                self.model = ChatGoogleGenerativeAI(
-                    model=self.model_name,
-                    temperature=self.temperature,
-                    max_output_tokens=self.max_tokens,
-                    google_api_key=os.environ.get("GOOGLE_API_KEY")
-                )
+                # No-op: direct Gemini implementation does not use LangChain model
+                pass
 
             self._initialized = True
 
@@ -137,17 +145,23 @@ Oferă o analiză detaliată în limba română, concentrându-te pe:
 3. Factori de risc și considerații speciale
 """
 
-            if hasattr(self.model, "ainvoke"):
+            if self.use_direct:
+                # --- Use direct Gemini API ---
+                response = await gemini_generate(
+                    full_prompt,
+                    model_name=self.model_name,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                content = response
+            elif hasattr(self.model, "ainvoke"):
                 response_obj = await self.model.ainvoke(full_prompt)
+                content: str | None = getattr(response_obj, "content", None)
             elif hasattr(self.model, "generate"):
                 response_obj = await self.model.generate(full_prompt)
+                content = str(response_obj) if response_obj is not None else None
             else:
                 raise LLMError("Modelul Gemini nu suportă metode async de invocare")
-
-            if hasattr(response_obj, "content"):
-                content: str | None = getattr(response_obj, "content", None)
-            else:
-                content = str(response_obj) if response_obj is not None else None
 
             if not content:
                 raise LLMError("Nu s-a primit niciun răspuns de la Gemini")
