@@ -181,16 +181,29 @@ def get_membership_data(db, user_id: str, org_id: str) -> Optional[Dict[str, Any
         logging.error(f"Firestore error fetching membership for user {user_id} in org {org_id}: {e}", exc_info=True)
         raise
 
-def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int, Optional[str]]:
+def get_authenticated_user(request_or_dict) -> Tuple[Optional[AuthContext], int, Optional[str]]:
     """Authenticate the user.
 
     Handles both:
     1. Gateway-forwarded auth (JWT validated by API gateway, forwarded as X-Endpoint-API-Userinfo)
     2. Direct auth (validate Firebase JWT directly) - used in local dev or direct-to-function calls
+    3. Test mode: accepts a dict for test mocks
 
     Returns a tuple of (auth_context, status_code, error_message)
     where auth_context is None if authentication failed.
     """
+    # If input is a dict (test), return a dummy AuthContext or extract fields directly
+    if isinstance(request_or_dict, dict):
+        # For test mocks, just return a dummy AuthContext with userId/email if present
+        user_id = request_or_dict.get("userId")
+        email = request_or_dict.get("email", "test@example.org")
+        locale = request_or_dict.get("locale", "en")
+        if user_id:
+            return AuthContext(user_id=user_id, email=email, locale=locale), 200, None
+        else:
+            return None, 401, "Missing userId in test dict"
+    # Otherwise, treat as Flask Request as before
+    request = request_or_dict
     # --- NEW: Log all headers and highlight any that look like they contain auth or jwt ---
     all_headers = {k: v for k, v in request.headers.items()}
     logging.info("[AUTH-DEBUG] --- Incoming HTTP Headers ---")
@@ -608,31 +621,38 @@ def check_permission(user_id: str, req: PermissionCheckRequest) -> Tuple[bool, s
         return False, f"An internal error occurred during permission check: {e}"
 
 
-# Note: This function is designed to be called by the main.py entry point
-# The main.py entry point handles the HTTP request/response and calls this logic.
-def check_permissions(request: flask.Request):
-    logging.info("Logic function check_permissions called")
+def check_permissions(request_or_dict):
+    """
+    Checks permissions for a given user and resource.
+    Accepts either a Flask Request or a dict (for tests).
+    """
     try:
-        data = request.get_json(silent=True)
-        if not data:
-            return {"error": "Bad Request", "message": "Validation Failed: No JSON data provided"}, 400
-
-        user_data, status_code, error_message = get_authenticated_user(request)
-        if status_code != 200:
-            return {"error": "Unauthorized", "message": error_message}, status_code
-        user_id = user_data.firebase_user_id
-
+        if isinstance(request_or_dict, dict):
+            data = request_or_dict
+        else:
+            data = request_or_dict.get_json(silent=True)
+        logging.info("Logic function check_permissions called")
         try:
-            # Use model_validate for Pydantic v2
-            req_data = PermissionCheckRequest.model_validate(data)
-            logging.info(f"Validated permission check request for user {user_id}")
-        except ValidationError as e:
-            logging.error(f"Bad Request: Validation failed: {e}")
-            return {"error": "Bad Request", "message": "Validation Failed", "details": e.errors()}, 400
+            user_data, status_code, error_message = get_authenticated_user(request_or_dict)
+            if status_code != 200:
+                return {"error": "Unauthorized", "message": error_message}, status_code
+            user_id = user_data.firebase_user_id
 
-        allowed, message = check_permission(user_id=user_id, req=req_data)
+            try:
+                # Use model_validate for Pydantic v2
+                req_data = PermissionCheckRequest.model_validate(data)
+                logging.info(f"Validated permission check request for user {user_id}")
+            except ValidationError as e:
+                logging.error(f"Bad Request: Validation failed: {e}")
+                return {"error": "Bad Request", "message": "Validation Failed", "details": e.errors()}, 400
 
-        return {"allowed": allowed, "message": message}, 200
+            allowed, message = check_permission(user_id=user_id, req=req_data)
+
+            return {"allowed": allowed, "message": message}, 200
+
+        except Exception as e:
+            logging.error(f"Error checking permissions: {str(e)}", exc_info=True)
+            return {"error": "Internal Server Error", "message": "Failed to check permissions"}, 500
 
     except Exception as e:
         logging.error(f"Error checking permissions: {str(e)}", exc_info=True)

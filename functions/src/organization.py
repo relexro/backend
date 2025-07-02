@@ -90,6 +90,9 @@ def create_organization(request: Request):
         if isinstance(org_data.get("updatedAt"), datetime):
              org_data["updatedAt"] = org_data["updatedAt"].isoformat()
 
+        if 'organizationId' not in org_data and 'id' in org_data:
+            org_data['organizationId'] = org_data['id']
+
         return flask.jsonify(org_data), 201
     except Exception as e:
         logging.error(f"Error creating organization: {str(e)}", exc_info=True)
@@ -131,6 +134,9 @@ def get_organization(request: Request):
              org_data["billingCycleStart"] = org_data["billingCycleStart"].isoformat()
         if isinstance(org_data.get("billingCycleEnd"), datetime):
              org_data["billingCycleEnd"] = org_data["billingCycleEnd"].isoformat()
+
+        if 'organizationId' not in org_data and 'id' in org_data:
+            org_data['organizationId'] = org_data['id']
 
         return flask.jsonify(org_data), 200
     except Exception as e:
@@ -193,6 +199,9 @@ def update_organization(request: Request):
                  updated_org_data["billingCycleStart"] = updated_org_data["billingCycleStart"].isoformat()
             if isinstance(updated_org_data.get("billingCycleEnd"), datetime):
                  updated_org_data["billingCycleEnd"] = updated_org_data["billingCycleEnd"].isoformat()
+
+            if 'organizationId' not in updated_org_data and 'id' in updated_org_data:
+                updated_org_data['organizationId'] = updated_org_data['id']
 
             return flask.jsonify(updated_org_data), 200
         except Exception as e:
