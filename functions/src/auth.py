@@ -191,79 +191,96 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
     Returns a tuple of (auth_context, status_code, error_message)
     where auth_context is None if authentication failed.
     """
+    # --- NEW: Log all headers and highlight any that look like they contain auth or jwt ---
+    all_headers = {k: v for k, v in request.headers.items()}
+    logging.info("[AUTH-DEBUG] --- Incoming HTTP Headers ---")
+    for k, v in all_headers.items():
+        logging.info(f"[AUTH-DEBUG] HEADER: {k}: {v}")
+    for k, v in all_headers.items():
+        if 'auth' in k.lower() or 'jwt' in k.lower():
+            logging.info(f"[AUTH-DEBUG] *** POSSIBLE AUTH/JWT HEADER: {k}: {v}")
+    logging.info("[AUTH-DEBUG] --- End of Headers ---")
+    # --- END NEW ---
+
+    logging.info("[ULTRA-DEBUG] get_authenticated_user called")
+    # Log all headers, including Authorization
+    all_headers = {k: v for k, v in request.headers.items()}
+    logging.info(f"[ULTRA-DEBUG] ALL incoming headers: {all_headers}")
+
     # Skip auth for health check requests
     if request.headers.get(EXPECTED_HEALTH_CHECK_HEADER):
-        logging.info("Health check request, skipping authentication.")
-        # Return tuple with None, 200, and None as placeholders
+        logging.info("[ULTRA-DEBUG] Health check request, skipping authentication.")
         return None, 200, "Health check request"
+
+    # Debug: Log all headers except Authorization
+    safe_headers = {k: v for k, v in request.headers.items() if k.lower() != 'authorization'}
+    logging.info(f"[DEBUG] Incoming headers (except Authorization): {safe_headers}")
 
     # Check for the userinfo header from API Gateway
     userinfo_header = None
-    logging.info("Checking for API Gateway userinfo headers...")
-
-    # Log all headers for debugging (excluding Authorization which might contain sensitive data)
-    safe_headers = {k: v for k, v in request.headers.items() if k.lower() != 'authorization'}
-    logging.info(f"Request headers: {safe_headers}")
+    logging.info("[ULTRA-DEBUG] Checking for API Gateway userinfo headers...")
 
     for header_key, header_val in request.headers.items():
         key_lower = header_key.lower()
         if key_lower in ("x-endpoint-api-userinfo", "x-apigateway-api-userinfo"):
+            logging.info(f"[ULTRA-DEBUG] Found userinfo header: {header_key} = {header_val}")
             userinfo_header = header_val
-            logging.info(f"Found userinfo header with key: {header_key}")
             break
 
     if userinfo_header:
-        logging.info("Found userinfo_header. Attempting to process.")
+        logging.info(f"[ULTRA-DEBUG] Using userinfo header path. Raw value: {userinfo_header}")
         try:
             # Log the raw header (truncated if too long)
             if len(userinfo_header) > 100:
-                logging.debug(f"Raw userinfo_header (truncated): {userinfo_header[:50]}...{userinfo_header[-50:]}")
+                logging.debug(f"[ULTRA-DEBUG] Raw userinfo_header (truncated): {userinfo_header[:50]}...{userinfo_header[-50:]}")
             else:
-                logging.debug(f"Raw userinfo_header: {userinfo_header}")
+                logging.debug(f"[ULTRA-DEBUG] Raw userinfo_header: {userinfo_header}")
 
             # API Gateway passes user info in a base64-encoded header after validating the Firebase token
             try:
                 # Log the raw header before attempting to decode
-                logging.info(f"Attempting to decode userinfo_header: '{userinfo_header}'")
+                logging.info("[ULTRA-DEBUG] Attempting to decode userinfo_header...")
 
                 # Add padding if necessary
                 padding_needed = len(userinfo_header) % 4
                 if padding_needed > 0:
                     userinfo_header += '=' * (4 - padding_needed)
-                    logging.info(f"Added {4 - padding_needed} padding characters. New header: '{userinfo_header}'")
+                    logging.info(f"[ULTRA-DEBUG] Added {4 - padding_needed} padding characters. New header: '{userinfo_header}'")
 
                 decoded_userinfo_bytes = base64.b64decode(userinfo_header)
-                logging.info(f"Successfully base64 decoded userinfo_header. Length: {len(decoded_userinfo_bytes)} bytes")
+                logging.info(f"[ULTRA-DEBUG] Successfully base64 decoded userinfo_header. Length: {len(decoded_userinfo_bytes)} bytes")
             except Exception as decode_err:
-                logging.error(f"Failed to base64 decode userinfo_header ('{userinfo_header}') even after padding: {str(decode_err)}")
-                # It's important to re-raise or handle this appropriately.
-                # For now, we'll keep the original error re-raise structure for consistency with previous state.
+                logging.error(f"[ULTRA-DEBUG] Failed to base64 decode userinfo_header ('{userinfo_header}') even after padding: {str(decode_err)}")
+                # Print the problematic header for debugging
+                logging.error(f"[ULTRA-DEBUG] Problematic userinfo_header value: {userinfo_header}")
                 raise ValueError(f"Base64 decoding failed: {str(decode_err)}")
 
             try:
                 decoded_userinfo_str = decoded_userinfo_bytes.decode("utf-8")
-                logging.info(f"Successfully UTF-8 decoded userinfo_header. Length: {len(decoded_userinfo_str)} chars")
-                logging.debug(f"Decoded userinfo_header (str): {decoded_userinfo_str[:100]}..." if len(decoded_userinfo_str) > 100 else f"Decoded userinfo_header (str): {decoded_userinfo_str}")
+                logging.info(f"[ULTRA-DEBUG] Successfully UTF-8 decoded userinfo_header. Length: {len(decoded_userinfo_str)} chars")
+                logging.debug(f"[ULTRA-DEBUG] Decoded userinfo_header (str): {decoded_userinfo_str[:100]}..." if len(decoded_userinfo_str) > 100 else f"[ULTRA-DEBUG] Decoded userinfo_header (str): {decoded_userinfo_str}")
             except Exception as utf8_err:
-                logging.error(f"Failed to UTF-8 decode userinfo_header: {str(utf8_err)}")
+                logging.error(f"[ULTRA-DEBUG] Failed to UTF-8 decode userinfo_header: {str(utf8_err)}")
+                logging.error(f"[ULTRA-DEBUG] Problematic decoded bytes: {decoded_userinfo_bytes}")
                 raise ValueError(f"UTF-8 decoding failed: {str(utf8_err)}")
 
             try:
                 decoded_userinfo = json.loads(decoded_userinfo_str)
-                logging.info(f"Successfully JSON parsed decoded userinfo_header. Keys: {list(decoded_userinfo.keys())}")
-                logging.debug(f"Parsed userinfo_header (JSON): {decoded_userinfo}")
+                logging.info(f"[ULTRA-DEBUG] Successfully JSON parsed decoded userinfo_header. Keys: {list(decoded_userinfo.keys())}")
+                logging.debug(f"[ULTRA-DEBUG] Parsed userinfo_header (JSON): {decoded_userinfo}")
             except Exception as json_err:
-                logging.error(f"Failed to JSON parse decoded userinfo_header: {str(json_err)}")
+                logging.error(f"[ULTRA-DEBUG] Failed to JSON parse decoded userinfo_header: {str(json_err)}")
+                logging.error(f"[ULTRA-DEBUG] Problematic decoded string: {decoded_userinfo_str}")
                 raise ValueError(f"JSON parsing failed: {str(json_err)}")
 
             firebase_uid = decoded_userinfo.get("sub")
             email = decoded_userinfo.get("email")
             locale = decoded_userinfo.get("locale")
 
-            logging.info(f"Extracted from userinfo: firebase_uid='{firebase_uid}', email='{email}', locale='{locale}'")
+            logging.info(f"[ULTRA-DEBUG] Extracted from userinfo: firebase_uid='{firebase_uid}', email='{email}', locale='{locale}'")
 
             if not firebase_uid:
-                logging.warning("Missing subject (user ID) in userinfo header after parsing.")
+                logging.warning("[ULTRA-DEBUG] Missing subject (user ID) in userinfo header after parsing.")
                 return None, 401, "Missing subject (user ID) in userinfo header"
 
             # Successfully authenticated via API Gateway-forwarded user info
@@ -274,51 +291,48 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
                 firebase_user_locale=locale
             )
 
-            logging.info(f"Successfully created AuthContext from userinfo_header for firebase_user_id: {firebase_uid}")
+            logging.info(f"[ULTRA-DEBUG] AuthContext created from userinfo_header: {auth_context}")
             return auth_context, 200, None
 
         except Exception as e:
             # Enhanced logging for the exception
-            logging.error(f"Error processing X-Endpoint-API-Userinfo header. Error: {str(e)}", exc_info=True)
+            logging.error(f"[ULTRA-DEBUG] Error processing X-Endpoint-API-Userinfo header: {str(e)}", exc_info=True)
 
             # Try to log a sample of the header if it exists
             if userinfo_header:
                 sample_length = min(30, len(userinfo_header))
-                logging.error(f"Header sample (first {sample_length} chars): {userinfo_header[:sample_length]}")
+                logging.error(f"[ULTRA-DEBUG] Header sample (first {sample_length} chars): {userinfo_header[:sample_length]}")
 
             return None, 500, "Error processing authentication information"
 
-    # If we reach here, there was no userinfo header, so we check for a direct Firebase token
-    logging.info("No userinfo header found. Checking for direct Firebase token authentication.")
-
+    # If we reach here, always try direct Firebase JWT validation (even for API Gateway requests)
+    logging.info("[ULTRA-DEBUG] No userinfo header found. Checking for direct Firebase token authentication.")
     auth_header = request.headers.get("Authorization", "")
+    logging.info(f"[ULTRA-DEBUG] Authorization header: {auth_header}")
     if not auth_header.startswith("Bearer "):
-        logging.warning("Missing or invalid Authorization header format (should start with 'Bearer ')")
+        logging.warning("[ULTRA-DEBUG] Missing or invalid Authorization header format (should start with 'Bearer ')")
+        logging.error(f"[ULTRA-DEBUG] All headers at failure: {all_headers}")
         return None, 401, "Missing or invalid Authorization header"
-
     token = auth_header[7:]  # Remove "Bearer " prefix
-    logging.info("Found Bearer token in Authorization header. Attempting to validate.")
-
+    logging.info("[ULTRA-DEBUG] Found Bearer token. Attempting to validate.")
     try:
         # First, try to validate as a Firebase token
         try:
-            logging.info("Attempting to validate as Firebase ID token...")
+            logging.info("[ULTRA-DEBUG] Attempting to validate as Firebase ID token...")
             firebase_claims = validate_firebase_id_token(token)
-            logging.info(f"Firebase token validation successful. Claims keys: {list(firebase_claims.keys())}")
-            logging.debug(f"Firebase claims: {firebase_claims}")
-
+            logging.info(f"[ULTRA-DEBUG] Firebase token validation successful. Claims: {firebase_claims}")
             firebase_uid = firebase_claims.get("sub")
             email = firebase_claims.get("email", "")
             locale = firebase_claims.get("locale")
 
-            logging.info(f"Extracted from Firebase token: firebase_uid='{firebase_uid}', email='{email}', locale='{locale}'")
+            logging.info(f"[ULTRA-DEBUG] Extracted from Firebase token: firebase_uid='{firebase_uid}', email='{email}', locale='{locale}'")
 
             if not firebase_uid:
-                logging.warning("Firebase token validation succeeded but missing subject claim")
+                logging.warning("[ULTRA-DEBUG] Firebase token validation succeeded but missing subject claim")
                 return None, 401, "Invalid Firebase token: missing subject claim"
 
             # Successfully authenticated directly using Firebase token
-            logging.info(f"Authenticated user {firebase_uid} directly using Firebase token")
+            logging.info(f"[ULTRA-DEBUG] Authenticated user {firebase_uid} directly using Firebase token")
             auth_context = AuthContext(
                 is_authenticated_call_from_gateway=False,  # Direct Firebase token
                 firebase_user_id=firebase_uid,
@@ -330,45 +344,45 @@ def get_authenticated_user(request: Request) -> Tuple[Optional[AuthContext], int
 
         except Exception as firebase_err:
             # If Firebase validation fails, try Google SA token validation instead
-            logging.warning(f"Firebase token validation failed: {str(firebase_err)}")
-            logging.info("Attempting to validate as Google Service Account token...")
+            logging.warning(f"[ULTRA-DEBUG] Firebase token validation failed: {str(firebase_err)}")
+            logging.info("[ULTRA-DEBUG] Attempting to validate as Google Service Account token...")
 
             # This will only succeed for tokens from the Gateway SA
             try:
                 gateway_claims = validate_gateway_sa_token(token)
-                logging.info(f"Gateway SA token validation successful. Claims keys: {list(gateway_claims.keys())}")
-                logging.debug(f"Gateway claims: {gateway_claims}")
-
+                logging.info(f"[ULTRA-DEBUG] Gateway SA token validation successful. Claims: {gateway_claims}")
                 # We need to extract the end-user ID from the Gateway token
                 # This is usually stored in custom claims
                 if "sub" not in gateway_claims:
-                    logging.warning("Gateway token validation succeeded but missing subject claim")
+                    logging.warning("[ULTRA-DEBUG] Gateway token validation succeeded but missing subject claim")
                     return None, 401, "Invalid Gateway token: missing subject claim"
 
                 gateway_sa_subject = gateway_claims.get("sub")
-                logging.info(f"Gateway SA subject: {gateway_sa_subject}")
+                logging.info(f"[ULTRA-DEBUG] Gateway SA subject: {gateway_sa_subject}")
 
                 # Accept any service account in production
                 # We're being called through the API Gateway, and the token has been validated,
                 # so we can trust it regardless of the exact service account being used
 
                 # Successfully authenticated via Gateway SA token
-                logging.info(f"Authenticated via Gateway SA: {gateway_sa_subject}")
+                logging.info(f"[ULTRA-DEBUG] Authenticated via Gateway SA: {gateway_sa_subject}")
 
                 # Gateway SA token doesn't contain the Firebase user ID directly, so
                 # we should reject the request if we're missing the userinfo header
-                logging.warning("Gateway SA token found but missing required userinfo header")
+                logging.warning("[ULTRA-DEBUG] Gateway SA token found but missing required userinfo header")
+                logging.error(f"[ULTRA-DEBUG] All headers at failure: {all_headers}")
                 return None, 401, "Missing required X-Endpoint-API-Userinfo or X-Apigateway-Api-Userinfo header"
-
             except Exception as gateway_err:
-                # Both validations failed
-                logging.error(f"Firebase token validation error: {firebase_err}")
-                logging.error(f"Gateway token validation error: {gateway_err}")
-                return None, 401, "Invalid authentication token"
-
+                logging.error(f"[ULTRA-DEBUG] Gateway SA token validation failed: {str(gateway_err)}")
+                logging.error(f"[ULTRA-DEBUG] All headers at failure: {all_headers}")
+                return None, 401, f"Invalid Gateway token: {str(gateway_err)}"
     except Exception as e:
-        logging.error(f"Unexpected error in authentication: {str(e)}", exc_info=True)
-        return None, 500, f"Authentication error: {str(e)}"
+        logging.error(f"[ULTRA-DEBUG] Error during token validation: {str(e)}")
+        logging.error(f"[ULTRA-DEBUG] All headers at failure: {all_headers}")
+        return None, 500, f"Error during token validation: {str(e)}"
+
+    # At the end, log the result
+    logging.info(f"[ULTRA-DEBUG] get_authenticated_user result: status_code={status_code}, error_message={error_message}, auth_context={auth_context}")
 
 def _is_action_allowed(
     permissions_map: Dict[str, Set[str]],
@@ -756,11 +770,12 @@ def validate_firebase_id_token(token: str) -> dict:
 
     # Get the project ID from the environment
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "relexro")
-    logging.info(f"Validating Firebase token using project_id: {project_id}")
+    logging.info(f"[ULTRA-DEBUG] Validating Firebase token using project_id: {project_id}")
+    logging.info(f"[ULTRA-DEBUG] Token to validate: {token[:30]}...{token[-30:]}")
 
     try:
         # Verify the token
-        logging.info("Calling verify_firebase_token...")
+        logging.info("[ULTRA-DEBUG] Calling verify_firebase_token...")
         decoded_token = google_id_token.verify_firebase_token(
             token,
             request,
@@ -768,36 +783,30 @@ def validate_firebase_id_token(token: str) -> dict:
         )
 
         if not decoded_token:
-            logging.warning("verify_firebase_token returned None")
+            logging.warning("[ULTRA-DEBUG] verify_firebase_token returned None")
             raise ValueError("Invalid Firebase token")
 
-        logging.info(f"Firebase token verified successfully. Token keys: {list(decoded_token.keys())}")
+        logging.info(f"[ULTRA-DEBUG] Firebase token verified successfully. Token keys: {list(decoded_token.keys())}")
 
         # Verify that the token is from the expected issuer
         issuer = decoded_token.get("iss")
         expected_issuer = f"{EXPECTED_FIREBASE_ISSUER_PREFIX}{project_id}"
-        logging.info(f"Checking token issuer. Found: '{issuer}', Expected: '{expected_issuer}'")
+        logging.info(f"[ULTRA-DEBUG] Checking token issuer. Found: '{issuer}', Expected: '{expected_issuer}'")
 
         if not issuer:
-            logging.warning("Token is missing 'iss' claim")
+            logging.warning("[ULTRA-DEBUG] Token is missing 'iss' claim")
             raise ValueError("Token is missing issuer claim")
 
         if issuer != expected_issuer:
-            logging.warning(f"Token issuer mismatch. Expected: '{expected_issuer}', Got: '{issuer}'")
+            logging.warning(f"[ULTRA-DEBUG] Token issuer mismatch. Expected: '{expected_issuer}', Got: '{issuer}'")
             raise ValueError(f"Invalid token issuer: {issuer}")
 
-        logging.info("Firebase token issuer verification successful")
+        logging.info("[ULTRA-DEBUG] Firebase token issuer verification successful")
         return decoded_token
 
-    except ValueError as ve:
-        # Re-raise ValueError with the same message
-        logging.warning(f"Firebase token validation failed with ValueError: {str(ve)}")
+    except Exception as ve:
+        logging.error(f"[ULTRA-DEBUG] Firebase token validation failed with Exception: {str(ve)}", exc_info=True)
         raise
-
-    except Exception as e:
-        # Convert other exceptions to ValueError with a message
-        logging.error(f"Firebase token validation failed with unexpected error: {str(e)}", exc_info=True)
-        raise ValueError(f"Firebase token validation error: {str(e)}")
 
 def validate_gateway_sa_token(token: str) -> dict:
     """Validate a token issued by the API Gateway service account.
@@ -920,54 +929,3 @@ def requires_auth(func):
         return func(request, auth_context, *args, **kwargs)
 
     return wrapper
-
-@functions_framework.http
-@add_cors_headers
-def get_user_profile(request: Request):
-    """
-    Get the user profile for the authenticated user.
-    This function is called by API Gateway.
-    """
-    try:
-        # Handle CORS preflight requests
-        if request.method == "OPTIONS":
-            return "", 204
-
-        auth_context, status_code, error_message = get_authenticated_user(request)
-        logging.info(f"get_user_profile auth result: context={auth_context}, status={status_code}, error={error_message}")
-
-        # Handle auth failures
-        if error_message or not auth_context:
-            return jsonify({"error": "Unauthorized", "message": error_message or "Authentication failed"}), status_code or 401
-
-        # At this point auth_context is valid
-        user_id = auth_context.firebase_user_id
-        logging.info(f"get_user_profile: user_id={user_id}")
-
-        if not user_id:
-            return jsonify({"error": "Bad Request", "message": "Missing user identification"}), 400
-
-        # Get user from Firestore
-        db = _get_firestore_client()
-        user_ref = db.collection('users').document(user_id)
-        user_doc = user_ref.get()
-
-        logging.info(f"get_user_profile: Firestore lookup for user_id={user_id}, exists={user_doc.exists}")
-
-        if not user_doc.exists:
-            return jsonify({"error": "Not Found", "message": "User profile not found"}), 404
-
-        user_data = user_doc.to_dict()
-        logging.info(f"get_user_profile: user_data={user_data}")
-
-        # Remove any sensitive fields before returning
-        sensitive_fields = []
-        for field in sensitive_fields:
-            if field in user_data:
-                del user_data[field]
-
-        return jsonify(user_data)
-
-    except Exception as e:
-        logging.error(f"Error in get_user_profile: {str(e)}")
-        return jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred."}), 500

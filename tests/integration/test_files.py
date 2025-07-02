@@ -49,83 +49,6 @@ class MockBucket:
     def get_blob(self, name):
         return self._blobs.get(name)
 
-# Patch the functions.src.cases module to use our mock auth
-@pytest.fixture(autouse=True)
-def patch_cases_auth(monkeypatch):
-    """Patch the cases module to use our mocked auth functions and add user_id to requests."""
-    
-    # Save the original functions
-    original_upload_file = cases.upload_file
-    original_download_file = cases.download_file
-    
-    # Mock UUID for consistent test results
-    monkeypatch.setattr(uuid, 'uuid4', lambda: MagicMock(hex='mock_uuid_hex'))
-    
-    # Define wrapper functions that add user_id to the request
-    def upload_file_wrapper(request):
-        # Add user_id to request based on auth.configure_mock settings
-        request.user_id = auth._mock_user_id
-        return original_upload_file(request)
-    
-    def download_file_wrapper(request):
-        # Add user_id to request based on auth.configure_mock settings
-        request.user_id = auth._mock_user_id
-        return original_download_file(request)
-    
-    # Apply the patches
-    monkeypatch.setattr(cases, 'upload_file', upload_file_wrapper)
-    monkeypatch.setattr(cases, 'download_file', download_file_wrapper)
-    
-    # Mock Firebase storage
-    def mock_bucket(bucket_name=None):
-        return MockBucket(bucket_name or "test-bucket")
-    
-    monkeypatch.setattr(storage, 'bucket', mock_bucket)
-    
-    # Mock auth.get_authenticated_user to use our mock auth
-    def mock_get_authenticated_user(request):
-        return ({"userId": auth._mock_user_id}, auth._mock_user_auth_status, auth._mock_user_auth_message)
-    
-    monkeypatch.setattr(cases, 'get_authenticated_user', mock_get_authenticated_user)
-    
-    # Mock auth.check_permissions for each place it's used in cases.py
-    def mock_check_permissions(request):
-        return ({"allowed": auth._mock_permissions_allowed}, auth._mock_permissions_status)
-    
-    # Patch auth.check_permissions directly in the auth module
-    # This will affect any module importing it, including cases.py
-    monkeypatch.setattr(auth, 'check_permissions', mock_check_permissions)
-    
-    # Need to ensure the mock is used when imported in cases.py
-    # Rather than trying to patch an attribute that isn't directly exposed
-    # Simulate the import that happens in cases.py
-    # Monkeypatch sys.modules to make the import work correctly
-    class MockCheckPermissionsModule:
-        @staticmethod
-        def check_permissions(request):
-            return mock_check_permissions(request)
-    
-    # Create a special version of the auth module for this import
-    mock_auth_module = MagicMock()
-    mock_auth_module.check_permissions = mock_check_permissions
-    
-    # Patch the import mechanism at the appropriate points
-    # This ensures that when cases.py imports check_permissions, it gets our mock
-    # The import in cases.py is: from auth import check_permissions as check_permissions_func
-    monkeypatch.setitem(sys.modules, 'auth', mock_auth_module)
-
-@pytest.fixture(autouse=True)
-def setup_auth_mock():
-    """Configure the mock auth module with default values before each test."""
-    auth.configure_mock(
-        user_id="test_user_id",
-        auth_status=200,
-        auth_message=None,
-        permissions_allowed=True,
-        permissions_status=200
-    )
-    yield
-
 @pytest.fixture
 def case_setup(firestore_emulator_client):
     """Create a test case and organization in the emulator."""
@@ -185,7 +108,7 @@ def case_setup(firestore_emulator_client):
 class TestFileOperations:
     """Test suite for file operations."""
     
-    def test_upload_file_admin_permission(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_upload_file_admin_permission(self, api_client, firestore_emulator_client, case_setup):
         """Test upload_file function with admin permissions."""
         org_id = case_setup["org_id"]
         admin_id = case_setup["admin_id"]
@@ -201,15 +124,12 @@ class TestFileOperations:
         mock_file.content_type = "application/pdf"
         
         # Create a mock request - For the upload_file function, path_parts[-1] is used as case_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path=f"/cases/{case_id}"  # case_id is the LAST part of the path
-        )
+        request = api_client.post(f"/cases/{case_id}", headers={"Authorization": "Bearer fake_token"})
         # For cases.py, we need to mock the files dictionary
         request.files = {'file': mock_file}
         
         # Mock the bucket for this test
-        mocker.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
+        api_client.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
         
         # Call the function
         response, status_code = cases.upload_file(request)
@@ -234,7 +154,7 @@ class TestFileOperations:
         assert document_data["uploadedBy"] == admin_id
         assert "uploadDate" in document_data
     
-    def test_upload_file_staff_permission(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_upload_file_staff_permission(self, api_client, firestore_emulator_client, case_setup):
         """Test upload_file function with staff permissions."""
         org_id = case_setup["org_id"]
         staff_id = case_setup["staff_id"]
@@ -250,15 +170,12 @@ class TestFileOperations:
         mock_file.content_type = "application/pdf"
         
         # Create a mock request - For the upload_file function, path_parts[-1] is used as case_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path=f"/cases/{case_id}"  # case_id is the LAST part of the path
-        )
+        request = api_client.post(f"/cases/{case_id}", headers={"Authorization": "Bearer fake_token"})
         # For cases.py, we need to mock the files dictionary
         request.files = {'file': mock_file}
         
         # Mock the bucket for this test
-        mocker.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
+        api_client.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
         
         # Call the function
         response, status_code = cases.upload_file(request)
@@ -283,7 +200,7 @@ class TestFileOperations:
         assert document_data["uploadedBy"] == staff_id
         assert "uploadDate" in document_data
     
-    def test_upload_file_permission_denied(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_upload_file_permission_denied(self, api_client, firestore_emulator_client, case_setup):
         """Test upload_file function with permission denied."""
         org_id = case_setup["org_id"]
         case_id = case_setup["case_id"]
@@ -301,15 +218,12 @@ class TestFileOperations:
         mock_file.content_type = "application/pdf"
         
         # Create a mock request - For the upload_file function, path_parts[-1] is used as case_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path=f"/cases/{case_id}"  # case_id is the LAST part of the path
-        )
+        request = api_client.post(f"/cases/{case_id}", headers={"Authorization": "Bearer fake_token"})
         # For cases.py, we need to mock the files dictionary
         request.files = {'file': mock_file}
         
         # Mock the bucket for this test
-        mocker.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
+        api_client.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
         
         # Call the function
         response, status_code = cases.upload_file(request)
@@ -324,7 +238,7 @@ class TestFileOperations:
         documents = list(query.stream())
         assert len(documents) == 0
     
-    def test_upload_file_case_not_found(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_upload_file_case_not_found(self, api_client, firestore_emulator_client, case_setup):
         """Test upload_file function when the case doesn't exist."""
         org_id = case_setup["org_id"]
         admin_id = case_setup["admin_id"]
@@ -339,15 +253,12 @@ class TestFileOperations:
         mock_file.content_type = "application/pdf"
         
         # Create a mock request - For the upload_file function, path_parts[-1] is used as case_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path="/cases/non_existent_case"  # non-existent case_id is the LAST part of the path
-        )
+        request = api_client.post(f"/cases/non_existent_case", headers={"Authorization": "Bearer fake_token"})
         # For cases.py, we need to mock the files dictionary
         request.files = {'file': mock_file}
         
         # Mock the bucket for this test
-        mocker.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
+        api_client.patch('firebase_admin.storage.bucket', return_value=MockBucket("relex-files"))
         
         # Call the function
         response, status_code = cases.upload_file(request)
@@ -362,7 +273,7 @@ class TestFileOperations:
         documents = list(query.stream())
         assert len(documents) == 0
     
-    def test_download_file_success(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_download_file_success(self, api_client, firestore_emulator_client, case_setup):
         """Test download_file function with successful permissions."""
         org_id = case_setup["org_id"]
         admin_id = case_setup["admin_id"]
@@ -386,16 +297,13 @@ class TestFileOperations:
         })
         
         # Create a mock request - For the download_file function, path_parts[-1] is used as document_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path=f"/documents/{document_id}"  # document_id is the LAST part of the path
-        )
+        request = api_client.get(f"/documents/{document_id}", headers={"Authorization": "Bearer fake_token"})
         
         # Mock the bucket and blob for this test
         mock_bucket = MockBucket("relex-files")
         mock_blob = MockBlob(f"cases/{case_id}/documents/{document_id}.pdf", mock_bucket)
         mock_bucket._blobs[f"cases/{case_id}/documents/{document_id}.pdf"] = mock_blob
-        mocker.patch('firebase_admin.storage.bucket', return_value=mock_bucket)
+        api_client.patch('firebase_admin.storage.bucket', return_value=mock_bucket)
         
         # Call the function
         response, status_code = cases.download_file(request)
@@ -408,7 +316,7 @@ class TestFileOperations:
         assert response["documentId"] == document_id
         assert response["filename"] == "download_test.pdf"
     
-    def test_download_file_permission_denied(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_download_file_permission_denied(self, api_client, firestore_emulator_client, case_setup):
         """Test download_file function with permission denied."""
         org_id = case_setup["org_id"]
         admin_id = case_setup["admin_id"]
@@ -435,16 +343,13 @@ class TestFileOperations:
         auth.configure_mock(permissions_allowed=False)
         
         # Create a mock request - For the download_file function, path_parts[-1] is used as document_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path=f"/documents/{document_id}"  # document_id is the LAST part of the path
-        )
+        request = api_client.get(f"/documents/{document_id}", headers={"Authorization": "Bearer fake_token"})
         
         # Mock the bucket and blob for this test to ensure a permission check is performed
         mock_bucket = MockBucket("relex-files")
         mock_blob = MockBlob(f"cases/{case_id}/documents/{document_id}.pdf", mock_bucket)
         mock_bucket._blobs[f"cases/{case_id}/documents/{document_id}.pdf"] = mock_blob
-        mocker.patch('firebase_admin.storage.bucket', return_value=mock_bucket)
+        api_client.patch('firebase_admin.storage.bucket', return_value=mock_bucket)
         
         # Call the function
         response, status_code = cases.download_file(request)
@@ -459,7 +364,7 @@ class TestFileOperations:
         assert "filename" in response
         assert response["filename"] == "permission_denied_test.pdf"
     
-    def test_download_file_not_found(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_download_file_not_found(self, api_client, firestore_emulator_client, case_setup):
         """Test download_file function when the document doesn't exist."""
         org_id = case_setup["org_id"]
         admin_id = case_setup["admin_id"]
@@ -468,10 +373,7 @@ class TestFileOperations:
         auth.configure_mock(user_id=admin_id)
         
         # Create a mock request - For the download_file function, path_parts[-1] is used as document_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path="/documents/non_existent_document"  # non-existent document_id is the LAST part of the path
-        )
+        request = api_client.get(f"/documents/non_existent_document", headers={"Authorization": "Bearer fake_token"})
         
         # Call the function
         response, status_code = cases.download_file(request)
@@ -481,7 +383,7 @@ class TestFileOperations:
         assert "error" in response
         assert "Document not found" in response["message"]
     
-    def test_download_file_blob_not_found(self, mocker, firestore_emulator_client, mock_request, case_setup):
+    def test_download_file_blob_not_found(self, api_client, firestore_emulator_client, case_setup):
         """Test download_file function when the blob is not found in storage."""
         org_id = case_setup["org_id"]
         admin_id = case_setup["admin_id"]
@@ -510,14 +412,11 @@ class TestFileOperations:
         
         # Mock the bucket for this test to return a non-existent blob
         mock_bucket = MockBucket("relex-files")
-        mocker.patch('firebase_admin.storage.bucket', return_value=mock_bucket)
-        mocker.patch.object(mock_bucket, 'blob', return_value=mock_blob)
+        api_client.patch('firebase_admin.storage.bucket', return_value=mock_bucket)
+        api_client.patch.object(mock_bucket, 'blob', return_value=mock_blob)
         
         # Create a mock request - For the download_file function, path_parts[-1] is used as document_id
-        request = mock_request(
-            headers={"Authorization": "Bearer fake_token"},
-            path=f"/documents/{document_id}"  # document_id is the LAST part of the path
-        )
+        request = api_client.get(f"/documents/{document_id}", headers={"Authorization": "Bearer fake_token"})
         
         # Call the function
         response, status_code = cases.download_file(request)

@@ -54,15 +54,15 @@ from organization_membership import (
 )
 
 from auth import (
-    check_permissions as logic_check_permissions,
-    validate_user as logic_validate_user,
-    get_user_role as logic_get_user_role,
-    get_user_profile as robust_get_user_profile,
-    list_user_organizations as robust_list_user_organizations
+    check_permissions,
+    validate_user,
+    get_user_role,
+    get_authenticated_user
 )
 
 from user import (
-    update_user_profile as logic_update_user_profile
+    get_user_profile,
+    update_user_profile
 )
 
 from agent import handle_agent_request as logic_handle_agent_request
@@ -76,158 +76,212 @@ try:
 except ValueError:
     firebase_admin.initialize_app()
 
+def inject_user_context(func):
+    """Decorator to inject user context (end_user_id, etc.) into the request object."""
+    from functools import wraps
+    @wraps(func)
+    def wrapper(request, *args, **kwargs):
+        auth_context, status_code, error_message = get_authenticated_user(request)
+        if error_message or not auth_context:
+            from flask import jsonify
+            return jsonify({"error": "Unauthorized", "message": error_message or "Authentication failed"}), status_code or 401
+        # Inject user context attributes
+        request.end_user_id = auth_context.firebase_user_id
+        request.end_user_email = auth_context.firebase_user_email
+        request.end_user_locale = getattr(auth_context, 'firebase_user_locale', None)
+        return func(request, *args, **kwargs)
+    return wrapper
+
 # --- Cloud Function HTTP entry points ---
 @functions_framework.http
+@inject_user_context
 def relex_backend_create_case(request: Request):
     return logic_create_case(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_get_case(request: Request):
     return logic_get_case(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_list_cases(request: Request):
     return logic_list_cases(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_archive_case(request: Request):
     return logic_archive_case(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_delete_case(request: Request):
     return logic_delete_case(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_upload_file(request: Request):
     return logic_upload_file(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_download_file(request: Request):
     return logic_download_file(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_attach_party(request: Request):
     return logic_attach_party(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_detach_party(request: Request):
     return logic_detach_party(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_assign_case(request: Request):
     return logic_assign_case(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_create_payment_intent(request: Request):
     return logic_create_payment_intent(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_create_checkout_session(request: Request):
     return logic_create_checkout_session(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_handle_stripe_webhook(request: Request):
     return logic_handle_stripe_webhook(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_cancel_subscription(request: Request):
     return logic_cancel_subscription(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_redeem_voucher(request: Request):
     return logic_redeem_voucher(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_get_products(request: Request):
     return logic_get_products(request)
 
 # --- Organization cases listing wrapper (uses existing list_cases logic) ---
 @functions_framework.http
+@inject_user_context
 def relex_backend_list_organization_cases(request: Request):
     """Alias for list_cases; can filter by organizationId via query params."""
     return logic_list_cases(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_create_organization(request: Request):
     return logic_create_organization(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_get_organization(request: Request):
     return logic_get_organization(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_update_organization(request: Request):
     return logic_update_organization(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_delete_organization(request: Request):
     return logic_delete_organization(request)
 
 # --- Party management ---
 @functions_framework.http
+@inject_user_context
 def relex_backend_create_party(request: Request):
     return logic_create_party(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_get_party(request: Request):
     return logic_get_party(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_update_party(request: Request):
     return logic_update_party(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_delete_party(request: Request):
     return logic_delete_party(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_list_parties(request: Request):
     return logic_list_parties(request)
 
 # --- Organization membership ---
 @functions_framework.http
+@inject_user_context
 def relex_backend_add_organization_member(request: Request):
     return logic_add_organization_member(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_set_organization_member_role(request: Request):
     return logic_set_org_member_role(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_list_organization_members(request: Request):
     return logic_list_organization_members(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_remove_organization_member(request: Request):
     return logic_remove_organization_member(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_get_user_organization_role(request: Request):
     return logic_get_user_organization_role(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_list_user_organizations(request: Request):
     return logic_list_user_organizations(request)
 
 # --- Auth / Permissions ---
 @functions_framework.http
+@inject_user_context
 def relex_backend_check_permissions(request: Request):
     return logic_check_permissions(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_validate_user(request: Request):
     return logic_validate_user(request)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_get_user_role(request: Request):
     return logic_get_user_role(request)
 
 # --- User profile ---
 @functions_framework.http
+@inject_user_context
 def relex_backend_get_user_profile(request: Request):
-    return robust_get_user_profile(request)
+    user_id = getattr(request, 'end_user_id', None)
+    return get_user_profile(request, user_id)
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_update_user_profile(request: Request):
     user_id = getattr(request, 'end_user_id', None)
     return logic_update_user_profile(request, user_id)
@@ -238,19 +292,18 @@ def relex_backend_smoke_test(request):
     A minimal HTTP function that attempts a single Firestore read.
     If this function deploys and runs, the base environment is healthy.
     """
-    logging.info("Smoke Test function started.")
+    logging.info("[DEBUG] Smoke Test function called.")
     try:
         db = firestore.client()
-        # Attempt a basic, low-risk read operation.
-        # This document does not need to exist. The call itself is the test.
         doc_ref = db.collection(u'smoke_test').document(u'test_doc')
         doc = doc_ref.get()
-        logging.info("Firestore client connection appears to be successful.")
+        logging.info(f"[DEBUG] Smoke Test Firestore read: exists={doc.exists}")
         return "Smoke Test Succeeded: Environment is stable.", 200
     except Exception as e:
-        logging.error(f"Smoke Test Failed: Could not connect to Firestore. Error: {e}", exc_info=True)
+        logging.error(f"[DEBUG] Smoke Test Failed: Could not connect to Firestore. Error: {e}", exc_info=True)
         return "Smoke Test Failed: Could not initialize Firestore client.", 500
 
 @functions_framework.http
+@inject_user_context
 def relex_backend_agent_handler(request: Request):
     return logic_handle_agent_request(request)

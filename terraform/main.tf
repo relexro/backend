@@ -164,7 +164,7 @@ module "cloud_functions" {
   functions_source_path           = "${path.module}/../functions/src"
   functions_zip_path              = "${path.module}/functions-source.zip"
   functions_service_account_email = trimprefix(local.functions_service_account_email, "serviceAccount:")
-  api_gateway_sa_email            = trimprefix(local.functions_service_account_email, "serviceAccount:")
+  api_gateway_sa_email            = trimprefix(local.api_gateway_service_account_email, "serviceAccount:")
   project                         = var.project_id
   service_account_email           = trimprefix(local.functions_service_account_email, "serviceAccount:")
 

@@ -80,7 +80,7 @@ def sample_org_data():
 
 # Quota Check Tests
 @pytest.mark.asyncio
-async def test_check_quota_success(mocker):
+async def test_check_quota_success():
     user_id = "user_456"
     organization_id = "org_789"
     sample_user_data = {
@@ -113,7 +113,6 @@ async def test_check_quota_success(mocker):
             return MagicMock()
     mock_db = MagicMock()
     mock_db.collection.side_effect = collection_side_effect
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await check_quota(user_id, organization_id, 1)
     assert result["status"] == "success"
     assert result["available_requests"] == 200
@@ -123,7 +122,7 @@ async def test_check_quota_success(mocker):
     assert result["quota_used"] == 0
 
 @pytest.mark.asyncio
-async def test_check_quota_exceeded(mocker):
+async def test_check_quota_exceeded():
     user_id = "user_456"
     organization_id = "org_789"
     sample_user_data = {
@@ -156,14 +155,13 @@ async def test_check_quota_exceeded(mocker):
             return MagicMock()
     mock_db = MagicMock()
     mock_db.collection.side_effect = collection_side_effect
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await check_quota(user_id, organization_id, 1)
     assert result["available_requests"] == 100
     assert result["requires_payment"] is False
 
 # Case Details Tests
 @pytest.mark.asyncio
-async def test_get_case_details_success(mocker):
+async def test_get_case_details_success():
     case_id = "case_123"
     sample_case_data = {
         "case_id": case_id,
@@ -183,13 +181,12 @@ async def test_get_case_details_success(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await get_case_details(case_id)
     assert result["status"] == "success"
     assert result["case_details"] == sample_case_data
 
 @pytest.mark.asyncio
-async def test_get_case_details_not_found(mocker):
+async def test_get_case_details_not_found():
     case_id = "nonexistent_case"
     mock_case_doc = MagicMock()
     mock_case_doc.exists = False
@@ -198,14 +195,13 @@ async def test_get_case_details_not_found(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     with pytest.raises(DatabaseError) as exc_info:
         await get_case_details(case_id)
     assert "not found" in str(exc_info.value)
 
 # Update Case Details Tests
 @pytest.mark.asyncio
-async def test_update_case_details_success(mocker):
+async def test_update_case_details_success():
     case_id = "case_123"
     updates = {"status": "in_progress", "last_activity": "2025-07-01T16:35:26.805507"}
     mock_case_doc_ref = MagicMock()
@@ -213,14 +209,13 @@ async def test_update_case_details_success(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await update_case_details(case_id, updates)
     assert result["status"] == "success"
     assert "updated_at" in result
 
 # Party ID Tests
 @pytest.mark.asyncio
-async def test_get_party_id_by_name_success(mocker):
+async def test_get_party_id_by_name_success():
     case_id = "case_123"
     party_name = "Reclamant SA"
     # Patch db and parties subcollection
@@ -239,7 +234,6 @@ async def test_get_party_id_by_name_success(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await get_party_id_by_name(case_id, party_name)
     assert result["party_id"] == "party_1"
     assert result["party_data"]["name"] == "Reclamant SA"
@@ -247,7 +241,7 @@ async def test_get_party_id_by_name_success(mocker):
 
 # PDF Generation Tests
 @pytest.mark.asyncio
-async def test_generate_draft_pdf_success(mocker):
+async def test_generate_draft_pdf_success():
     case_id = "case_123"
     draft_name = "draft_contract"
     revision = 1
@@ -266,15 +260,6 @@ async def test_generate_draft_pdf_success(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
-    mock_create_pdf = mocker.patch("xhtml2pdf.pisa.CreatePDF")
-    mock_create_pdf.return_value.err = False
-    mock_blob = MagicMock()
-    mock_blob.generate_signed_url.return_value = "https://storage.googleapis.com/test.pdf"
-    mock_blob.upload_from_filename.return_value = None
-    mock_storage = mocker.patch("functions.src.agent_tools.storage_client")
-    mock_storage.bucket.return_value.blob.return_value = mock_blob
-    # Call with correct argument order
     result = await generate_draft_pdf(case_id, markdown_content, draft_name, revision)
     assert result["status"] == "success"
     assert result["url"] == "https://storage.googleapis.com/test.pdf"
@@ -291,7 +276,7 @@ async def test_generate_draft_pdf_success(mocker):
     assert draft_info["status"] == "generated"
 
 @pytest.mark.asyncio
-async def test_generate_draft_pdf_error(mocker):
+async def test_generate_draft_pdf_error():
     case_id = "case_123"
     draft_name = "draft_contract"
     revision = 1
@@ -310,32 +295,23 @@ async def test_generate_draft_pdf_error(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
-    mock_create_pdf = mocker.patch("xhtml2pdf.pisa.CreatePDF")
-    mock_create_pdf.side_effect = Exception("PDF generation failed")
-    with pytest.raises(PDFGenerationError) as exc_info:
-        await generate_draft_pdf(case_id, markdown_content, draft_name, revision)
-    assert "PDF generation failed" in str(exc_info.value)
+    result = await generate_draft_pdf(case_id, markdown_content, draft_name, revision)
+    assert result["status"] == "error"
+    assert "PDF generation failed" in result["message"]
 
 # Support Ticket Tests
 @pytest.mark.asyncio
-async def test_create_support_ticket_success(mocker):
+async def test_create_support_ticket_success():
     ticket_title = "Test Issue"
     issue_description = "Test description"
     priority = "high"
-    mock_ticket_doc_ref = MagicMock()
-    mock_ticket_doc_ref.set = MagicMock()
-    mock_tickets_collection = MagicMock(document=MagicMock(return_value=mock_ticket_doc_ref))
-    mock_db = MagicMock()
-    mock_db.collection.side_effect = lambda name: mock_tickets_collection if name == "support_tickets" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await create_support_ticket(ticket_title, issue_description, priority)
     assert result["status"] == "success"
     assert result["ticket_id"]
 
 # Payment Verification Tests
 @pytest.mark.asyncio
-async def test_verify_payment_success(mocker):
+async def test_verify_payment_success():
     case_id = "payment_123"
     payment_data = {
         "payments": [
@@ -350,14 +326,13 @@ async def test_verify_payment_success(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await verify_payment(case_id)
     assert result["status"] == "success"
     assert result["paid"] is True
     assert result["payment_details"]["status"] == "completed"
 
 @pytest.mark.asyncio
-async def test_verify_payment_incomplete(mocker):
+async def test_verify_payment_incomplete():
     case_id = "payment_123"
     payment_data = {
         "payments": [
@@ -372,7 +347,6 @@ async def test_verify_payment_incomplete(mocker):
     mock_cases_collection = MagicMock(document=MagicMock(return_value=mock_case_doc_ref))
     mock_db = MagicMock()
     mock_db.collection.side_effect = lambda name: mock_cases_collection if name == "cases" else MagicMock()
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await verify_payment(case_id)
     assert result["status"] == "success"
     assert result["paid"] is False
@@ -390,7 +364,7 @@ def test_get_relevant_legislation_success():
 
 # Quota Usage Update Tests
 @pytest.mark.asyncio
-async def test_update_quota_usage_success(mocker):
+async def test_update_quota_usage_success():
     user_id = "user_456"
     organization_id = "org_789"
     mock_user_doc_ref = MagicMock()
@@ -406,6 +380,5 @@ async def test_update_quota_usage_success(mocker):
             return MagicMock()
     mock_db = MagicMock()
     mock_db.collection.side_effect = collection_side_effect
-    mocker.patch("functions.src.agent_tools.db", mock_db)
     result = await update_quota_usage(user_id, organization_id)
     assert result["status"] == "success"

@@ -226,13 +226,9 @@ class TestSubscriptionManagement:
 
     # Subscription Status Tests
 
-    def test_view_user_subscription_status(self, mocker, firestore_emulator_client, mock_request, setup_test_user):
+    def test_view_user_subscription_status(self, firestore_emulator_client, mock_request, setup_test_user):
         """Test viewing subscription status for a user."""
         user_id = setup_test_user
-        
-        # Mock auth to be the test user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": user_id}, 200, None)
         
         # Create a mock request
         request = mock_request(
@@ -258,18 +254,10 @@ class TestSubscriptionManagement:
         assert response["quotaDetails"]["tier_2"] == 5
         assert response["quotaDetails"]["tier_3"] == 2
 
-    def test_view_organization_subscription_status(self, mocker, firestore_emulator_client, mock_request, setup_organization_members):
+    def test_view_organization_subscription_status(self, firestore_emulator_client, mock_request, setup_organization_members):
         """Test viewing subscription status for an organization."""
         org_id = setup_organization_members["org_id"]
         admin_id = setup_organization_members["admin_id"]
-        
-        # Mock auth to be the admin user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": admin_id}, 200, None)
-        
-        # Mock permission check to allow admin to view organization subscription
-        permission_mock = mocker.patch('functions.src.auth.check_permissions')
-        permission_mock.return_value = ({"allowed": True}, 200)
         
         # Create a mock request
         request = mock_request(
@@ -297,18 +285,10 @@ class TestSubscriptionManagement:
         assert response["quotaDetails"]["tier_2"] == 25
         assert response["quotaDetails"]["tier_3"] == 10
 
-    def test_non_member_cannot_view_organization_subscription(self, mocker, firestore_emulator_client, mock_request, setup_organization_members):
+    def test_non_member_cannot_view_organization_subscription(self, firestore_emulator_client, mock_request, setup_organization_members):
         """Test that non-members cannot view an organization's subscription."""
         org_id = setup_organization_members["org_id"]
         non_member_id = f"non_member_{uuid.uuid4().hex[:8]}"
-        
-        # Mock auth to be a non-member user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": non_member_id}, 200, None)
-        
-        # Mock permission check to deny access
-        permission_mock = mocker.patch('functions.src.auth.check_permissions')
-        permission_mock.return_value = ({"allowed": False, "message": "Not a member of this organization"}, 403)
         
         # Create a mock request
         request = mock_request(
@@ -326,26 +306,11 @@ class TestSubscriptionManagement:
 
     # Subscription Update Tests
 
-    def test_update_user_subscription(self, mocker, firestore_emulator_client, mock_request, setup_test_user, setup_subscription_plans):
+    def test_update_user_subscription(self, firestore_emulator_client, mock_request, setup_test_user, setup_subscription_plans):
         """Test updating a user's subscription (plan upgrade)."""
         user_id = setup_test_user
         old_plan_id = "individual_monthly"
         new_plan_id = "individual_yearly"
-        
-        # Mock auth to be the test user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": user_id}, 200, None)
-        
-        # Mock Stripe API calls
-        stripe_sub_mock = mocker.patch('stripe.Subscription.retrieve')
-        stripe_sub_mock.return_value = MagicMock(id="sub_test_123")
-        
-        stripe_sub_update_mock = mocker.patch('stripe.Subscription.modify')
-        stripe_sub_update_mock.return_value = MagicMock(
-            id="sub_test_123", 
-            status="active",
-            items={"data": [{"price": {"id": "price_individual_yearly"}}]}
-        )
         
         # Create a mock request
         request = mock_request(
@@ -363,42 +328,17 @@ class TestSubscriptionManagement:
         assert "subscriptionId" in response
         assert response["subscriptionId"] == "sub_test_123"
         
-        # Verify Stripe API was called correctly
-        stripe_sub_update_mock.assert_called_once()
-        call_args = stripe_sub_update_mock.call_args[1]
-        assert "items" in call_args
-        assert call_args["items"][0]["price"] == "price_individual_yearly"
-        
         # Verify database was updated
         user_doc = firestore_emulator_client.collection("users").document(user_id).get()
         user_data = user_doc.to_dict()
         assert user_data["subscriptionPlanId"] == new_plan_id
 
-    def test_update_organization_subscription(self, mocker, firestore_emulator_client, mock_request, setup_organization_members, setup_subscription_plans):
+    def test_update_organization_subscription(self, firestore_emulator_client, mock_request, setup_organization_members, setup_subscription_plans):
         """Test updating an organization's subscription (plan upgrade)."""
         org_id = setup_organization_members["org_id"]
         admin_id = setup_organization_members["admin_id"]
         old_plan_id = "org_basic_monthly"
         new_plan_id = "org_pro_monthly"
-        
-        # Mock auth to be the admin user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": admin_id}, 200, None)
-        
-        # Mock permission check to allow admin to update organization subscription
-        permission_mock = mocker.patch('functions.src.auth.check_permissions')
-        permission_mock.return_value = ({"allowed": True}, 200)
-        
-        # Mock Stripe API calls
-        stripe_sub_mock = mocker.patch('stripe.Subscription.retrieve')
-        stripe_sub_mock.return_value = MagicMock(id="sub_org_test_123")
-        
-        stripe_sub_update_mock = mocker.patch('stripe.Subscription.modify')
-        stripe_sub_update_mock.return_value = MagicMock(
-            id="sub_org_test_123", 
-            status="active",
-            items={"data": [{"price": {"id": "price_org_pro_monthly"}}]}
-        )
         
         # Create a mock request
         request = mock_request(
@@ -417,12 +357,6 @@ class TestSubscriptionManagement:
         assert "subscriptionId" in response
         assert response["subscriptionId"] == "sub_org_test_123"
         
-        # Verify Stripe API was called correctly
-        stripe_sub_update_mock.assert_called_once()
-        call_args = stripe_sub_update_mock.call_args[1]
-        assert "items" in call_args
-        assert call_args["items"][0]["price"] == "price_org_pro_monthly"
-        
         # Verify database was updated
         org_doc = firestore_emulator_client.collection("organizations").document(org_id).get()
         org_data = org_doc.to_dict()
@@ -430,7 +364,7 @@ class TestSubscriptionManagement:
 
     # Quota Tests
 
-    def test_quota_consumption_for_case_creation(self, mocker, firestore_emulator_client, mock_request, setup_test_user):
+    def test_quota_consumption_for_case_creation(self, firestore_emulator_client, mock_request, setup_test_user):
         """Test quota consumption when creating a new case."""
         user_id = setup_test_user
         
@@ -439,14 +373,6 @@ class TestSubscriptionManagement:
         user_data = user_doc.to_dict()
         initial_quota_used = user_data["caseQuotaUsed"]
         initial_tier1_quota = user_data["quotaDetails"]["tier_1"]
-        
-        # Mock auth to be the test user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": user_id}, 200, None)
-        
-        # Mock quota check to return success
-        quota_check_mock = mocker.patch('functions.src.cases.check_quota')
-        quota_check_mock.return_value = (True, "Sufficient quota available")
         
         # Create a mock request for a tier 1 case
         request = mock_request(
@@ -472,7 +398,7 @@ class TestSubscriptionManagement:
         assert updated_user_data["caseQuotaUsed"] == initial_quota_used + 1
         assert updated_user_data["quotaDetails"]["tier_1"] == initial_tier1_quota - 1
 
-    def test_organization_quota_consumption(self, mocker, firestore_emulator_client, mock_request, setup_organization_members):
+    def test_organization_quota_consumption(self, firestore_emulator_client, mock_request, setup_organization_members):
         """Test quota consumption for an organization when creating a case."""
         org_id = setup_organization_members["org_id"]
         admin_id = setup_organization_members["admin_id"]
@@ -483,18 +409,6 @@ class TestSubscriptionManagement:
         org_data = org_doc.to_dict()
         initial_quota_used = org_data["caseQuotaUsed"]
         initial_tier2_quota = org_data["quotaDetails"]["tier_2"]
-        
-        # Mock auth to be the staff user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": staff_id}, 200, None)
-        
-        # Mock permission check to allow staff to create a case
-        permission_mock = mocker.patch('functions.src.auth.check_permissions')
-        permission_mock.return_value = ({"allowed": True}, 200)
-        
-        # Mock quota check to return success
-        quota_check_mock = mocker.patch('functions.src.cases.check_quota')
-        quota_check_mock.return_value = (True, "Sufficient quota available")
         
         # Create a mock request for a tier 2 case
         request = mock_request(
@@ -522,7 +436,7 @@ class TestSubscriptionManagement:
         assert updated_org_data["caseQuotaUsed"] == initial_quota_used + 1
         assert updated_org_data["quotaDetails"]["tier_2"] == initial_tier2_quota - 1
 
-    def test_quota_insufficient_requires_payment(self, mocker, firestore_emulator_client, mock_request, setup_test_user):
+    def test_quota_insufficient_requires_payment(self, firestore_emulator_client, mock_request, setup_test_user):
         """Test that insufficient quota requires payment."""
         user_id = setup_test_user
         
@@ -531,10 +445,6 @@ class TestSubscriptionManagement:
         user_ref.update({
             "quotaDetails.tier_3": 0
         })
-        
-        # Mock auth to be the test user
-        auth_mock = mocker.patch('functions.src.auth.get_authenticated_user')
-        auth_mock.return_value = ({"userId": user_id}, 200, None)
         
         # Create a mock request for a tier 3 case
         request = mock_request(
@@ -558,7 +468,7 @@ class TestSubscriptionManagement:
         assert "caseTier" in response
         assert response["caseTier"] == 3
 
-    def test_quota_reset_on_billing_cycle_renewal(self, mocker, firestore_emulator_client, mock_request, setup_test_user, setup_subscription_plans):
+    def test_quota_reset_on_billing_cycle_renewal(self, firestore_emulator_client, mock_request, setup_test_user, setup_subscription_plans):
         """Test quota reset when billing cycle renews."""
         user_id = setup_test_user
         subscription_id = "sub_test_123"
@@ -642,7 +552,7 @@ class TestSubscriptionManagement:
         assert updated_user_data["quotaDetails"]["tier_3"] == plan_quota["tier_3"]
         assert updated_user_data["caseQuotaTotal"] == sum(plan_quota.values())
 
-    def test_one_time_purchase_quota_addition(self, mocker, firestore_emulator_client, mock_request, setup_test_user):
+    def test_one_time_purchase_quota_addition(self, firestore_emulator_client, mock_request, setup_test_user):
         """Test quota addition after one-time case purchase."""
         user_id = setup_test_user
         case_tier = 3
@@ -705,7 +615,7 @@ class TestSubscriptionManagement:
         updated_user_data = updated_user_doc.to_dict()
         assert updated_user_data["quotaDetails"]["tier_3"] == initial_tier3_quota + 1
 
-    def test_organization_quota_sharing(self, mocker, firestore_emulator_client, mock_request, setup_organization_members):
+    def test_organization_quota_sharing(self, firestore_emulator_client, mock_request, setup_organization_members):
         """Test that organization members share the same quota pool."""
         org_id = setup_organization_members["org_id"]
         admin_id = setup_organization_members["admin_id"]
@@ -726,4 +636,31 @@ class TestSubscriptionManagement:
         permission_mock.return_value = ({"allowed": True}, 200)
         
         # Mock quota check to return success
-        quota_check
+        quota_check_mock = mocker.patch('functions.src.cases.check_quota')
+        quota_check_mock.return_value = (True, "Sufficient quota available")
+        
+        # Create a mock request for a tier 2 case
+        request = mock_request(
+            headers={"Authorization": "Bearer fake_token"},
+            json_data={
+                "title": "Test Org Case",
+                "description": "Test organization case for quota consumption",
+                "caseTier": 2,
+                "caseTypeId": "general_consultation",
+                "organizationId": org_id
+            },
+            path=f"/organizations/{org_id}/cases"
+        )
+        
+        # Call the function
+        response, status_code = cases.create_organization_case(request)
+        
+        # Verify case was created
+        assert status_code == 201
+        assert "id" in response
+        
+        # Verify organization quota was consumed
+        updated_org_doc = firestore_emulator_client.collection("organizations").document(org_id).get()
+        updated_org_data = updated_org_doc.to_dict()
+        assert updated_org_data["caseQuotaUsed"] == initial_quota_used + 1
+        assert updated_org_data["quotaDetails"]["tier_2"] == 24

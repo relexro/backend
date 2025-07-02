@@ -12,66 +12,45 @@ def _test_jsonify(data):
 class TestAuthPermissions:
     """Test suite for auth.py check_permissions function."""
 
-    def test_invalid_inputs(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "test_user"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_invalid_inputs(self):
         """Test check_permissions with missing required fields."""
         # Test missing required fields
-        mock_request = MagicMock()
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "resourceId": "case123",
             "action": "read"
-        }
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 400
         assert "Validation Failed" in response["message"]
 
         # Test missing resourceId
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "userId": "user123",
             "action": "read",
             "resourceType": "case"
-        }
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 400
         assert "Validation Failed" in response["message"]
 
         # Test missing action
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "userId": "user123",
             "resourceId": "case123",
             "resourceType": "case"
-        }
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 400
         assert "Validation Failed" in response["message"]
 
         # Test invalid action
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "userId": "user123",
             "resourceId": "case123",
             "action": "invalid_action",
             "resourceType": "case"
-        }
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 400
         assert "Validation Failed" in response["message"]
 
-    def test_individual_case_owner_permissions(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "owner123"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_individual_case_owner_permissions(self):
         """Test permissions for individual case owner.
 
         Owner should have access to read, update, delete, and upload_file.
@@ -93,32 +72,21 @@ class TestAuthPermissions:
         mock_db.collection.return_value = mock_collection_ref
 
         # Patch firestore.client() to return our mock
-        mocker.patch('firebase_admin.firestore.client', return_value=mock_db)
+        mock_db.collection.side_effect = lambda name: mock_collection_ref if name == "cases" else MagicMock()
 
         # Test for all actions an owner should be allowed to perform
         actions = ["read", "update", "delete", "upload_file"]
         for action in actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "owner123",
                 "resourceId": "case123",
                 "action": action,
                 "resourceType": "case"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is True
 
-    def test_individual_case_non_owner_permissions(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "non_owner123"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_individual_case_non_owner_permissions(self):
         """Test permissions for non-owner on individual case.
 
         Non-owner should not have access to individual case.
@@ -140,32 +108,21 @@ class TestAuthPermissions:
         mock_db.collection.return_value = mock_collection_ref
 
         # Patch firestore.client() to return our mock
-        mocker.patch('firebase_admin.firestore.client', return_value=mock_db)
+        mock_db.collection.side_effect = lambda name: mock_collection_ref if name == "cases" else MagicMock()
 
         # Test for all actions a non-owner should not be allowed to perform
         actions = ["read", "update", "delete", "upload_file"]
         for action in actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "non_owner123",
                 "resourceId": "case123",
                 "action": action,
                 "resourceType": "case"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is False
 
-    def test_organization_case_admin_permissions(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "admin123"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_organization_case_admin_permissions(self):
         """Test permissions for admin on organization case.
 
         Admin should have access to read, update, delete, upload_file, and manage_access.
@@ -212,32 +169,21 @@ class TestAuthPermissions:
         mock_db.collection.side_effect = mock_collection
 
         # Patch firestore.client() to return our mock
-        mocker.patch('firebase_admin.firestore.client', return_value=mock_db)
+        mock_db.collection.side_effect = lambda name: mock_collection(name)
 
         # Test for all actions an admin should be allowed to perform
         actions = ["read", "update", "delete", "upload_file", "manage_access"]
         for action in actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "admin123",
                 "resourceId": "case123",
                 "action": action,
                 "resourceType": "case"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is True
 
-    def test_organization_case_staff_permissions(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "staff123"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_organization_case_staff_permissions(self):
         """Test permissions for staff on organization case.
 
         Staff should have access to read, update, and upload_file.
@@ -285,47 +231,33 @@ class TestAuthPermissions:
         mock_db.collection.side_effect = mock_collection
 
         # Patch firestore.client() to return our mock
-        mocker.patch('firebase_admin.firestore.client', return_value=mock_db)
+        mock_db.collection.side_effect = lambda name: mock_collection(name)
 
         # Test for actions a staff should be allowed to perform
         allowed_actions = ["read", "update", "upload_file"]
         for action in allowed_actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "staff123",
                 "resourceId": "case123",
                 "action": action,
                 "resourceType": "case"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is True
 
         # Test for actions a staff should not be allowed to perform
         disallowed_actions = ["delete", "manage_access"]
         for action in disallowed_actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "staff123",
                 "resourceId": "case123",
                 "action": action,
                 "resourceType": "case"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is False
 
-    def test_organization_case_staff_as_owner_permissions(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "staff123"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_organization_case_staff_as_owner_permissions(self):
         """Test permissions for staff who is also the owner on organization case.
 
         Staff who is also the case owner should have access to delete.
@@ -372,24 +304,19 @@ class TestAuthPermissions:
         mock_db.collection.side_effect = mock_collection
 
         # Patch firestore.client() to return our mock
-        mocker.patch('firebase_admin.firestore.client', return_value=mock_db)
+        mock_db.collection.side_effect = lambda name: mock_collection(name)
 
         # Test delete action for staff who is also owner (should be allowed)
-        mock_request = MagicMock()
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "userId": "staff123",
             "resourceId": "case123",
             "action": "delete",
             "resourceType": "case"
-        }
-
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 200
         assert response["allowed"] is True
 
-    def test_organization_resource_permissions(self, mocker):
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_organization_resource_permissions(self):
         """Test permissions for users on organization resources.
 
         Admin should have full access.
@@ -417,20 +344,18 @@ class TestAuthPermissions:
                 return {"allowed": False}, 200
 
         # Create a patch to override the check_permissions function
-        mocker.patch("functions.src.auth.check_permissions", side_effect=mock_auth_response)
+        mock_auth_response_patch = MagicMock()
+        mock_auth_response_patch.side_effect = mock_auth_response
 
         # Test admin permissions for organization resource
         admin_allowed_actions = ["read", "update", "manage_access"]
         for action in admin_allowed_actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "admin123",
                 "resourceId": "org123",
                 "action": action,
                 "resourceType": "organization"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is True
 
@@ -439,40 +364,26 @@ class TestAuthPermissions:
         staff_disallowed_actions = ["update", "manage_access"]
 
         for action in staff_allowed_actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "staff123",
                 "resourceId": "org123",
                 "action": action,
                 "resourceType": "organization"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is True
 
         for action in staff_disallowed_actions:
-            mock_request = MagicMock()
-            mock_request.get_json.return_value = {
+            response, status_code = auth.check_permissions({
                 "userId": "staff123",
                 "resourceId": "org123",
                 "action": action,
                 "resourceType": "organization"
-            }
-
-            response, status_code = auth.check_permissions(mock_request)
+            })
             assert status_code == 200
             assert response["allowed"] is False
 
-    def test_non_member_permissions(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "non_member123"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_non_member_permissions(self):
         """Test permissions for non-member of organization.
 
         Non-member should not have access to organization resources or cases.
@@ -511,43 +422,29 @@ class TestAuthPermissions:
         mock_db.collection.side_effect = mock_collection
 
         # Patch firestore.client() to return our mock
-        mocker.patch('firebase_admin.firestore.client', return_value=mock_db)
+        mock_db.collection.side_effect = lambda name: mock_collection(name)
 
         # Test for organization case access (should be denied)
-        mock_request = MagicMock()
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "userId": "non_member123",
             "resourceId": "case123",
             "action": "read",
             "resourceType": "case"
-        }
-
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 200
         assert response["allowed"] is False
 
         # Test for organization resource access (should be denied)
-        mock_request = MagicMock()
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "userId": "non_member123",
             "resourceId": "org123",
             "action": "read",
             "resourceType": "organization"
-        }
-
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 200
         assert response["allowed"] is False
 
-    def test_resource_not_found(self, mocker):
-        # Create a mock AuthContext object
-        mock_auth_context = MagicMock()
-        mock_auth_context.firebase_user_id = "user123"
-
-        # Mock the get_authenticated_user function
-        mocker.patch('functions.src.auth.get_authenticated_user', return_value=(mock_auth_context, 200, None))
-        # Mock the jsonify function
-        mocker.patch('flask.jsonify', side_effect=_test_jsonify)
+    def test_resource_not_found(self):
         """Test when the resource (case) does not exist."""
         # Mock the Firestore client and document
         mock_db = MagicMock()
@@ -562,17 +459,14 @@ class TestAuthPermissions:
         mock_db.collection.return_value = mock_collection_ref
 
         # Patch firestore.client() to return our mock
-        mocker.patch('firebase_admin.firestore.client', return_value=mock_db)
+        mock_db.collection.side_effect = lambda name: mock_collection_ref if name == "cases" else MagicMock()
 
         # Test for non-existent resource
-        mock_request = MagicMock()
-        mock_request.get_json.return_value = {
+        response, status_code = auth.check_permissions({
             "userId": "user123",
             "resourceId": "non_existent_case",
             "action": "read",
             "resourceType": "case"
-        }
-
-        response, status_code = auth.check_permissions(mock_request)
+        })
         assert status_code == 200
         assert response["allowed"] is False

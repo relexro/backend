@@ -81,7 +81,7 @@ def get_user_profile(request, user_id_for_profile):
     import datetime
     from common.clients import get_db_client
     import logging
-    logging.info(f"logic_get_user_profile called for end_user_id: {user_id_for_profile}")
+    logging.info(f"get_user_profile called for end_user_id: {user_id_for_profile}")
 
     if not user_id_for_profile:
         return flask.jsonify({"error": "Unauthorized", "message": "User authentication context missing"}), 401
