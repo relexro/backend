@@ -199,7 +199,12 @@ def get_authenticated_user(request_or_dict) -> Tuple[Optional[AuthContext], int,
         email = request_or_dict.get("email", "test@example.org")
         locale = request_or_dict.get("locale", "en")
         if user_id:
-            return AuthContext(user_id=user_id, email=email, locale=locale), 200, None
+            return AuthContext(
+                is_authenticated_call_from_gateway=False,
+                firebase_user_id=user_id,
+                firebase_user_email=email,
+                firebase_user_locale=locale
+            ), 200, None
         else:
             return None, 401, "Missing userId in test dict"
     # Otherwise, treat as Flask Request as before

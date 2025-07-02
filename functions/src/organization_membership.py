@@ -10,6 +10,7 @@ from datetime import datetime
 from auth import check_permission, PermissionCheckRequest, TYPE_ORGANIZATION as RESOURCE_TYPE_ORGANIZATION # Corrected import
 from flask import Request
 from common.clients import get_db_client
+import re
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,23 +23,44 @@ except ValueError:
 # Consolidating logic might be beneficial in the future.
 # For now, keep separate endpoints if required by frontend/API design.
 
+def _extract_organization_id(request):
+    # Try to get from JSON body
+    request_json = request.get_json(silent=True) or {}
+    org_id = request_json.get('organizationId')
+    if org_id:
+        return org_id
+    # Try to get from Flask's view_args (if using Flask routing)
+    if hasattr(request, 'view_args') and request.view_args:
+        org_id = request.view_args.get('organizationId')
+        if org_id:
+            return org_id
+    # Fallback: parse from path (e.g., /organizations/<org_id>/members)
+    match = re.search(r'/organizations/([\w-]+)/', request.path)
+    if match:
+        return match.group(1)
+    return None
+
 def add_organization_member(request: Request):
     logging.info("Logic function add_organization_member called")
     try:
-        request_json = request.get_json(silent=True)
+        request_json = request.get_json(silent=True) or {}
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
              return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id # User performing the action
 
-        if not request_json: return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
+        if not request_json and not request.data:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
 
-        organization_id = request_json.get('organizationId')
+        organization_id = request_json.get('organizationId') or _extract_organization_id(request)
         target_user_id = request_json.get('userId') # User being added
         role = request_json.get('role', 'staff') # Default role 'staff'
 
-        if not organization_id: return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
-        if not target_user_id: return flask.jsonify({"error": "Bad Request", "message": "Target User ID (userId) is required"}), 400
-        if role not in ['administrator', 'staff']: return flask.jsonify({"error": "Bad Request", "message": "Role must be 'administrator' or 'staff'"}), 400
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
+        if not target_user_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Target User ID (userId) is required"}), 400
+        if role not in ['administrator', 'staff']:
+            return flask.jsonify({"error": "Bad Request", "message": "Role must be 'administrator' or 'staff'"}), 400
 
         org_ref = get_db_client().collection('organizations').document(organization_id)
         if not org_ref.get().exists:
@@ -79,24 +101,30 @@ def add_organization_member(request: Request):
     except Exception as e:
         logging.error(f"Error adding member: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+
 def set_organization_member_role(request: Request):
     logging.info("Logic function set_organization_member_role called")
     try:
-        request_json = request.get_json(silent=True)
+        request_json = request.get_json(silent=True) or {}
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
              return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id # User performing action
 
-        if not request_json: return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
+        if not request_json and not request.data:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
 
-        organization_id = request_json.get('organizationId')
+        organization_id = request_json.get('organizationId') or _extract_organization_id(request)
         target_user_id = request_json.get('userId') # User whose role is being set
         role = request_json.get('role')
 
-        if not organization_id: return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
-        if not target_user_id: return flask.jsonify({"error": "Bad Request", "message": "Target User ID (userId) is required"}), 400
-        if not role: return flask.jsonify({"error": "Bad Request", "message": "Role is required"}), 400
-        if role not in ['administrator', 'staff']: return flask.jsonify({"error": "Bad Request", "message": "Role must be 'administrator' or 'staff'"}), 400
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
+        if not target_user_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Target User ID (userId) is required"}), 400
+        if not role:
+            return flask.jsonify({"error": "Bad Request", "message": "Role is required"}), 400
+        if role not in ['administrator', 'staff']:
+            return flask.jsonify({"error": "Bad Request", "message": "Role must be 'administrator' or 'staff'"}), 400
 
         org_ref = get_db_client().collection('organizations').document(organization_id)
         if not org_ref.get().exists:
@@ -200,18 +228,21 @@ def list_organization_members(request: Request):
 def remove_organization_member(request: Request):
     logging.info("Logic function remove_organization_member called")
     try:
-        request_json = request.get_json(silent=True)
+        request_json = request.get_json(silent=True) or {}
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
              return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id # User performing action
 
-        if not request_json: return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
+        if not request_json and not request.data:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
 
-        organization_id = request_json.get('organizationId')
+        organization_id = request_json.get('organizationId') or _extract_organization_id(request)
         target_user_id = request_json.get('userId') # User being removed
 
-        if not organization_id: return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
-        if not target_user_id: return flask.jsonify({"error": "Bad Request", "message": "Target User ID (userId) is required"}), 400
+        if not organization_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Organization ID is required"}), 400
+        if not target_user_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Target User ID (userId) is required"}), 400
         if user_id == target_user_id:
             return flask.jsonify({"error": "Bad Request", "message": "Cannot remove self"}), 400
 
@@ -249,6 +280,7 @@ def remove_organization_member(request: Request):
     except Exception as e:
         logging.error(f"Error removing member: {str(e)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+
 def get_user_organization_role(request: Request):
     logging.info("Logic function get_user_organization_role called")
     try:
