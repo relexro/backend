@@ -61,9 +61,9 @@ class TestOrganizationMembership:
 
     def test_list_organization_members(self, api_client, test_organization):
         """Test listing organization members."""
-        logger.info("Testing GET /organizations/{organizationId}/members endpoint")
+        logger.info("Testing GET /organizations/members endpoint")
 
-        response = api_client.get(f"/organizations/{test_organization}/members")
+        response = api_client.get("/organizations/members", params={"organizationId": test_organization})
 
         assert response.status_code == 200, f"Failed to list organization members: {response.text}"
         data = response.json()
@@ -78,14 +78,15 @@ class TestOrganizationMembership:
 
     def test_add_organization_member(self, api_client, test_organization, test_user_id):
         """Test adding a member to an organization."""
-        logger.info("Testing POST /organizations/{organizationId}/members endpoint")
+        logger.info("Testing POST /organizations/members endpoint")
 
         payload = {
             "userId": test_user_id,
-            "role": "staff"
+            "role": "staff",
+            "organizationId": test_organization
         }
 
-        response = api_client.post(f"/organizations/{test_organization}/members", json=payload)
+        response = api_client.post("/organizations/members", json=payload)
 
         assert response.status_code == 200, f"Failed to add organization member: {response.text}"
         data = response.json()
@@ -98,16 +99,18 @@ class TestOrganizationMembership:
 
     def test_update_member_role(self, api_client, test_organization, test_user_id):
         """Test updating a member's role in an organization."""
-        logger.info("Testing PUT /organizations/{organizationId}/members/{userId} endpoint")
+        logger.info("Testing PUT /organizations/members endpoint")
 
         # First add the member if not already added
         self.test_add_organization_member(api_client, test_organization, test_user_id)
 
         payload = {
+            "organizationId": test_organization,
+            "userId": test_user_id,
             "newRole": "administrator"
         }
 
-        response = api_client.put(f"/organizations/{test_organization}/members/{test_user_id}", json=payload)
+        response = api_client.put("/organizations/members", json=payload)
 
         assert response.status_code == 200, f"Failed to update member role: {response.text}"
         data = response.json()
@@ -120,12 +123,16 @@ class TestOrganizationMembership:
 
     def test_remove_organization_member(self, api_client, test_organization, test_user_id):
         """Test removing a member from an organization."""
-        logger.info("Testing DELETE /organizations/{organizationId}/members/{userId} endpoint")
+        logger.info("Testing DELETE /organizations/members endpoint")
 
         # First add the member if not already added
         self.test_add_organization_member(api_client, test_organization, test_user_id)
 
-        response = api_client.delete(f"/organizations/{test_organization}/members/{test_user_id}")
+        payload = {
+            "organizationId": test_organization,
+            "userId": test_user_id
+        }
+        response = api_client.delete("/organizations/members", json=payload)
 
         assert response.status_code == 200, f"Failed to remove organization member: {response.text}"
         data = response.json()

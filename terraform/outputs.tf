@@ -23,6 +23,10 @@ output "function_urls" {
   value       = module.cloud_functions.function_uris
 }
 
+output "function_uris" {
+  value = module.cloud_functions.function_uris
+}
+
 # These outputs reference existing resources
 output "api_gateway_url" {
   description = "URL of the API Gateway"

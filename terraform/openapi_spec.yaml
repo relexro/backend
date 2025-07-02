@@ -597,110 +597,6 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  /organizations/{organizationId}/members:
-    post:
-      summary: Add member to organization
-      description: Adds a new member to an organization with a specific role. Only administrators can add members.
-      operationId: relex_backend_add_organization_member
-      x-google-backend:
-        address: '${function_uris["relex-backend-add-organization-member"]}'
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-      - name: organizationId
-        in: path
-        required: true
-        type: string
-        description: ID of the organization
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required: [userId, role]
-          properties:
-            userId: {type: string, description: ID of the user to add as a member}
-            role:
-              type: string
-              enum: [staff, administrator]
-              description: Role to assign to the member
-      responses:
-        '200':
-          description: Member added successfully
-          schema:
-            type: object
-            properties:
-              success: {type: boolean, description: Indicates successful operation}
-              membershipId: {type: string, description: ID of the membership record}
-              userId: {type: string, description: ID of the added member}
-              organizationId: {type: string, description: ID of the organization}
-              role: {type: string, description: Assigned role (staff or administrator)}
-              email: {type: string, description: Email of the added member}
-              displayName: {type: string, description: Display name of the added member}
-        '400':
-          description: Bad request
-          schema: {$ref: '#/definitions/BadRequest'}
-        '401':
-          description: Unauthorized
-          schema: {$ref: '#/definitions/Unauthorized'}
-        '403':
-          description: Forbidden (caller is not an administrator)
-          schema: {$ref: '#/definitions/Forbidden'}
-        '404':
-          description: Organization not found
-          schema: {$ref: '#/definitions/NotFound'}
-        '409':
-          description: Conflict (user is already a member)
-          schema:
-            type: object
-            properties:
-              error: {type: string, description: Error code}
-              message: {type: string, description: Error message details}
-        '500':
-          description: Internal server error
-          schema: {$ref: '#/definitions/InternalServerError'}
-    get:
-      summary: List organization members
-      description: Lists all members of an organization. Accessible by organization members.
-      operationId: relex_backend_list_organization_members
-      x-google-backend:
-        address: '${function_uris["relex-backend-list-organization-members"]}'
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-      - name: organizationId
-        in: path
-        required: true
-        type: string
-        description: ID of the organization
-      responses:
-        '200':
-          description: List of members
-          schema:
-            type: object
-            properties:
-              members:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    userId: {type: string, description: ID of the member}
-                    role: {type: string, description: Role in the organization}
-                    addedAt: {type: string, format: date-time, description: When the member was added}
-                    email: {type: string, description: Email of the member}
-                    displayName: {type: string, description: Display name of the member}
-        '401':
-          description: Unauthorized
-          schema: {$ref: '#/definitions/Unauthorized'}
-        '403':
-          description: Forbidden
-          schema: {$ref: '#/definitions/Forbidden'}
-        '404':
-          description: Organization not found
-          schema: {$ref: '#/definitions/NotFound'}
-        '500':
-          description: Internal server error
-          schema: {$ref: '#/definitions/InternalServerError'}
   /cases/{caseId}/files:
     post:
       summary: Upload a file to a case
@@ -1708,40 +1604,110 @@ paths:
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
-  /organizations/{organizationId}/members/{userId}:
+  /organizations/members:
+    post:
+      summary: Add member to organization
+      description: Adds a new member to an organization. Only administrators can add members.
+      operationId: relex_backend_add_organization_member
+      x-google-backend:
+        address: '${function_uris["relex-backend-add-organization-member"]}'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required: [organizationId, userId, role]
+            properties:
+              organizationId: {type: string, description: ID of the organization}
+              userId: {type: string, description: ID of the user to add}
+              role:
+                type: string
+                enum: [staff, administrator]
+                description: Role to assign to the member
+      responses:
+        '200':
+          description: Member added successfully
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, description: Indicates successful operation}
+              membershipId: {type: string, description: ID of the membership record}
+              userId: {type: string, description: ID of the added member}
+              organizationId: {type: string, description: ID of the organization}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (caller is not an administrator)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Organization not found
+          schema: {$ref: '#/definitions/NotFound'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    get:
+      summary: List organization members
+      description: Lists members of a specific organization.
+      operationId: relex_backend_list_organization_members
+      x-google-backend:
+        address: '${function_uris["relex-backend-list-organization-members"]}'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          type: string
+          description: ID of the organization
+      responses:
+        '200':
+          description: List of organization members
+          schema:
+            type: object
+            properties:
+              members:
+                type: array
+                items:
+                  $ref: '#/definitions/OrganizationMember'
+              total: {type: integer, description: Total number of members}
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
     put:
       summary: Update member role
       description: Updates a member's role in the organization. Only administrators can update roles.
-      operationId: relex_backend_set_organization_member_role_by_id
+      operationId: relex_backend_set_organization_member_role
       x-google-backend:
         address: '${function_uris["relex-backend-set-organization-member-role"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
-      - name: organizationId
-        in: path
-        required: true
-        type: string
-        description: ID of the organization
-      - name: userId
-        in: path
-        required: true
-        type: string
-        description: ID of the member to update
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required: [newRole]
-          properties:
-            newRole:
-              type: string
-              enum: [staff, administrator]
-              description: New role to assign
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required: [organizationId, userId, newRole]
+            properties:
+              organizationId: {type: string, description: ID of the organization}
+              userId: {type: string, description: ID of the member to update}
+              newRole:
+                type: string
+                enum: [staff, administrator]
+                description: New role to assign
       responses:
         '200':
-          description: Role updated successfully
+          description: Member role updated successfully
           schema:
             type: object
             properties:
@@ -1750,8 +1716,6 @@ paths:
               userId: {type: string, description: ID of the member}
               organizationId: {type: string, description: ID of the organization}
               role: {type: string, description: New role (staff or administrator)}
-              email: {type: string, description: Email of the member}
-              displayName: {type: string, description: Display name of the member}
         '400':
           description: Bad request
           schema: {$ref: '#/definitions/BadRequest'}
@@ -1770,22 +1734,21 @@ paths:
     delete:
       summary: Remove member
       description: Removes a member from an organization. Only administrators can remove members.
-      operationId: relex_backend_remove_organization_member_by_id
+      operationId: relex_backend_remove_organization_member
       x-google-backend:
         address: '${function_uris["relex-backend-remove-organization-member"]}'
         path_translation: CONSTANT_ADDRESS
         deadline: 30.0
       parameters:
-      - name: organizationId
-        in: path
-        required: true
-        type: string
-        description: ID of the organization
-      - name: userId
-        in: path
-        required: true
-        type: string
-        description: ID of the member to remove
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required: [organizationId, userId]
+            properties:
+              organizationId: {type: string, description: ID of the organization}
+              userId: {type: string, description: ID of the member to remove}
       responses:
         '200':
           description: Member removed successfully
@@ -1795,6 +1758,9 @@ paths:
               success: {type: boolean, description: Indicates successful operation}
               userId: {type: string, description: ID of the removed member}
               organizationId: {type: string, description: ID of the organization}
+        '400':
+          description: Bad request
+          schema: {$ref: '#/definitions/BadRequest'}
         '401':
           description: Unauthorized
           schema: {$ref: '#/definitions/Unauthorized'}
@@ -2064,3 +2030,10 @@ definitions:
           amount: {type: integer, description: Required payment amount in smallest currency unit}
           currency: {type: string, description: Currency code}
           reason: {type: string, description: Reason payment is required}
+
+  OrganizationMember:
+    type: object
+    properties:
+      userId: {type: string, description: ID of the member}
+      role: {type: string, description: Role of the member in the organization}
+      joinedAt: {type: string, format: date-time, description: ISO 8601 timestamp when the member joined}

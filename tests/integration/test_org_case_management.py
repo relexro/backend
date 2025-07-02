@@ -71,7 +71,7 @@ class TestOrgCaseManagement:
             "organizationId": org_id
         }
 
-        response = client.post(f"/organizations/{org_id}/members", json=payload)
+        response = client.post(f"/organizations/members", json=payload)
         logger.info(f"Add member response: {response.text}")
 
         # Accept either 200 or 201 as success codes

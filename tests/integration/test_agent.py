@@ -61,8 +61,8 @@ def sample_request():
 def test_handle_agent_request_success(sample_request, sample_agent_result):
     """Test successful handling of an agent request with authenticated and authorized user."""
     with patch("asyncio.run") as mock_asyncio_run, \
-         patch("functions.src.agent.db.collection") as mock_collection, \
-         patch("functions.src.auth.check_permission") as mock_check_permission:
+         patch("functions.src.common.clients.get_db_client") as mock_get_db_client, \
+         patch("functions.src.auth.check_permissions") as mock_check_permissions:
 
         # Mock Firestore document snapshot for authorization check
         mock_doc = MagicMock()
@@ -70,10 +70,12 @@ def test_handle_agent_request_success(sample_request, sample_agent_result):
         mock_doc.get.return_value = "org_123"  # organizationId
         mock_doc_ref = MagicMock()
         mock_doc_ref.get.return_value = mock_doc
-        mock_collection.return_value.document.return_value = mock_doc_ref
+        mock_collection = MagicMock()
+        mock_collection.document.return_value = mock_doc_ref
+        mock_get_db_client.return_value.collection.return_value = mock_collection
 
         # Mock permission check to return success
-        mock_check_permission.return_value = (True, None)  # has_permission, error_message
+        mock_check_permissions.return_value = (True, None)  # has_permission, error_message
 
         # Mock asyncio.run to return the expected result
         mock_asyncio_run.return_value = {
@@ -99,7 +101,7 @@ def test_handle_agent_request_success(sample_request, sample_agent_result):
         # Verify authorization check was performed
         mock_collection.assert_called_with("cases")
         mock_collection.return_value.document.assert_called_with("case_123")
-        mock_check_permission.assert_called_once()
+        mock_check_permissions.assert_called_once()
 
         # Verify asyncio.run was called
         mock_asyncio_run.assert_called_once()

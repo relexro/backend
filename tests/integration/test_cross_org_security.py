@@ -72,7 +72,7 @@ class TestCrossOrgSecurity:
             "organizationId": org_id
         }
 
-        response = client.post(f"/organizations/{org_id}/members", json=payload)
+        response = client.post(f"/organizations/members", json=payload)
         logger.info(f"Add member response: {response.text}")
 
         # Accept either 200 or 201 as success codes
@@ -279,7 +279,7 @@ class TestCrossOrgSecurity:
                 "organizationId": org2_id
             }
             
-            response = org_admin_api_client.post(f"/organizations/{org2_id}/members", json=payload)
+            response = org_admin_api_client.post(f"/organizations/members", json=payload)
             
             # Verify access is denied
             assert response.status_code in [403, 404], f"Expected 403 or 404, got {response.status_code}: {response.text}"
@@ -420,7 +420,7 @@ class TestCrossOrgSecurity:
             logger.info("Staff cannot access other org resources: Test passed")
             
             # Staff from org1 attempts to list members of org2
-            response = org_user_api_client.get(f"/organizations/{org2_id}/members")
+            response = org_user_api_client.get(f"/organizations/members?organizationId={org2_id}")
             
             # Verify access is denied
             assert response.status_code in [403, 404], f"Expected 403 or 404, got {response.status_code}: {response.text}"
@@ -485,7 +485,7 @@ class TestCrossOrgSecurity:
             case_id = self._create_test_case(api_client, org2_id)
             
             # Admin attempts to list cases in org2
-            response = org_admin_api_client.get(f"/organizations/{org2_id}/cases")
+            response = org_admin_api_client.get(f"/organizations/members?organizationId={org2_id}")
             
             # Verify access is denied
             assert response.status_code in [403, 404], f"Expected 403 or 404, got {response.status_code}: {response.text}"

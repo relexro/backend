@@ -78,7 +78,7 @@ class TestOrganizationMembershipRBAC:
             "organizationId": org_id  # Include organizationId in the payload as well
         }
 
-        response = client.post(f"/organizations/{org_id}/members", json=payload)
+        response = client.post(f"/organizations/members", json=payload)
         logger.info(f"Add member response: {response.text}")
 
         # Accept either 200 or 201 as success codes
@@ -88,7 +88,7 @@ class TestOrganizationMembershipRBAC:
 
     def _get_org_members(self, client, org_id):
         """Get the list of members for an organization."""
-        response = client.get(f"/organizations/{org_id}/members")
+        response = client.get(f"/organizations/members", params={"organizationId": org_id})
         assert response.status_code == 200, f"Failed to get members: {response.text}"
         return response.json()["members"]
 
@@ -146,7 +146,7 @@ class TestOrganizationMembershipRBAC:
                 "organizationId": org_id
             }
 
-            response = org_user_api_client.post(f"/organizations/{org_id}/members", json=payload)
+            response = org_user_api_client.post(f"/organizations/members", json=payload)
 
             # Verify that the request is forbidden
             assert response.status_code == 403, f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
@@ -178,7 +178,7 @@ class TestOrganizationMembershipRBAC:
 
             # Staff attempts to remove regular user from the organization
             payload = {"organizationId": org_id, "userId": regular_user_id}
-            response = org_user_api_client.delete(f"/organizations/{org_id}/members/{regular_user_id}", json=payload)
+            response = org_user_api_client.delete(f"/organizations/members", json=payload)
 
             # Verify that the request is forbidden
             assert response.status_code == 403, f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
@@ -206,7 +206,7 @@ class TestOrganizationMembershipRBAC:
 
             # Staff attempts to remove admin from the organization
             payload = {"organizationId": org_id, "userId": admin_user_id}
-            response = org_user_api_client.delete(f"/organizations/{org_id}/members/{admin_user_id}", json=payload)
+            response = org_user_api_client.delete(f"/organizations/members", json=payload)
 
             # Verify that the request is forbidden
             assert response.status_code == 403, f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
@@ -243,7 +243,7 @@ class TestOrganizationMembershipRBAC:
                 "userId": regular_user_id
             }
 
-            response = org_user_api_client.put(f"/organizations/{org_id}/members/{regular_user_id}", json=payload)
+            response = org_user_api_client.put(f"/organizations/members", json=payload)
 
             # Verify that the request is forbidden
             assert response.status_code == 403, f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
@@ -278,7 +278,7 @@ class TestOrganizationMembershipRBAC:
                 "userId": admin_user_id
             }
 
-            response = org_user_api_client.put(f"/organizations/{org_id}/members/{admin_user_id}", json=payload)
+            response = org_user_api_client.put(f"/organizations/members", json=payload)
 
             # Verify that the request is forbidden
             assert response.status_code == 403, f"Expected 403 Forbidden, got {response.status_code}: {response.text}"
@@ -306,7 +306,7 @@ class TestOrganizationMembershipRBAC:
         try:
             # Admin attempts to remove themselves from the organization
             payload = {"organizationId": org_id, "userId": admin_user_id}
-            response = org_admin_api_client.delete(f"/organizations/{org_id}/members/{admin_user_id}", json=payload)
+            response = org_admin_api_client.delete(f"/organizations/members", json=payload)
 
             # Verify that the request is forbidden or bad request
             assert response.status_code in [400, 403], f"Expected 400 or 403, got {response.status_code}: {response.text}"
@@ -335,7 +335,7 @@ class TestOrganizationMembershipRBAC:
                 "userId": admin_user_id
             }
 
-            response = org_admin_api_client.put(f"/organizations/{org_id}/members/{admin_user_id}", json=payload)
+            response = org_admin_api_client.put(f"/organizations/members", json=payload)
 
             # Verify that the request is forbidden or bad request
             assert response.status_code in [400, 403], f"Expected 400 or 403, got {response.status_code}: {response.text}"
@@ -372,7 +372,7 @@ class TestOrganizationMembershipRBAC:
 
             # Admin removes the other admin
             payload = {"organizationId": org_id, "userId": regular_user_id}
-            response = org_admin_api_client.delete(f"/organizations/{org_id}/members/{regular_user_id}", json=payload)
+            response = org_admin_api_client.delete(f"/organizations/members", json=payload)
 
             # Verify that the request is successful
             assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}: {response.text}"
@@ -410,7 +410,7 @@ class TestOrganizationMembershipRBAC:
                 "userId": regular_user_id
             }
 
-            response = org_admin_api_client.put(f"/organizations/{org_id}/members/{regular_user_id}", json=payload)
+            response = org_admin_api_client.put(f"/organizations/members", json=payload)
 
             # Verify that the request is successful
             assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}: {response.text}"
@@ -424,3 +424,86 @@ class TestOrganizationMembershipRBAC:
         finally:
             # Cleanup
             self._cleanup_test_organization(org_admin_api_client, org_id)
+
+    def test_list_organization_members(self, api_client, test_organization):
+        """Test listing organization members."""
+        logger.info("Testing GET /organizations/members endpoint")
+
+        response = api_client.get(f"/organizations/members", params={"organizationId": test_organization})
+
+        assert response.status_code == 200, f"Failed to list organization members: {response.text}"
+        data = response.json()
+        assert "members" in data, "Response does not contain 'members' field"
+
+        # The creator should be the only member initially
+        assert len(data["members"]) == 1, "Expected only one member (the creator)"
+        assert data["members"][0]["role"] == "administrator", "Creator should have administrator role"
+
+        logger.info(f"Successfully listed {len(data['members'])} organization members")
+        return data
+
+    def test_add_organization_member(self, api_client, test_organization, test_user_id):
+        """Test adding a member to an organization."""
+        logger.info("Testing POST /organizations/members endpoint")
+
+        payload = {
+            "userId": test_user_id,
+            "role": "staff",
+            "organizationId": test_organization
+        }
+
+        response = api_client.post("/organizations/members", json=payload)
+
+        assert response.status_code == 200, f"Failed to add organization member: {response.text}"
+        data = response.json()
+        assert data["success"] is True, "Response does not indicate success"
+        assert data["userId"] == test_user_id, "User ID in response does not match"
+        assert data["role"] == "staff", "Role in response does not match"
+
+        logger.info(f"Successfully added user {test_user_id} as staff to organization {test_organization}")
+        return data
+
+    def test_update_member_role(self, api_client, test_organization, test_user_id):
+        """Test updating a member's role in an organization."""
+        logger.info("Testing PUT /organizations/members endpoint")
+
+        # First add the member if not already added
+        self.test_add_organization_member(api_client, test_organization, test_user_id)
+
+        payload = {
+            "organizationId": test_organization,
+            "userId": test_user_id,
+            "newRole": "administrator"
+        }
+
+        response = api_client.put("/organizations/members", json=payload)
+
+        assert response.status_code == 200, f"Failed to update member role: {response.text}"
+        data = response.json()
+        assert data["success"] is True, "Response does not indicate success"
+        assert data["userId"] == test_user_id, "User ID in response does not match"
+        assert data["role"] == "administrator", "Role in response does not match"
+
+        logger.info(f"Successfully updated user {test_user_id} to administrator in organization {test_organization}")
+        return data
+
+    def test_remove_organization_member(self, api_client, test_organization, test_user_id):
+        """Test removing a member from an organization."""
+        logger.info("Testing DELETE /organizations/members endpoint")
+
+        # First add the member if not already added
+        self.test_add_organization_member(api_client, test_organization, test_user_id)
+
+        payload = {
+            "organizationId": test_organization,
+            "userId": test_user_id
+        }
+        response = api_client.delete("/organizations/members", json=payload)
+
+        assert response.status_code == 200, f"Failed to remove organization member: {response.text}"
+        data = response.json()
+        assert data["success"] is True, "Response does not indicate success"
+        assert data["userId"] == test_user_id, "User ID in response does not match"
+
+        logger.info(f"Successfully removed user {test_user_id} from organization {test_organization}")
+        return data

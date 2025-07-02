@@ -374,44 +374,41 @@ Deletes an organization. Only possible if there's no active subscription and cal
 - `404 Not Found`: Organization not found
 - `500 Internal Server Error`: Internal server error
 
-#### POST /organizations/{organizationId}/members
-Adds a new member to an organization with a specific role. Only administrators can add members.
+### Organization Membership
 
-**Path Parameters:**
-- `organizationId` (string, required): ID of the organization
+#### POST /organizations/members
+Adds a new member to an organization. Only administrators can add members.
 
 **Request Body:**
 ```json
 {
+  "organizationId": "string",
   "userId": "string",
   "role": "staff|administrator"
 }
 ```
-
 **Responses:**
 - `200 OK`: Member added successfully
   ```json
   {
-    "success": "boolean",
+    "success": true,
     "membershipId": "string",
     "userId": "string",
     "organizationId": "string",
-    "role": "string",
-    "email": "string",
-    "displayName": "string"
+    "role": "string"
   }
   ```
 - `400 Bad Request`: Bad request
 - `401 Unauthorized`: Unauthorized
 - `403 Forbidden`: Forbidden (caller is not an administrator)
 - `404 Not Found`: Organization not found
-- `409 Conflict`: Conflict (user is already a member)
+- `409 Conflict`: User is already a member
 - `500 Internal Server Error`: Internal server error
 
-#### GET /organizations/{organizationId}/members
+#### GET /organizations/members
 Lists all members of an organization. Accessible by organization members.
 
-**Path Parameters:**
+**Query Parameters:**
 - `organizationId` (string, required): ID of the organization
 
 **Responses:**
@@ -422,9 +419,7 @@ Lists all members of an organization. Accessible by organization members.
       {
         "userId": "string",
         "role": "string",
-        "addedAt": "string",
-        "email": "string",
-        "displayName": "string"
+        "addedAt": "string"
       }
     ]
   }
@@ -434,31 +429,26 @@ Lists all members of an organization. Accessible by organization members.
 - `404 Not Found`: Organization not found
 - `500 Internal Server Error`: Internal server error
 
-#### PUT /organizations/{organizationId}/members/{userId}
+#### PUT /organizations/members
 Updates a member's role in the organization. Only administrators can update roles.
-
-**Path Parameters:**
-- `organizationId` (string, required): ID of the organization
-- `userId` (string, required): ID of the member to update
 
 **Request Body:**
 ```json
 {
+  "organizationId": "string",
+  "userId": "string",
   "newRole": "staff|administrator"
 }
 ```
-
 **Responses:**
 - `200 OK`: Role updated successfully
   ```json
   {
-    "success": "boolean",
+    "success": true,
     "membershipId": "string",
     "userId": "string",
     "organizationId": "string",
-    "role": "string",
-    "email": "string",
-    "displayName": "string"
+    "role": "string"
   }
   ```
 - `400 Bad Request`: Bad request
@@ -467,18 +457,21 @@ Updates a member's role in the organization. Only administrators can update role
 - `404 Not Found`: Member or organization not found
 - `500 Internal Server Error`: Internal server error
 
-#### DELETE /organizations/{organizationId}/members/{userId}
+#### DELETE /organizations/members
 Removes a member from an organization. Only administrators can remove members.
 
-**Path Parameters:**
-- `organizationId` (string, required): ID of the organization
-- `userId` (string, required): ID of the member to remove
-
+**Request Body:**
+```json
+{
+  "organizationId": "string",
+  "userId": "string"
+}
+```
 **Responses:**
 - `200 OK`: Member removed successfully
   ```json
   {
-    "success": "boolean",
+    "success": true,
     "userId": "string",
     "organizationId": "string"
   }
@@ -487,6 +480,9 @@ Removes a member from an organization. Only administrators can remove members.
 - `403 Forbidden`: Forbidden (caller is not an administrator)
 - `404 Not Found`: Member or organization not found
 - `500 Internal Server Error`: Internal server error
+
+> **Migration Note:**
+> The organization membership endpoints have been refactored to use only body/query parameters. All previous endpoints with path parameters (e.g., /organizations/{organizationId}/members) are deprecated and removed. Update your API clients accordingly.
 
 ### Case Management
 

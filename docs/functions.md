@@ -48,12 +48,12 @@ Split across multiple files for different aspects:
   - Includes proper error handling and logging
 
 #### Membership Management (`organization_membership.py`)
-- `add_organization_member`: Member addition with role validation, using the correct `organization_memberships` collection. Exported as function `relex_backend_add_organization_member`. Used by the `/organizations/{organizationId}/members` POST endpoint.
-- `set_organization_member_role`: Role updates with admin checks, operating on the `organization_memberships` collection. Exported as function `relex_backend_set_organization_member_role`. Used by the `/organizations/{organizationId}/members/{userId}` PUT endpoint.
-- `list_organization_members`: Member listing with pagination, querying the `organization_memberships` collection. Exported as function `relex_backend_list_organization_members`. Used by the `/organizations/{organizationId}/members` GET endpoint.
-- `remove_organization_member`: Member removal with safeguards, operating on the `organization_memberships` collection. Exported as function `relex_backend_remove_organization_member`. Used by the `/organizations/{organizationId}/members/{userId}` DELETE endpoint.
-- `get_user_organization_role`: Role retrieval, working with the `organization_memberships` collection.
-- `list_user_organizations`: Organization listing for users.
+- `add_organization_member(request)`: Adds a member to an organization. Expects `organizationId`, `userId`, and `role` in the request body.
+- `list_organization_members(request)`: Lists members of an organization. Expects `organizationId` in the query string.
+- `update_organization_member_role(request)`: Updates a member's role. Expects `organizationId`, `userId`, and `newRole` in the request body.
+- `remove_organization_member(request)`: Removes a member from an organization. Expects `organizationId` and `userId` in the request body.
+
+**Note:** All previous function signatures and endpoints using path parameters (e.g., `/organizations/{organizationId}/members`) are deprecated and removed. All membership operations now use body or query parameters as described above.
 
 ### User Management (`user.py`)
 - `create_user_profile`: Profile creation (Firebase Auth trigger)

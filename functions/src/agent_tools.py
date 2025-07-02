@@ -20,7 +20,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 import os
 from exa_py import Exa
 from langchain.tools import tool
-from common.clients import get_secret
+from common.clients import get_secret, get_db_client
 from firebase_admin import firestore
 
 # Configure logging
@@ -28,8 +28,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize clients
-db = firestore.Client()
 storage_client = storage.Client()
+
+def get_db():
+    return get_db_client()
 
 # --- Tool-specific Errors ---
 class ExaToolError(Exception):
@@ -156,7 +158,7 @@ async def check_quota(
     """
     try:
         # Get user document
-        user_ref = db.collection('users').document(user_id)
+        user_ref = get_db().collection('users').document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
@@ -171,7 +173,7 @@ async def check_quota(
 
         # Check organization quota if applicable
         if organization_id:
-            org_ref = db.collection('organizations').document(organization_id)
+            org_ref = get_db().collection('organizations').document(organization_id)
             org_doc = org_ref.get()
             if org_doc.exists:
                 org_data = org_doc.to_dict()
@@ -204,7 +206,7 @@ async def get_case_details(case_id: str) -> Dict[str, Any]:
     Retrieve case details from Firestore.
     """
     try:
-        case_ref = db.collection('cases').document(case_id)
+        case_ref = get_db().collection('cases').document(case_id)
         case_doc = case_ref.get()
 
         if not case_doc.exists:
@@ -227,7 +229,7 @@ async def update_case_details(
     Update case details in Firestore.
     """
     try:
-        case_ref = db.collection('cases').document(case_id)
+        case_ref = get_db().collection('cases').document(case_id)
 
         # Add timestamp to updates
         updates['last_updated'] = firestore.SERVER_TIMESTAMP
@@ -260,7 +262,7 @@ async def get_party_id_by_name(
     """
     try:
         # Query parties subcollection
-        parties_ref = db.collection('cases').document(case_id).collection('parties')
+        parties_ref = get_db().collection('cases').document(case_id).collection('parties')
         query = parties_ref.where('name', '==', mentioned_name).limit(1)
 
         parties = query.stream()
@@ -306,7 +308,7 @@ async def generate_draft_pdf(
     
     try:
         # Get case reference
-        case_ref = db.collection('cases').document(case_id)
+        case_ref = get_db().collection('cases').document(case_id)
         case_doc = case_ref.get()
 
         if not case_doc.exists:
@@ -367,16 +369,16 @@ async def generate_draft_pdf(
                 blob = bucket.blob(storage_path)
 
                 # Upload with metadata
+                blob.metadata = {
+                    'case_id': case_id,
+                    'draft_name': draft_name,
+                    'version': str(revision),
+                    'generated_at': datetime.now().isoformat(),
+                    'generated_by': 'relex-agent'
+                }
                 blob.upload_from_filename(
                     temp_pdf.name,
-                    content_type='application/pdf',
-                    metadata={
-                        'case_id': case_id,
-                        'draft_name': draft_name,
-                        'version': str(revision),
-                        'generated_at': datetime.now().isoformat(),
-                        'generated_by': 'relex-agent'
-                    }
+                    content_type='application/pdf'
                 )
                 
                 logger.info(f"PDF uploaded successfully to {storage_path}")
@@ -548,7 +550,7 @@ async def create_support_ticket(
     """
     try:
         # Create ticket document
-        ticket_ref = db.collection('support_tickets').document()
+        ticket_ref = get_db().collection('support_tickets').document()
 
         ticket_data = {
             'case_id': case_id,
@@ -561,7 +563,7 @@ async def create_support_ticket(
         }
 
         # Update case status to paused_support
-        case_ref = db.collection('cases').document(case_id)
+        case_ref = get_db().collection('cases').document(case_id)
         case_ref.update({
             'status': 'paused_support',
             'support_ticket_id': ticket_ref.id,
@@ -642,7 +644,7 @@ async def verify_payment(case_id: str) -> Dict[str, Any]:
     Verify payment status for a case.
     """
     try:
-        case_ref = db.collection('cases').document(case_id)
+        case_ref = get_db().collection('cases').document(case_id)
         case_doc = case_ref.get()
 
         if not case_doc.exists:
@@ -735,14 +737,14 @@ async def update_quota_usage(
     """
     try:
         # Update user quota
-        user_ref = db.collection('users').document(user_id)
+        user_ref = get_db().collection('users').document(user_id)
         user_ref.update({
             'subscription.quota_used': firestore.Increment(1)
         })
 
         # Update organization quota if applicable
         if organization_id:
-            org_ref = db.collection('organizations').document(organization_id)
+            org_ref = get_db().collection('organizations').document(organization_id)
             org_ref.update({
                 'quota_used': firestore.Increment(1)
             })
