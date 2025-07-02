@@ -6,6 +6,7 @@ from flask import Request
 from common.clients import get_db_client, get_storage_client
 from auth import check_permission, PermissionCheckRequest, TYPE_CASE, TYPE_ORGANIZATION
 from party import get_party
+from firebase_admin import firestore
 
 logging.basicConfig(level=logging.INFO)
 
@@ -85,7 +86,7 @@ def create_case(request: Request):
             "caseTypeId": case_type_id.strip(),  # New required field
             "casePrice": expected_amount,
             "paymentStatus": "pending",  # This would be set based on the logic
-            "creationDate": db.SERVER_TIMESTAMP,
+            "creationDate": firestore.SERVER_TIMESTAMP,
             "organizationId": organization_id  # Will be None if not provided
         }
         case_ref.set(case_data)
@@ -242,8 +243,8 @@ def archive_case(request: Request):
 
         case_ref.update({
             "status": "archived",
-            "archiveDate": db.SERVER_TIMESTAMP,
-            "updatedAt": db.SERVER_TIMESTAMP # Also update updatedAt
+            "archiveDate": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP # Also update updatedAt
         })
         return flask.jsonify({"message": "Case archived successfully"}), 200
     except Exception as e:
@@ -281,8 +282,8 @@ def delete_case(request: Request):
         # Soft delete by changing status
         case_ref.update({
             "status": "deleted",
-            "deletionDate": db.SERVER_TIMESTAMP,
-            "updatedAt": db.SERVER_TIMESTAMP
+            "deletionDate": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP
         })
         # Consider if a hard delete is ever needed and implement separately
         # case_ref.delete() # Example of hard delete
@@ -364,7 +365,7 @@ def upload_file(request: Request):
             "fileType": content_type,
             "fileSize": file_size,
             "storagePath": storage_path,
-            "uploadDate": db.SERVER_TIMESTAMP,
+            "uploadDate": firestore.SERVER_TIMESTAMP,
             "uploadedBy": user_id
         }
 
@@ -378,7 +379,7 @@ def upload_file(request: Request):
         document_id = document_ref.id
 
         # Optionally update the case's updatedAt timestamp
-        case_ref.update({"updatedAt": db.SERVER_TIMESTAMP})
+        case_ref.update({"updatedAt": firestore.SERVER_TIMESTAMP})
 
         return flask.jsonify({
             "documentId": document_id,
@@ -512,7 +513,7 @@ def attach_party_to_case(request: Request):
 
         case_ref.update({
             "attachedPartyIds": db.ArrayUnion([party_id]),
-            "updatedAt": db.SERVER_TIMESTAMP
+            "updatedAt": firestore.SERVER_TIMESTAMP
         })
 
         return flask.jsonify({
@@ -568,7 +569,7 @@ def detach_party_from_case(request: Request):
 
         case_ref.update({
             "attachedPartyIds": db.ArrayRemove([party_id]),
-            "updatedAt": db.SERVER_TIMESTAMP
+            "updatedAt": firestore.SERVER_TIMESTAMP
         })
 
         return flask.jsonify({
@@ -699,7 +700,7 @@ def logic_assign_case(request: Request):
         # Update the case
         update_data = {
             'assignedUserId': assigned_user_id,
-            'updatedAt': db.SERVER_TIMESTAMP
+            'updatedAt': firestore.SERVER_TIMESTAMP
         }
 
         case_ref.update(update_data)

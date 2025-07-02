@@ -21,6 +21,7 @@ import os
 from exa_py import Exa
 from langchain.tools import tool
 from common.clients import get_secret
+from firebase_admin import firestore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
