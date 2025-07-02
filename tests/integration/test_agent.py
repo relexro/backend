@@ -62,17 +62,45 @@ def test_handle_agent_request_success(sample_request, sample_agent_result):
     """Test successful handling of an agent request with authenticated and authorized user."""
     with patch("asyncio.run") as mock_asyncio_run, \
          patch("functions.src.common.clients.get_db_client") as mock_get_db_client, \
+         patch("firebase_admin.firestore.client") as mock_firestore_client, \
          patch("functions.src.auth.check_permissions") as mock_check_permissions:
 
-        # Mock Firestore document snapshot for authorization check
-        mock_doc = MagicMock()
-        mock_doc.exists = True
-        mock_doc.get.return_value = "org_123"  # organizationId
-        mock_doc_ref = MagicMock()
-        mock_doc_ref.get.return_value = mock_doc
-        mock_collection = MagicMock()
-        mock_collection.document.return_value = mock_doc_ref
-        mock_get_db_client.return_value.collection.return_value = mock_collection
+        # Use the same mock for both client getters
+        mock_db = MagicMock()
+        mock_get_db_client.return_value = mock_db
+        mock_firestore_client.return_value = mock_db
+
+        # Mock Firestore document snapshot for case
+        mock_case_doc = MagicMock()
+        mock_case_doc.exists = True
+        mock_case_doc.to_dict.return_value = {
+            "userId": "user_123",
+            "organizationId": "org_123"
+        }
+        mock_case_doc_ref = MagicMock()
+        mock_case_doc_ref.get.return_value = mock_case_doc
+        mock_cases_collection = MagicMock()
+        mock_cases_collection.document.return_value = mock_case_doc_ref
+
+        # Mock Firestore membership query
+        mock_membership_doc = MagicMock()
+        mock_membership_doc.to_dict.return_value = {
+            "userId": "user_123",
+            "organizationId": "org_123",
+            "role": "administrator"
+        }
+        mock_membership_query = MagicMock()
+        mock_membership_query.where.return_value = mock_membership_query
+        mock_membership_query.limit.return_value = mock_membership_query
+        mock_membership_query.stream.return_value = [mock_membership_doc]
+
+        def mock_collection(name):
+            if name == "cases":
+                return mock_cases_collection
+            elif name == "organization_memberships":
+                return mock_membership_query
+            return MagicMock()
+        mock_db.collection.side_effect = mock_collection
 
         # Mock permission check to return success
         mock_check_permissions.return_value = (True, None)  # has_permission, error_message
@@ -99,8 +127,8 @@ def test_handle_agent_request_success(sample_request, sample_agent_result):
         assert status_code == 200
 
         # Verify authorization check was performed
-        mock_collection.assert_called_with("cases")
-        mock_collection.return_value.document.assert_called_with("case_123")
+        mock_cases_collection.assert_called_with("cases")
+        mock_cases_collection.return_value.document.assert_called_with("case_123")
         mock_check_permissions.assert_called_once()
 
         # Verify asyncio.run was called
