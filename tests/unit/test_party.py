@@ -38,22 +38,18 @@ party_module.RESOURCE_TYPE_PARTY = "party"
 
 
 @pytest.fixture
-def mock_db_client():
-    """Create a mock Firestore client."""
+def mock_db_client(monkeypatch):
+    """Create a mock Firestore client and patch get_db_client."""
     mock_client = MagicMock()
 
     # Mock the SERVER_TIMESTAMP
     mock_server_timestamp = "SERVER_TIMESTAMP_PLACEHOLDER"
     party_module.firestore.SERVER_TIMESTAMP = mock_server_timestamp
 
-    # Replace the db in the party module with our mock
-    original_db = party_module.db
-    party_module.db = mock_client
+    # Patch get_db_client to return our mock
+    monkeypatch.setattr(party_module, "get_db_client", lambda: mock_client)
 
     yield mock_client
-
-    # Restore the original db
-    party_module.db = original_db
 
 
 @pytest.fixture

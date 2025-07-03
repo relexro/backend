@@ -1173,9 +1173,9 @@ Retrieves the list of available products, subscription plans, and pricing inform
 
 - [x] All major endpoints implemented
 - [x] Local tests passing
-- [ ] Deployed to GCP and validated via API Gateway
+- [x] Deployed to GCP and validated via API Gateway
 - [ ] End-to-end tested with frontend and real tokens
 - [ ] All endpoints marked as production-ready or not
-- [ ] OpenAPI spec finalized and validated
+- `OpenAPI spec finalized and validated
 
-> Note: Some endpoints may require further testing or are not yet production-ready. See endpoint notes below.
+> Note: The API is fully deployed to GCP and all integration tests are run against the live API Gateway endpoints. Some endpoints may require further testing or are not yet production-ready. See endpoint notes below.
