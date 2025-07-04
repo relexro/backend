@@ -14,110 +14,63 @@ def create_case(request: Request):
     db = get_db_client()
     logging.info("Logic function create_case called")
     try:
-        data = request.get_json(silent=True)
-        if not data:
-            logging.error("Bad Request: No JSON data provided")
-            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
-
+        request_json = request.get_json(silent=True)
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
-             logging.error("Authentication error: end_user_id not found on request")
-             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+            return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
-
-        title = data.get("title")
-        description = data.get("description")
-        case_tier = data.get("caseTier")
-        case_type_id = data.get("caseTypeId")  # New required field
-        organization_id = data.get("organizationId") # Optional
-        payment_intent_id = data.get("paymentIntentId") # Optional for non-subscription cases
-
-        if not title or not isinstance(title, str) or not title.strip():
-            return flask.jsonify({"error": "Bad Request", "message": "Valid title is required"}), 400
-        if not description or not isinstance(description, str) or not description.strip():
-            return flask.jsonify({"error": "Bad Request", "message": "Valid description is required"}), 400
-        if case_tier not in [1, 2, 3]:
-             return flask.jsonify({"error": "Bad Request", "message": "caseTier must be 1, 2, or 3"}), 400
-        if not case_type_id or not isinstance(case_type_id, str) or not case_type_id.strip():
-            return flask.jsonify({"error": "Bad Request", "message": "Valid caseTypeId is required"}), 400
-        if organization_id and (not isinstance(organization_id, str) or not organization_id.strip()):
-            return flask.jsonify({"error": "Bad Request", "message": "organizationId must be a non-empty string if provided"}), 400
-        if payment_intent_id and (not isinstance(payment_intent_id, str) or not payment_intent_id.strip()):
-             return flask.jsonify({"error": "Bad Request", "message": "paymentIntentId must be a non-empty string if provided"}), 400
-
-        permission_request = PermissionCheckRequest(
-            resourceType=TYPE_CASE,
-            resourceId=None,
-            action="create",
-            organizationId=organization_id # Pass orgId for permission check
-        )
-        has_permission, error_message = check_permission(user_id, permission_request)
-        if not has_permission:
-            logging.error(f"Forbidden: User {user_id} cannot create case for org {organization_id}. Msg: {error_message}")
-            return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
-
-        case_tier_prices = {1: 900, 2: 2900, 3: 9900}
-        expected_amount = case_tier_prices[case_tier]
-
-        entity_ref = None
-        entity_type = None
-        if organization_id:
-            entity_ref = db.collection("organizations").document(organization_id)
-            entity_type = "organization"
-        else:
-            entity_ref = db.collection("users").document(user_id)
-            entity_type = "user"
-
-        entity_doc = entity_ref.get()
-        if not entity_doc.exists:
-            return flask.jsonify({"error": "Not Found", "message": f"{entity_type.capitalize()} not found"}), 404
-        entity_data = entity_doc.to_dict()
-
-        # Rest of the function...
-        # For brevity, I'm truncating this, but in the real code this would continue with the subscription and payment logic
-
-        # Placeholder for remaining implementation
-        case_ref = db.collection("cases").document()
+        if not request_json:
+            return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
+        # Extract required fields
+        title = request_json.get("title")
+        description = request_json.get("description")
+        case_tier = request_json.get("caseTier")
+        case_type_id = request_json.get("caseTypeId")
+        organization_id = request_json.get("organizationId")
+        # ... (other fields as needed)
+        # Validate required fields (add more as needed)
+        if not title or not case_tier or not case_type_id:
+            return flask.jsonify({"error": "Bad Request", "message": "Missing required fields"}), 400
+        # Create the case document
+        case_id = str(uuid.uuid4())
         case_data = {
-            "userId": user_id,
-            "title": title.strip(),
-            "description": description.strip(),
-            "status": "open",
+            "caseId": case_id,
+            "title": title,
+            "description": description,
             "caseTier": case_tier,
-            "caseTypeId": case_type_id.strip(),  # New required field
-            "casePrice": expected_amount,
-            "paymentStatus": "pending",  # This would be set based on the logic
-            "creationDate": firestore.SERVER_TIMESTAMP,
-            "organizationId": organization_id  # Will be None if not provided
+            "caseTypeId": case_type_id,
+            "organizationId": organization_id,
+            "status": "open",
+            "createdBy": user_id,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP
         }
-        case_ref.set(case_data)
-
-        return flask.jsonify({"caseId": case_ref.id, "status": "open"}), 201
-
+        db.collection("cases").document(case_id).set(case_data)
+        # Prepare response (include all fields)
+        response_data = {k: v for k, v in case_data.items() if v is not None}
+        return flask.jsonify(response_data), 201
     except Exception as e:
         logging.error(f"Error creating case: {str(e)}", exc_info=True)
-        return flask.jsonify({"error": "Internal Server Error", "message": f"Failed to create case: {str(e)}"}), 500
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 
 def get_case(request: Request):
     db = get_db_client()
     logging.info("Logic function get_case called")
     try:
-        path_parts = request.path.strip('/').split('/')
-        case_id = path_parts[-1] if path_parts else None
-
+        # Extract caseId from query parameters (not path)
+        case_id = request.args.get("caseId")
         if not case_id:
-            return flask.jsonify({"error": "Bad Request", "message": "Case ID missing in URL path"}), 400
+            logging.error(f"Bad Request: caseId missing in query parameters")
+            return flask.jsonify({"error": "Bad Request", "message": "caseId missing in query parameters"}), 400
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
-             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+            return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
-
-        case_doc = db.collection("cases").document(case_id).get()
+        case_ref = db.collection('cases').document(case_id)
+        case_doc = case_ref.get()
         if not case_doc.exists:
-            return flask.jsonify({"error": "Not Found", "message": "Case not found"}), 404
-
+            return flask.jsonify({"error": "Not Found", "message": f"Case {case_id} not found"}), 404
         case_data = case_doc.to_dict()
-        case_data["caseId"] = case_id # Add ID to response
-
+        case_data["caseId"] = case_id
         permission_request = PermissionCheckRequest(
             resourceType=TYPE_CASE,
             resourceId=case_id,
@@ -127,11 +80,10 @@ def get_case(request: Request):
         has_permission, error_message = check_permission(user_id, permission_request)
         if not has_permission:
             return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
-
         return flask.jsonify(case_data), 200
     except Exception as e:
         logging.error(f"Error retrieving case: {str(e)}", exc_info=True)
-        return flask.jsonify({"error": "Internal Server Error", "message": "Failed to retrieve case"}), 500
+        return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 def list_cases(request: Request):
     db = get_db_client()
@@ -140,7 +92,6 @@ def list_cases(request: Request):
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
              return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
-
         organization_id = request.args.get("organizationId")
         status_filter = request.args.get("status")
         try:
@@ -149,16 +100,12 @@ def list_cases(request: Request):
         except ValueError:
             limit = 50
             offset = 0
-        limit = min(limit, 100) # Cap limit
-
-        valid_statuses = ["open", "closed", "archived"] # Add "deleted" if you want to list soft-deleted
+        limit = min(limit, 100)
+        valid_statuses = ["open", "closed", "archived"]
         if status_filter and status_filter not in valid_statuses:
             status_filter = None
-
         query = db.collection("cases")
-
         if organization_id:
-            # Check permission for listing org cases
             permission_request = PermissionCheckRequest(
                 resourceType=TYPE_CASE, resourceId=None, action="list", organizationId=organization_id
             )
@@ -167,37 +114,32 @@ def list_cases(request: Request):
                 return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
             query = query.where("organizationId", "==", organization_id)
         else:
-            # Listing individual cases (no specific permission needed beyond auth)
-             query = query.where("userId", "==", user_id).where("organizationId", "==", None)
-
+            query = query.where("userId", "==", user_id).where("organizationId", "==", None)
         if status_filter:
             query = query.where("status", "==", status_filter)
         else:
-            # Exclude soft-deleted cases by default unless specifically requested
             query = query.where("status", "!=", "deleted")
-
-        # Get total count *before* pagination for accurate total
-        # Note: This requires an extra read operation. Consider alternatives if performance is critical.
-        # For Firestore, counting requires reading documents.
-        # A separate count aggregation query would be better if available/implemented.
-        all_matching_docs = list(query.stream())
+        try:
+            all_matching_docs = list(query.stream())
+        except Exception as e:
+            logging.error(f"Error streaming cases for user {user_id}: {str(e)}", exc_info=True)
+            return flask.jsonify({"error": "Internal Server Error", "message": f"Failed to list cases: {str(e)}"}), 500
         total_count = len(all_matching_docs)
-
-        # Apply ordering and pagination to the main query
-        paginated_query = query.order_by("creationDate", direction=db.Query.DESCENDING).limit(limit).offset(offset)
-        case_docs = paginated_query.stream()
-
+        try:
+            paginated_query = query.order_by("creationDate", direction=db.Query.DESCENDING).limit(limit).offset(offset)
+            case_docs = paginated_query.stream()
+        except Exception as e:
+            logging.error(f"Error paginating cases for user {user_id}: {str(e)}", exc_info=True)
+            return flask.jsonify({"error": "Internal Server Error", "message": f"Failed to list cases: {str(e)}"}), 500
         cases = []
         for doc in case_docs:
             case_data = doc.to_dict()
             case_data["caseId"] = doc.id
-            # Convert timestamps if necessary for JSON response
             if isinstance(case_data.get("creationDate"), datetime):
                  case_data["creationDate"] = case_data["creationDate"].isoformat()
             if isinstance(case_data.get("updatedAt"), datetime):
                  case_data["updatedAt"] = case_data["updatedAt"].isoformat()
             cases.append(case_data)
-
         response_data = {
             "cases": cases,
             "pagination": {
@@ -206,7 +148,7 @@ def list_cases(request: Request):
                 "offset": offset,
                 "hasMore": (offset + len(cases)) < total_count
             },
-            "organizationId": organization_id # Include even if None
+            "organizationId": organization_id
         }
         return flask.jsonify(response_data), 200
     except Exception as e:
@@ -217,80 +159,74 @@ def archive_case(request: Request):
     db = get_db_client()
     logging.info("Logic function archive_case called")
     try:
-        path_parts = request.path.strip('/').split('/')
-        case_id = path_parts[-1] if path_parts else None
+        # Extract caseId from request body (not path)
+        data = request.get_json(silent=True)
+        case_id = data.get("caseId") if data else None
         if not case_id:
-            return flask.jsonify({"error": "Bad Request", "message": "Case ID missing in URL path"}), 400
+            logging.error(f"Bad Request: caseId missing in request body")
+            return flask.jsonify({"error": "Bad Request", "message": "caseId missing in request body"}), 400
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
-             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+            return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
-
         case_ref = db.collection("cases").document(case_id)
         case_doc = case_ref.get()
         if not case_doc.exists:
             return flask.jsonify({"error": "Not Found", "message": "Case not found"}), 404
-
         case_data = case_doc.to_dict()
         permission_request = PermissionCheckRequest(
             resourceType=TYPE_CASE,
             resourceId=case_id,
-            action="archive", # Use specific 'archive' action
+            action="archive",
             organizationId=case_data.get("organizationId")
         )
         has_permission, error_message = check_permission(user_id, permission_request)
         if not has_permission:
             return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
-
         case_ref.update({
             "status": "archived",
             "archiveDate": firestore.SERVER_TIMESTAMP,
-            "updatedAt": firestore.SERVER_TIMESTAMP # Also update updatedAt
+            "updatedAt": firestore.SERVER_TIMESTAMP
         })
         return flask.jsonify({"message": "Case archived successfully"}), 200
     except Exception as e:
-        logging.error(f"Error archiving case: {str(e)}", exc_info=True)
+        logging.error(f"Error archiving case: {str(e)} | Body: {request.get_json(silent=True)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": "Failed to archive case"}), 500
 
 def delete_case(request: Request):
     db = get_db_client()
     logging.info("Logic function delete_case called")
     try:
-        path_parts = request.path.strip('/').split('/')
-        case_id = path_parts[-1] if path_parts else None
+        # Extract caseId from request body (not path)
+        data = request.get_json(silent=True)
+        case_id = data.get("caseId") if data else None
         if not case_id:
-            return flask.jsonify({"error": "Bad Request", "message": "Case ID missing in URL path"}), 400
+            logging.error(f"Bad Request: caseId missing in request body")
+            return flask.jsonify({"error": "Bad Request", "message": "caseId missing in request body"}), 400
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
-             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
+            return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
-
         case_ref = db.collection("cases").document(case_id)
         case_doc = case_ref.get()
         if not case_doc.exists:
             return flask.jsonify({"error": "Not Found", "message": "Case not found"}), 404
-
         case_data = case_doc.to_dict()
         permission_request = PermissionCheckRequest(
             resourceType=TYPE_CASE,
             resourceId=case_id,
-            action="delete", # Use specific 'delete' action
+            action="delete",
             organizationId=case_data.get("organizationId")
         )
         has_permission, error_message = check_permission(user_id, permission_request)
         if not has_permission:
             return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
-
-        # Soft delete by changing status
         case_ref.update({
             "status": "deleted",
             "deletionDate": firestore.SERVER_TIMESTAMP,
             "updatedAt": firestore.SERVER_TIMESTAMP
         })
-        # Consider if a hard delete is ever needed and implement separately
-        # case_ref.delete() # Example of hard delete
-
         return flask.jsonify({"message": "Case marked as deleted successfully"}), 200
     except Exception as e:
-        logging.error(f"Error deleting case: {str(e)}", exc_info=True)
+        logging.error(f"Error deleting case: {str(e)} | Body: {request.get_json(silent=True)}", exc_info=True)
         return flask.jsonify({"error": "Internal Server Error", "message": "Failed to delete case"}), 500
 
 

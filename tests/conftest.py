@@ -10,6 +10,7 @@ import sys
 import re
 import stripe, uuid, time
 from tests.helpers import stripe_test_helpers
+import logging
 
 # Add functions/src to the Python path if not already there
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../functions/src')))
@@ -423,3 +424,33 @@ def stripe_test_customer(stripe_test_clock):
         stripe.Customer.delete(customer.id)
     except Exception:
         pass
+
+# Path to the test organization ID file
+TEST_ORG_ID_FILE = os.path.join(os.path.dirname(__file__), 'test_data/test_org_id.txt')
+
+@pytest.fixture
+def test_organization(api_client):
+    """Create a test organization and clean it up after the test."""
+    org_data = {
+        "name": f"Test Organization {uuid.uuid4()}",
+        "type": "legal_firm",
+        "address": "123 Test Street, Test City",
+        "phone": "123-456-7890",
+        "email": "test@example.com"
+    }
+    response = api_client.post("/organizations", json=org_data)
+    assert response.status_code == 201, f"Failed to create test organization: {response.text}"
+    org_id = response.json()["organizationId"]
+    logging.info(f"Created test organization with ID: {org_id}")
+    os.makedirs(os.path.dirname(TEST_ORG_ID_FILE), exist_ok=True)
+    with open(TEST_ORG_ID_FILE, "w") as f:
+        f.write(org_id)
+    yield org_id
+    try:
+        response = api_client.delete(f"/organizations/{org_id}")
+        if response.status_code == 200:
+            logging.info(f"Deleted test organization with ID: {org_id}")
+        else:
+            logging.warning(f"Failed to delete test organization: {response.text}")
+    except Exception as e:
+        logging.error(f"Error deleting test organization: {str(e)}")

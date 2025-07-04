@@ -374,115 +374,41 @@ Deletes an organization. Only possible if there's no active subscription and cal
 - `404 Not Found`: Organization not found
 - `500 Internal Server Error`: Internal server error
 
-### Organization Membership
+## Organization Membership API (v1)
 
-#### POST /organizations/members
-Adds a new member to an organization. Only administrators can add members.
+All endpoints now use only body or query parameters. Path parameters are no longer supported for organization membership operations.
 
-**Request Body:**
-```json
-{
-  "organizationId": "string",
-  "userId": "string",
-  "role": "staff|administrator"
-}
-```
-**Responses:**
-- `200 OK`: Member added successfully
-  ```json
-  {
-    "success": true,
-    "membershipId": "string",
-    "userId": "string",
-    "organizationId": "string",
-    "role": "string"
-  }
-  ```
-- `400 Bad Request`: Bad request
-- `401 Unauthorized`: Unauthorized
-- `403 Forbidden`: Forbidden (caller is not an administrator)
-- `404 Not Found`: Organization not found
-- `409 Conflict`: User is already a member
-- `500 Internal Server Error`: Internal server error
+### POST /organizations/members
+- Adds the authenticated user (end_user_id) to the specified organization with the given role.
+- **Body:** `{ "organizationId": string, "userId": string (ignored), "role": "administrator" | "staff" }`
+- **Behavior:** The backend always adds the authenticated user, not the userId in the body.
+- **Response:** 201 with member data, or 409 if already a member.
 
-#### GET /organizations/members
-Lists all members of an organization. Accessible by organization members.
+### DELETE /organizations/members
+- Removes the authenticated user from the specified organization.
+- **Body:** `{ "organizationId": string, "userId": string (ignored) }`
+- **Behavior:** The backend always removes the authenticated user.
+- **Response:** 200 on success, 404 if not a member, 400 if last admin.
 
-**Query Parameters:**
-- `organizationId` (string, required): ID of the organization
+### GET /organizations/members
+- Lists all members of the specified organization.
+- **Query:** `organizationId=...`
+- **Response:** 200 with member list.
 
-**Responses:**
-- `200 OK`: List of members
-  ```json
-  {
-    "members": [
-      {
-        "userId": "string",
-        "role": "string",
-        "addedAt": "string"
-      }
-    ]
-  }
-  ```
-- `401 Unauthorized`: Unauthorized
-- `403 Forbidden`: Forbidden
-- `404 Not Found`: Organization not found
-- `500 Internal Server Error`: Internal server error
+### PUT /organizations/members
+- Updates the role of the authenticated user in the organization.
+- **Body:** `{ "organizationId": string, "userId": string (ignored), "newRole": "administrator" | "staff" }`
+- **Response:** 200 on success, 400 if last admin.
 
-#### PUT /organizations/members
-Updates a member's role in the organization. Only administrators can update roles.
+### GET /organizations/members/role
+- Gets the role of the authenticated user in the organization.
+- **Query:** `organizationId=...`
+- **Response:** `{ "role": string, "isMember": bool }`
 
-**Request Body:**
-```json
-{
-  "organizationId": "string",
-  "userId": "string",
-  "newRole": "staff|administrator"
-}
-```
-**Responses:**
-- `200 OK`: Role updated successfully
-  ```json
-  {
-    "success": true,
-    "membershipId": "string",
-    "userId": "string",
-    "organizationId": "string",
-    "role": "string"
-  }
-  ```
-- `400 Bad Request`: Bad request
-- `401 Unauthorized`: Unauthorized
-- `403 Forbidden`: Forbidden (caller is not an administrator)
-- `404 Not Found`: Member or organization not found
-- `500 Internal Server Error`: Internal server error
-
-#### DELETE /organizations/members
-Removes a member from an organization. Only administrators can remove members.
-
-**Request Body:**
-```json
-{
-  "organizationId": "string",
-  "userId": "string"
-}
-```
-**Responses:**
-- `200 OK`: Member removed successfully
-  ```json
-  {
-    "success": true,
-    "userId": "string",
-    "organizationId": "string"
-  }
-  ```
-- `401 Unauthorized`: Unauthorized
-- `403 Forbidden`: Forbidden (caller is not an administrator)
-- `404 Not Found`: Member or organization not found
-- `500 Internal Server Error`: Internal server error
-
-> **Migration Note:**
-> The organization membership endpoints have been refactored to use only body/query parameters. All previous endpoints with path parameters (e.g., /organizations/{organizationId}/members) are deprecated and removed. Update your API clients accordingly.
+#### Migration Notes
+- All path-parameter endpoints for organization membership have been removed.
+- All tests now use in-memory Firestore mocks with full support for chained .where() and .limit() calls.
+- The backend always uses the authenticated user for add/remove/role operations, regardless of userId in the body.
 
 ### Case Management
 

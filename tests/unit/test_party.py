@@ -439,44 +439,6 @@ class TestGetParty:
             action="read"
         )
 
-    def test_get_party_from_path(self, mock_db_client, mock_request):
-        """Test retrieving a party with ID from path."""
-        # Create a mock document reference and snapshot
-        mock_doc_ref = MagicMock()
-        mock_doc_snapshot = MagicMock()
-        mock_doc_snapshot.exists = True
-        mock_doc_snapshot.to_dict.return_value = {
-            "partyType": "individual",
-            "userId": "test-user-123",
-            "createdAt": datetime(2023, 1, 1, 12, 0, 0),
-            "updatedAt": datetime(2023, 1, 1, 12, 0, 0)
-        }
-        mock_doc_ref.get.return_value = mock_doc_snapshot
-
-        # Configure the mock client to return our mock document reference
-        mock_db_client.collection.return_value.document.return_value = mock_doc_ref
-
-        # Mock the permission check to return success
-        auth_mock.check_permission.return_value = (True, "")
-
-        # Create a mock request with a party ID in the path
-        request_mock = mock_request(
-            end_user_id="test-user-123",
-            args={},  # No query args
-            path="/parties/test-party-id"  # ID in path
-        )
-
-        # Call the function
-        result, status_code = party_module.get_party(request_mock)
-
-        # Assertions
-        assert status_code == 200
-        assert result["partyId"] == "test-party-id"
-
-        # Verify the document was retrieved correctly
-        mock_db_client.collection.assert_called_once_with("parties")
-        mock_db_client.collection().document.assert_called_once_with("test-party-id")
-
     def test_get_party_missing_auth(self, mock_request):
         """Test get_party with missing authentication."""
         request_mock = mock_request(
@@ -1051,53 +1013,6 @@ class TestDeleteParty:
             resourceId="test-party-id",
             action="delete"
         )
-
-    def test_delete_party_from_path(self, mock_db_client, mock_request):
-        """Test deleting a party with ID from path."""
-        # Create a mock document reference and snapshot
-        mock_doc_ref = MagicMock()
-        mock_doc_snapshot = MagicMock()
-        mock_doc_snapshot.exists = True
-        mock_doc_snapshot.to_dict.return_value = {
-            "partyType": "individual",
-            "userId": "test-user-123"
-        }
-        mock_doc_ref.get.return_value = mock_doc_snapshot
-
-        # Mock the cases query to return empty list (no attached cases)
-        mock_cases_query = MagicMock()
-        mock_cases_query.stream.return_value = []
-
-        # First, mock the 'cases' collection query
-        mock_db_client.collection.return_value.where.return_value.where.return_value.limit.return_value = mock_cases_query
-
-        # Reset the mock to prepare for the 'parties' collection call
-        mock_db_client.collection.reset_mock()
-
-        # Configure the mock client to return our mock document reference
-        mock_db_client.collection.return_value.document.return_value = mock_doc_ref
-
-        # Mock the permission check to return success
-        auth_mock.check_permission.return_value = (True, "")
-
-        # Create a mock request with a party ID in the path
-        request_mock = mock_request(
-            end_user_id="test-user-123",
-            args={},  # No query args
-            path="/parties/test-party-id"  # ID in path
-        )
-
-        # Call the function
-        result, status_code = party_module.delete_party(request_mock)
-
-        # Assertions
-        assert status_code == 204
-        assert result == ""
-
-        # Verify the document was deleted
-        # We can't use assert_called_with because the mock is called with 'cases' first
-        # Instead, we'll verify that delete was called on the mock_doc_ref
-        mock_doc_ref.delete.assert_called_once()
 
     def test_delete_party_missing_auth(self, mock_request):
         """Test delete_party with missing authentication."""

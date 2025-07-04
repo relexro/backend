@@ -46,7 +46,7 @@ class TestCreateCase:
         logger.info(f"Successfully created case with ID: {case_id}")
 
         # Verify the case was created by getting it
-        get_response = api_client.get(f"/cases/{case_id}")
+        get_response = api_client.get(f"/cases?caseId={case_id}")
         assert get_response.status_code == 200, f"Failed to get created case: {get_response.text}"
 
         # Clean up - delete the case
@@ -84,16 +84,16 @@ class TestCreateCase:
 
         # Verify the response
         data = response.json()
-        assert "id" in data, "Response does not contain id"
+        assert "caseId" in data, "Response does not contain caseId"
         assert "title" in data, "Response does not contain title"
         assert "organizationId" in data, "Response does not contain organizationId"
         assert data["organizationId"] == test_organization, "Organization ID in response does not match"
 
-        case_id = data["id"]
+        case_id = data["caseId"]
         logger.info(f"Successfully created organization case with ID: {case_id}")
 
         # Verify the case was created by getting it
-        get_response = api_client.get(f"/cases/{case_id}")
+        get_response = api_client.get(f"/cases?caseId={case_id}")
         assert get_response.status_code == 200, f"Failed to get created case: {get_response.text}"
 
         # Clean up - delete the case
@@ -173,7 +173,7 @@ class TestCreateCase:
 
         if create_response.status_code == 201:
             data = create_response.json()
-            case_id = data["id"]
+            case_id = data["caseId"]
             logger.info(f"Created test organization case with ID: {case_id} for listing test")
 
         # Make the API request to list cases
@@ -190,7 +190,7 @@ class TestCreateCase:
         if case_id:
             found = False
             for case in data["cases"]:
-                if case["id"] == case_id:
+                if case["caseId"] == case_id:
                     found = True
                     break
 

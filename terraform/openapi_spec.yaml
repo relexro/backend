@@ -22,6 +22,7 @@ securityDefinitions:
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     x-google-audiences: "${project_id}"
     description: "Firebase ID token in the Authorization header with format 'Bearer <token>'."
+    scopes: {}
 
 # Add global security requirement
 security:
@@ -473,6 +474,14 @@ paths:
             properties:
               caseId: {type: string, description: Unique identifier for the case.}
               status: {type: string, description: Status of the case (initially "open").}
+              title: {type: string, description: Title of the case}
+              description: {type: string, description: Description of the case}
+              caseTier: {type: integer, description: Case tier level}
+              caseTypeId: {type: string, description: The ID of the case type for this case}
+              organizationId: {type: string, description: Organization ID for organization cases}
+              createdBy: {type: string, description: ID of the user who created the case}
+              createdAt: {type: string, format: date-time, description: When the case was created}
+              updatedAt: {type: string, format: date-time, description: When the case was last updated}
         '400':
           description: Bad request (e.g., invalid input format)
           schema: {$ref: '#/definitions/BadRequest'}
@@ -485,6 +494,38 @@ paths:
         '403':
           description: Forbidden (e.g., insufficient permissions)
           schema: {$ref: '#/definitions/Forbidden'}
+        '500':
+          description: Internal server error
+          schema: {$ref: '#/definitions/InternalServerError'}
+    get:
+      summary: Get case details
+      description: |
+        Retrieves detailed information about a specific case. The caseId must be provided as a query parameter (?caseId=...).
+      operationId: relex_backend_get_case
+      x-google-backend:
+        address: '${function_uris["relex-backend-get-case"]}'
+        path_translation: CONSTANT_ADDRESS
+        deadline: 30.0
+      parameters:
+      - name: caseId
+        in: query
+        required: true
+        type: string
+        description: ID of the case to retrieve
+      responses:
+        '200':
+          description: Case details retrieved successfully
+          schema:
+            $ref: '#/definitions/Case'
+        '401':
+          description: Unauthorized
+          schema: {$ref: '#/definitions/Unauthorized'}
+        '403':
+          description: Forbidden (e.g., user doesn't have access to the case)
+          schema: {$ref: '#/definitions/Forbidden'}
+        '404':
+          description: Case not found
+          schema: {$ref: '#/definitions/NotFound'}
         '500':
           description: Internal server error
           schema: {$ref: '#/definitions/InternalServerError'}
@@ -1447,159 +1488,6 @@ paths:
           schema: {$ref: '#/definitions/Unauthorized'}
         '404':
           description: Organization not found
-          schema: {$ref: '#/definitions/NotFound'}
-        '500':
-          description: Internal server error
-          schema: {$ref: '#/definitions/InternalServerError'}
-  /cases/{caseId}:
-    get:
-      summary: Get case details
-      description: Retrieves detailed information about a specific case.
-      operationId: relex_backend_get_case
-      x-google-backend:
-        address: '${function_uris["relex-backend-get-case"]}'
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-      - name: caseId
-        in: path
-        required: true
-        type: string
-        description: ID of the case to retrieve
-      responses:
-        '200':
-          description: Case details retrieved successfully
-          schema:
-            $ref: '#/definitions/Case'
-        '401':
-          description: Unauthorized
-          schema: {$ref: '#/definitions/Unauthorized'}
-        '403':
-          description: Forbidden (e.g., user doesn't have access to the case)
-          schema: {$ref: '#/definitions/Forbidden'}
-        '404':
-          description: Case not found
-          schema: {$ref: '#/definitions/NotFound'}
-        '500':
-          description: Internal server error
-          schema: {$ref: '#/definitions/InternalServerError'}
-    delete:
-      summary: Mark a case as deleted
-      description: Changes a case status to "deleted". Deleted cases are only shown when specifically requested.
-      operationId: relex_backend_delete_case
-      x-google-backend:
-        address: '${function_uris["relex-backend-delete-case"]}'
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-      - name: caseId
-        in: path
-        required: true
-        type: string
-        description: ID of the case to mark as deleted
-      responses:
-        '200':
-          description: Case marked as deleted successfully
-          schema:
-            type: object
-            properties:
-              success: {type: boolean, description: Indicates successful operation}
-              caseId: {type: string, description: ID of the deleted case}
-              status: {type: string, description: New status ("deleted")}
-        '401':
-          description: Unauthorized
-          schema: {$ref: '#/definitions/Unauthorized'}
-        '403':
-          description: Forbidden (e.g., user doesn't have access to the case)
-          schema: {$ref: '#/definitions/Forbidden'}
-        '404':
-          description: Case not found
-          schema: {$ref: '#/definitions/NotFound'}
-        '500':
-          description: Internal server error
-          schema: {$ref: '#/definitions/InternalServerError'}
-  /cases/{caseId}/archive:
-    put:
-      summary: Archive a case
-      description: Changes a case status to "archived". Archived cases are not shown in the default case listing.
-      operationId: relex_backend_archive_case
-      x-google-backend:
-        address: '${function_uris["relex-backend-archive-case"]}'
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-      - name: caseId
-        in: path
-        required: true
-        type: string
-        description: ID of the case to archive
-      responses:
-        '200':
-          description: Case archived successfully
-          schema:
-            type: object
-            properties:
-              success: {type: boolean, description: Indicates successful operation}
-              caseId: {type: string, description: ID of the archived case}
-              status: {type: string, description: New status ("archived")}
-        '401':
-          description: Unauthorized
-          schema: {$ref: '#/definitions/Unauthorized'}
-        '403':
-          description: Forbidden (e.g., user doesn't have access to the case)
-          schema: {$ref: '#/definitions/Forbidden'}
-        '404':
-          description: Case not found
-          schema: {$ref: '#/definitions/NotFound'}
-        '500':
-          description: Internal server error
-          schema: {$ref: '#/definitions/InternalServerError'}
-  /cases/{caseId}/assign:
-    post:
-      summary: Assign a case to a user
-      description: Assigns an organization case to a specific user. Only available for organization administrators.
-      operationId: relex_backend_assign_case
-      x-google-backend:
-        address: '${function_uris["relex-backend-assign-case"]}'
-        path_translation: CONSTANT_ADDRESS
-        deadline: 30.0
-      parameters:
-      - name: caseId
-        in: path
-        required: true
-        type: string
-        description: ID of the case to assign
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required: [userId]
-          properties:
-            userId: {type: string, description: ID of the user to assign the case to}
-            notes: {type: string, description: Optional notes about the assignment}
-      responses:
-        '200':
-          description: Case assigned successfully
-          schema:
-            type: object
-            properties:
-              success: {type: boolean, description: Indicates successful operation}
-              caseId: {type: string, description: ID of the assigned case}
-              userId: {type: string, description: ID of the user the case was assigned to}
-              assignedAt: {type: string, format: date-time, description: When the assignment was made}
-              notes: {type: string, description: Notes about the assignment}
-        '400':
-          description: Bad request
-          schema: {$ref: '#/definitions/BadRequest'}
-        '401':
-          description: Unauthorized
-          schema: {$ref: '#/definitions/Unauthorized'}
-        '403':
-          description: Forbidden (not an administrator of the organization)
-          schema: {$ref: '#/definitions/Forbidden'}
-        '404':
-          description: Case or user not found
           schema: {$ref: '#/definitions/NotFound'}
         '500':
           description: Internal server error

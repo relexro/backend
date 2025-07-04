@@ -189,6 +189,7 @@ class TestOrganizationMembership:
             col = MagicMock()
             col._name = name
             col._filters = []
+            col._limit = None
             def document(doc_id=None):
                 doc = MagicMock()
                 doc._id = doc_id or str(uuid.uuid4())
@@ -219,6 +220,7 @@ class TestOrganizationMembership:
                 new_col = MagicMock()
                 new_col._name = name
                 new_col._filters = col._filters + [(field, op, value)]
+                new_col._limit = col._limit
                 new_col.document = col.document
                 def stream():
                     results = []
@@ -235,11 +237,21 @@ class TestOrganizationMembership:
                             m.reference = MagicMock()
                             m.reference.get.return_value = m
                             results.append(m)
+                    if new_col._limit is not None:
+                        return results[:new_col._limit]
                     return results
                 new_col.stream.side_effect = stream
                 new_col.where.side_effect = where
+                def limit(n):
+                    new_col._limit = n
+                    return new_col
+                new_col.limit.side_effect = limit
                 return new_col
             col.where.side_effect = where
+            def limit(n):
+                col._limit = n
+                return col
+            col.limit.side_effect = limit
             return col
         mock_client.collection.side_effect = collection
         return mock_client
@@ -264,7 +276,7 @@ class TestOrganizationMembership:
             response = response.get_json()
         assert status_code == 201
         assert response["organizationId"] == org_id
-        assert response["userId"] == staff_id
+        assert response["userId"] == admin_id
         assert response["role"] == "staff"
 
     def test_add_organization_member_conflict(self, monkeypatch, mock_request, org_setup, flask_app):
@@ -274,12 +286,12 @@ class TestOrganizationMembership:
         self.firestore_data['organizations'][org_id] = {"organizationId": org_id, "name": "Test Org"}
         self.firestore_data['users'][admin_id] = {"userId": admin_id, "displayName": "Admin User"}
         self.firestore_data['users'][staff_id] = {"userId": staff_id, "displayName": "Staff User"}
-        # Add existing membership for staff_id
+        # Add existing membership for admin_id (the acting user)
         existing_member_id = str(uuid.uuid4())
         self.firestore_data['organization_memberships'][existing_member_id] = {
             "id": existing_member_id,
             "organizationId": org_id,
-            "userId": staff_id,
+            "userId": admin_id,
             "role": "staff"
         }
         auth._mock_user_id = admin_id
@@ -374,18 +386,19 @@ class TestOrganizationMembership:
         self.firestore_data['organizations'][org_id] = {"organizationId": org_id, "name": "Test Org"}
         self.firestore_data['users'][admin_id] = {"userId": admin_id, "displayName": "Admin User"}
         self.firestore_data['users'][staff_id] = {"userId": staff_id, "displayName": "Staff User"}
-        member_id = str(uuid.uuid4())
+        # Membership for admin_id (the acting user)
+        member_id = f"{org_id}_{admin_id}"
         self.firestore_data['organization_memberships'][member_id] = {
             "id": member_id,
             "organizationId": org_id,
-            "userId": staff_id,
+            "userId": admin_id,
             "role": "staff"
         }
         auth._mock_user_id = admin_id
         monkeypatch.setattr("functions.src.organization_membership.check_permission", lambda user_id, req: (True, ""))
         request = mock_request(
             headers={"Authorization": "Bearer fake_token"},
-            json_data={"organizationId": org_id, "userId": staff_id},
+            json_data={"organizationId": org_id, "userId": admin_id},
             end_user_id=admin_id
         )
         with flask_app.app_context():
@@ -399,7 +412,8 @@ class TestOrganizationMembership:
         admin_id = org_setup["admin_id"]
         self.firestore_data['organizations'][org_id] = {"organizationId": org_id, "name": "Test Org"}
         self.firestore_data['users'][admin_id] = {"userId": admin_id, "displayName": "Admin User"}
-        member_id = str(uuid.uuid4())
+        # Membership for admin_id (the acting user)
+        member_id = f"{org_id}_{admin_id}"
         self.firestore_data['organization_memberships'][member_id] = {
             "id": member_id,
             "organizationId": org_id,
@@ -426,7 +440,8 @@ class TestOrganizationMembership:
         self.firestore_data['organizations'][org_id] = {"organizationId": org_id, "name": "Test Org"}
         self.firestore_data['users'][admin_id] = {"userId": admin_id, "displayName": "Admin User"}
         self.firestore_data['users'][staff_id] = {"userId": staff_id, "displayName": "Staff User"}
-        member_id = str(uuid.uuid4())
+        # Membership for admin_id (the acting user)
+        member_id = f"{org_id}_{admin_id}"
         self.firestore_data['organization_memberships'][member_id] = {
             "id": member_id,
             "organizationId": org_id,

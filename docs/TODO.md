@@ -62,6 +62,11 @@
 - [x] **Refactor Research Backend from BigQuery to Exa API.**
 - [x] **Add `exa-py` dependency and update Terraform for `EXA_API_KEY` secret.**
 - [x] **Initial project setup and CI/CD pipeline.**
+- [x] Refactor all organization membership endpoints to use only body/query parameters (no path params)
+- [x] Update OpenAPI spec and backend to match new contract
+- [x] Update all organization membership tests to use new endpoints and contract
+- [x] Update Firestore mocks to support chained .where() and .limit() for unit tests
+- [x] All organization membership unit tests are green and warning-free
 
 # TODO for API Readiness
 
@@ -77,3 +82,4 @@
 - [ ] Clean up obsolete/legacy code and tests
 - [ ] Mark any endpoints that are not yet production-ready
 - [ ] Add any additional tasks discovered during deployment/testing
+- [ ] Run and fix all remaining integration, E2E, Stripe, party, and RBAC tests until the entire suite is green and warning-free

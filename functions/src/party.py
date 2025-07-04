@@ -117,14 +117,9 @@ def get_party(request: Request):
              return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
         user_id = request.end_user_id
 
-        party_id = request.args.get("partyId") # Get ID from query param
+        party_id = request.args.get("partyId") # Only allow from query param
         if not party_id:
-            # Fallback: try getting from path if main.py routes differently
-            path_parts = request.path.strip('/').split('/')
-            if len(path_parts) >= 2 and path_parts[-2] == 'parties':
-                 party_id = path_parts[-1]
-            if not party_id:
-                 return {"error": "Bad Request", "message": "partyId is required in query parameters or URL path"}, 400
+            return {"error": "Bad Request", "message": "partyId is required in query parameters"}, 400
 
         party_ref = get_db_client().collection("parties").document(party_id)
         party_doc = party_ref.get()
@@ -261,13 +256,9 @@ def delete_party(request: Request):
              return {"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}, 401
         user_id = request.end_user_id
 
-        party_id = request.args.get("partyId") # Get ID from query param
+        party_id = request.args.get("partyId") # Only allow from query param
         if not party_id:
-            path_parts = request.path.strip('/').split('/')
-            if len(path_parts) >= 2 and path_parts[-2] == 'parties':
-                 party_id = path_parts[-1]
-            if not party_id:
-                 return {"error": "Bad Request", "message": "partyId is required in query parameters or URL path"}, 400
+            return {"error": "Bad Request", "message": "partyId is required in query parameters"}, 400
 
         party_ref = get_db_client().collection("parties").document(party_id)
         party_doc = party_ref.get()
@@ -281,7 +272,6 @@ def delete_party(request: Request):
             return {"error": message}, 403
 
         # Check if party is attached to any *active* cases?
-        # Use where() method with keyword arguments instead of positional arguments
         cases_query = get_db_client().collection("cases").where(field_path="attachedPartyIds", op_string="array_contains", value=party_id).where(field_path="status", op_string="!=", value="deleted").limit(1).stream()
         if list(cases_query):
             return {"error": "Conflict", "message": "Cannot delete party attached to active cases"}, 409
