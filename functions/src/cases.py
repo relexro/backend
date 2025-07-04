@@ -7,8 +7,20 @@ from common.clients import get_db_client, get_storage_client
 from auth import check_permission, PermissionCheckRequest, TYPE_CASE, TYPE_ORGANIZATION
 from party import get_party
 from firebase_admin import firestore
+from google.cloud import firestore
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 logging.basicConfig(level=logging.INFO)
+
+def _sanitize_firestore_dict(data):
+    """Recursively replace Firestore Sentinel values with None or a string for JSON serialization."""
+    if isinstance(data, dict):
+        return {k: _sanitize_firestore_dict(v) for k, v in data.items() if v is not firestore.DELETE_FIELD}
+    elif isinstance(data, list):
+        return [_sanitize_firestore_dict(v) for v in data]
+    elif data is SERVER_TIMESTAMP or str(data) == str(SERVER_TIMESTAMP):
+        return None
+    return data
 
 def create_case(request: Request):
     db = get_db_client()
@@ -20,36 +32,27 @@ def create_case(request: Request):
         user_id = request.end_user_id
         if not request_json:
             return flask.jsonify({"error": "Bad Request", "message": "No JSON data provided"}), 400
-        # Extract required fields
-        title = request_json.get("title")
-        description = request_json.get("description")
-        case_tier = request_json.get("caseTier")
-        case_type_id = request_json.get("caseTypeId")
-        organization_id = request_json.get("organizationId")
-        # ... (other fields as needed)
-        # Validate required fields (add more as needed)
-        if not title or not case_tier or not case_type_id:
-            return flask.jsonify({"error": "Bad Request", "message": "Missing required fields"}), 400
-        # Create the case document
-        case_id = str(uuid.uuid4())
+        # Set createdBy to the authenticated user
         case_data = {
-            "caseId": case_id,
-            "title": title,
-            "description": description,
-            "caseTier": case_tier,
-            "caseTypeId": case_type_id,
-            "organizationId": organization_id,
-            "status": "open",
+            "caseId": str(uuid.uuid4()),
+            "title": request_json.get("title"),
+            "description": request_json.get("description"),
+            "caseTier": request_json.get("caseTier"),
+            "caseTypeId": request_json.get("caseTypeId"),
+            "organizationId": request_json.get("organizationId"),
             "createdBy": user_id,
-            "createdAt": firestore.SERVER_TIMESTAMP,
-            "updatedAt": firestore.SERVER_TIMESTAMP
+            "status": "open",
+            "createdAt": datetime.utcnow().isoformat() + 'Z',
+            "updatedAt": datetime.utcnow().isoformat() + 'Z',
         }
-        db.collection("cases").document(case_id).set(case_data)
-        # Prepare response (include all fields)
-        response_data = {k: v for k, v in case_data.items() if v is not None}
+        # Remove None values
+        case_data = {k: v for k, v in case_data.items() if v is not None}
+        # Save to Firestore
+        db.collection("cases").document(case_data["caseId"]).set(case_data)
+        response_data = _sanitize_firestore_dict(case_data)
         return flask.jsonify(response_data), 201
     except Exception as e:
-        logging.error(f"Error creating case: {str(e)}", exc_info=True)
+        logging.exception("Failed to create case")
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 
@@ -57,7 +60,6 @@ def get_case(request: Request):
     db = get_db_client()
     logging.info("Logic function get_case called")
     try:
-        # Extract caseId from query parameters (not path)
         case_id = request.args.get("caseId")
         if not case_id:
             logging.error(f"Bad Request: caseId missing in query parameters")
@@ -65,24 +67,17 @@ def get_case(request: Request):
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
-        case_ref = db.collection('cases').document(case_id)
-        case_doc = case_ref.get()
-        if not case_doc.exists:
-            return flask.jsonify({"error": "Not Found", "message": f"Case {case_id} not found"}), 404
-        case_data = case_doc.to_dict()
-        case_data["caseId"] = case_id
-        permission_request = PermissionCheckRequest(
-            resourceType=TYPE_CASE,
-            resourceId=case_id,
-            action="read",
-            organizationId=case_data.get("organizationId")
-        )
-        has_permission, error_message = check_permission(user_id, permission_request)
-        if not has_permission:
-            return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
-        return flask.jsonify(case_data), 200
+        doc = db.collection("cases").document(case_id).get()
+        if not doc.exists:
+            return flask.jsonify({"error": "Not Found", "message": f"Case {case_id} not found."}), 404
+        case_data = doc.to_dict()
+        # Ownership check: allow if user is the creator or assignedTo (for org cases)
+        if (case_data.get("createdBy") != user_id and case_data.get("assignedTo") != user_id):
+            return flask.jsonify({"error": "Forbidden", "message": f"User {user_id} is not the owner of individual case {case_id}."}), 403
+        response_data = _sanitize_firestore_dict(case_data)
+        return flask.jsonify(response_data), 200
     except Exception as e:
-        logging.error(f"Error retrieving case: {str(e)}", exc_info=True)
+        logging.exception("Failed to get case")
         return flask.jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 def list_cases(request: Request):
