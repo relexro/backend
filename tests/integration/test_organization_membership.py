@@ -238,7 +238,7 @@ class TestOrganizationMembershipRBAC:
 
             # Staff attempts to change regular user's role to admin
             payload = {
-                "role": "administrator",  # Use 'role' instead of 'newRole'
+                "newRole": "administrator",
                 "organizationId": org_id,
                 "userId": regular_user_id
             }
@@ -273,7 +273,7 @@ class TestOrganizationMembershipRBAC:
 
             # Staff attempts to change admin's role to staff
             payload = {
-                "role": "staff",  # Use 'role' instead of 'newRole'
+                "newRole": "staff",
                 "organizationId": org_id,
                 "userId": admin_user_id
             }
@@ -330,7 +330,7 @@ class TestOrganizationMembershipRBAC:
         try:
             # Admin attempts to downgrade themselves to staff
             payload = {
-                "role": "staff",  # Use 'role' instead of 'newRole'
+                "newRole": "staff",
                 "organizationId": org_id,
                 "userId": admin_user_id
             }
@@ -405,7 +405,7 @@ class TestOrganizationMembershipRBAC:
 
             # Admin downgrades the other admin to staff
             payload = {
-                "role": "staff",  # Use 'role' instead of 'newRole'
+                "newRole": "staff",
                 "organizationId": org_id,
                 "userId": regular_user_id
             }

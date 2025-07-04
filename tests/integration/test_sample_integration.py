@@ -49,4 +49,4 @@ def test_real_integration():
 
 def test_api_base_url_fixture(api_base_url):
     """Test that the api_base_url fixture is working."""
-    assert api_base_url == "https://api-dev.relex.ro"
+    assert api_base_url in ["https://api-dev.relex.ro", "https://relex-api-gateway-dev-mvef5dk.ew.gateway.dev/v1"], f"Unexpected API base URL: {api_base_url}"

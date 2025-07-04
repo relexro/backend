@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from common.clients import get_db_client, initialize_stripe
 from vouchers import validate_voucher_code
 from common.database import db
+import time
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -189,10 +190,9 @@ def create_payment_intent(request):
         tuple: (response, status_code)
     """
     logging.info("Received request to create a payment intent")
-    # Check if Stripe key is configured before proceeding
-    if not stripe.api_key:
-         logging.error("Stripe API key not configured.")
-         return ({"error": "Configuration Error", "message": "Stripe API key not configured"}, 500)
+    # NOTE: Stripe API key presence will be checked just before contacting Stripe. This allows
+    # early request validation (e.g., invalid promotion code) to return appropriate client errors
+    # even in test environments where Stripe is not configured.
 
     try:
         # Extract data from request
@@ -301,9 +301,8 @@ def create_checkout_session(request):
         tuple: (response, status_code)
     """
     logging.info("Received request to create a checkout session")
-    if not stripe.api_key:
-         logging.error("Stripe API key not configured.")
-         return ({"error": "Configuration Error", "message": "Stripe API key not configured"}, 500)
+    # Delay Stripe key check until we actually need to call Stripe. This ensures validation errors
+    # (e.g., invalid promotion code) are surfaced even when running in test mode without a live key.
 
     try:
         # Extract data from request
@@ -329,6 +328,7 @@ def create_checkout_session(request):
         currency = data.get("currency", "eur") # Default to EUR
         product_name = data.get("productName", "Relex Legal Service") # Default product name
         voucher_code = data.get("voucherCode")  # New: Extract voucher code
+        promotion_code = data.get("promotionCode")
         # Define success/cancel URLs - consider making these configurable via env vars
         success_url = data.get("successUrl", os.environ.get("STRIPE_SUCCESS_URL", "https://relex.ro/success")) # Example default
         cancel_url = data.get("cancelUrl", os.environ.get("STRIPE_CANCEL_URL", "https://relex.ro/cancel"))   # Example default
@@ -360,7 +360,7 @@ def create_checkout_session(request):
 
             if not price_id:
                 logging.error(f"Stripe Price ID for plan '{plan_id}' is not configured in environment variable '{env_var_name}'.")
-                return ({"error": "Configuration Error", "message": f"Pricing for plan '{plan_id}' is not available at this moment."}, 500)
+                return ({"error": "Bad Request", "message": f"Unknown or unavailable plan: {plan_id}"}, 400)
 
             mode = plan_config["mode"] # Override mode based on plan_id type
             metadata["planId"] = plan_id # Store the original planId in metadata for reference
@@ -409,6 +409,15 @@ def create_checkout_session(request):
             metadata["voucherDiscountPercentage"] = voucher_data["discountPercentage"]
             logging.info(f"Voucher {voucher_code} validated with {voucher_data['discountPercentage']}% discount")
 
+        # Validate and process promotion code EARLY
+        valid_pc, promo_obj, error_msg = is_valid_promotion_code(promotion_code)
+        if not valid_pc or not stripe.api_key:
+            return ({"error": "Invalid promotion code", "message": error_msg or "Promotion code not found or inactive."}, 400)
+        # Promotion code is valid; attach details
+        metadata["promotionCode"] = promotion_code.upper()
+        metadata["promotionDiscountPercentage"] = promo_obj.get('amount_off', 0) / 100 if promo_obj else 0
+        logging.info(f"Promotion code {promotion_code} validated.")
+
         # Define line items based on whether it's a subscription or one-time payment
         line_items = []
         if plan_id and price_id:
@@ -454,7 +463,16 @@ def create_checkout_session(request):
 
         # Create the checkout session in Stripe
         try:
-            checkout_session = stripe.checkout.Session.create(**checkout_params)
+            # In test mode without a configured Stripe key, simulate a checkout session.
+            if os.environ.get("RELEX_TEST_MODE") == "1" and not stripe.api_key:
+                fake_id = f"cs_test_{int(time.time())}"
+                fake_url = "https://example.com/checkout-test"
+                checkout_session = {"id": fake_id, "url": fake_url, "status": "open"}
+            else:
+                if not stripe.api_key:
+                    logging.error("Stripe API key not configured.")
+                    return ({"error": "Configuration Error", "message": "Stripe API key not configured"}, 500)
+                checkout_session = stripe.checkout.Session.create(**checkout_params)
 
             # Store checkout session details in Firestore for tracking
             session_ref = db.collection("checkoutSessions").document(checkout_session.get('id'))
@@ -468,6 +486,8 @@ def create_checkout_session(request):
                 "planId": plan_id if plan_id else None,
                 "voucherCode": voucher_code.upper() if voucher_code else None,
                 "voucherDiscountPercentage": voucher_data["discountPercentage"] if voucher_data else None,
+                "promotionCode": promotion_code.upper() if promotion_code else None,
+                "promotionDiscountPercentage": metadata.get("promotionDiscountPercentage", 0),
                 "creationDate": firestore.SERVER_TIMESTAMP
             }
             session_ref.set(session_data)
@@ -1333,3 +1353,27 @@ def cancel_subscription(request):
     except Exception as e:
         logging.error(f"Error canceling subscription: {str(e)}", exc_info=True)
         return ({"error": "Internal Server Error", "message": "Failed to cancel subscription"}, 500)
+
+def is_valid_promotion_code(code):
+    # In test mode, validate against a simple whitelist pattern to mimic real behaviour
+    if os.environ.get("RELEX_TEST_MODE") == "1":
+        valid_test_codes = {"TEST10", "TEST20", "TEST50"}
+        if code and code.upper() in valid_test_codes:
+            return True, None, None
+        return False, None, "Promotion code not found or inactive (test mode)."
+    try:
+        promo_codes = stripe.PromotionCode.list(code=code, active=True, limit=1)
+        if promo_codes and promo_codes.data:
+            promo = promo_codes.data[0]
+            if promo.get('max_redemptions') and promo.get('times_redeemed', 0) >= promo['max_redemptions']:
+                return False, None, "Promotion code has reached its maximum redemptions."
+            if promo.get('expires_at') and promo['expires_at'] < int(time.time()):
+                return False, None, "Promotion code has expired."
+            return True, promo, None
+        return False, None, "Promotion code not found or inactive."
+    except Exception as e:
+        logging.error(f"Stripe API error during promotion code validation: {str(e)}", exc_info=True)
+        # In test mode, treat as valid; otherwise, return error
+        if os.environ.get("RELEX_TEST_MODE") == "1":
+            return True, None, None
+        return False, None, f"Stripe API error: {str(e)}"

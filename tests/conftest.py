@@ -11,6 +11,7 @@ import re
 import stripe, uuid, time
 from tests.helpers import stripe_test_helpers
 import logging
+from tests.helpers.create_test_user import ensure_firebase_user
 
 # Add functions/src to the Python path if not already there
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../functions/src')))
@@ -454,3 +455,10 @@ def test_organization(api_client):
             logging.warning(f"Failed to delete test organization: {response.text}")
     except Exception as e:
         logging.error(f"Error deleting test organization: {str(e)}")
+
+@pytest.fixture
+def test_user_id():
+    """Ensure a test user exists in Firebase and return its UID."""
+    uid = f"test-user-{uuid.uuid4()}"
+    ensure_firebase_user(uid)
+    return uid

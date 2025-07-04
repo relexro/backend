@@ -9,6 +9,7 @@ from party import get_party
 from firebase_admin import firestore
 from google.cloud import firestore
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+import re as _re
 
 logging.basicConfig(level=logging.INFO)
 
@@ -26,7 +27,14 @@ def create_case(request: Request):
     db = get_db_client()
     logging.info("Logic function create_case called")
     try:
-        request_json = request.get_json(silent=True)
+        request_json = request.get_json(silent=True) or {}
+        # Determine organizationId (may come from body or URL path)
+        org_id = request.headers.get("X-Organization-Id") or request_json.get("organizationId") or request.args.get("organizationId")
+        path_hint = request.headers.get("X-Original-Url") or request.headers.get("X-Original-Uri") or request.full_path or request.path
+        if not org_id and path_hint:
+            m = _re.search(r"/organizations/([^/]+)/cases", path_hint)
+            if m:
+                org_id = m.group(1)
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
             return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
@@ -39,17 +47,24 @@ def create_case(request: Request):
             "description": request_json.get("description"),
             "caseTier": request_json.get("caseTier"),
             "caseTypeId": request_json.get("caseTypeId"),
-            "organizationId": request_json.get("organizationId"),
+            "organizationId": org_id,
             "createdBy": user_id,
             "status": "open",
             "createdAt": datetime.utcnow().isoformat() + 'Z',
             "updatedAt": datetime.utcnow().isoformat() + 'Z',
         }
+        # Add convenience fields used by listing logic
+        case_data["userId"] = user_id  # For personal case queries
+        case_data["creationDate"] = datetime.utcnow().isoformat() + 'Z'
+
         # Remove None values
         case_data = {k: v for k, v in case_data.items() if v is not None}
         # Save to Firestore
         db.collection("cases").document(case_data["caseId"]).set(case_data)
         response_data = _sanitize_firestore_dict(case_data)
+        # Always include organizationId in the response for org cases
+        if "organizationId" not in response_data:
+            response_data["organizationId"] = case_data.get("organizationId")
         return flask.jsonify(response_data), 201
     except Exception as e:
         logging.exception("Failed to create case")
@@ -87,7 +102,12 @@ def list_cases(request: Request):
         if not hasattr(request, 'end_user_id') or not request.end_user_id:
              return flask.jsonify({"error": "Unauthorized", "message": "Authenticated user ID not found on request (end_user_id missing)"}), 401
         user_id = request.end_user_id
-        organization_id = request.args.get("organizationId")
+        organization_id = request.args.get("organizationId") or request.headers.get("X-Organization-Id")
+        path_hint = request.headers.get("X-Original-Url") or request.headers.get("X-Original-Uri") or request.full_path or request.path
+        if not organization_id and path_hint:
+            m = _re.search(r"/organizations/([^/]+)/cases", path_hint)
+            if m:
+                organization_id = m.group(1)
         status_filter = request.args.get("status")
         try:
             limit = int(request.args.get("limit", "50"))
@@ -109,23 +129,25 @@ def list_cases(request: Request):
                 return flask.jsonify({"error": "Forbidden", "message": error_message}), 403
             query = query.where("organizationId", "==", organization_id)
         else:
-            query = query.where("userId", "==", user_id).where("organizationId", "==", None)
+            query = query.where("userId", "==", user_id)
         if status_filter:
             query = query.where("status", "==", status_filter)
         else:
-            query = query.where("status", "!=", "deleted")
+            # Avoid inequality which triggers composite index; include acceptable statuses explicitly
+            query = query.where("status", "in", ["open", "closed", "archived"])  # Exclude 'deleted'
         try:
             all_matching_docs = list(query.stream())
         except Exception as e:
             logging.error(f"Error streaming cases for user {user_id}: {str(e)}", exc_info=True)
             return flask.jsonify({"error": "Internal Server Error", "message": f"Failed to list cases: {str(e)}"}), 500
+
+        # Sort in Python to avoid Firestore ordering index requirements
+        all_matching_docs.sort(key=lambda d: d.to_dict().get("creationDate", ""), reverse=True)
+
         total_count = len(all_matching_docs)
-        try:
-            paginated_query = query.order_by("creationDate", direction=db.Query.DESCENDING).limit(limit).offset(offset)
-            case_docs = paginated_query.stream()
-        except Exception as e:
-            logging.error(f"Error paginating cases for user {user_id}: {str(e)}", exc_info=True)
-            return flask.jsonify({"error": "Internal Server Error", "message": f"Failed to list cases: {str(e)}"}), 500
+
+        # Manual pagination
+        case_docs = all_matching_docs[offset:offset + limit]
         cases = []
         for doc in case_docs:
             case_data = doc.to_dict()
