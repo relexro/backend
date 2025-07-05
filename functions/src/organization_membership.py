@@ -121,7 +121,13 @@ def add_organization_member(request: Request):
         # Serialize timestamp for response
         response_payload = membership_data.copy()
         response_payload["joinedAt"] = datetime.utcnow().isoformat() + "Z"
-        return jsonify(response_payload), 200
+        return jsonify({
+            "success": True,
+            "message": "User added to organization",
+            "userId": target_user_id,
+            "role": role,
+            "organizationId": org_id
+        }), 200
 
     except Exception as e:
         logging.error(f"Error adding member: {str(e)}", exc_info=True)
@@ -243,7 +249,13 @@ def update_organization_member_role(request: Request):
         if isinstance(updated_data.get("updatedAt"), datetime):
             updated_data["updatedAt"] = updated_data["updatedAt"].isoformat()
 
-        return jsonify(updated_data), 200
+        return jsonify({
+            "success": True,
+            "message": "Organization member role updated",
+            "userId": target_user_id,
+            "role": new_role,
+            "organizationId": org_id
+        }), 200
 
     except Exception as e:
         logging.error(f"Error setting member role: {str(e)}", exc_info=True)
@@ -296,7 +308,12 @@ def remove_organization_member(request: Request):
 
         member_ref.delete()
         logging.info(f"Member {target_user_id} removed from org {org_id} by {requesting_user_id}")
-        return jsonify({"message": f"User {target_user_id} removed"}), 200
+        return jsonify({
+            "success": True,
+            "message": "User removed from organization",
+            "userId": target_user_id,
+            "organizationId": org_id
+        }), 200
     except Exception as e:
         logging.error(f"Error removing member: {str(e)}", exc_info=True)
         return jsonify({"error": "Internal Server Error", "message": str(e)}), 500

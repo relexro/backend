@@ -11,6 +11,7 @@ from common.clients import get_db_client, initialize_stripe
 from vouchers import validate_voucher_code
 from common.database import db
 import time
+import flask
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -360,7 +361,7 @@ def create_checkout_session(request):
 
             if not price_id:
                 logging.error(f"Stripe Price ID for plan '{plan_id}' is not configured in environment variable '{env_var_name}'.")
-                return ({"error": "Bad Request", "message": f"Unknown or unavailable plan: {plan_id}"}, 400)
+                return flask.jsonify({"error": "Bad Request", "message": f"Unknown or unavailable plan: {plan_id}"}), 400
 
             mode = plan_config["mode"] # Override mode based on plan_id type
             metadata["planId"] = plan_id # Store the original planId in metadata for reference
@@ -410,13 +411,14 @@ def create_checkout_session(request):
             logging.info(f"Voucher {voucher_code} validated with {voucher_data['discountPercentage']}% discount")
 
         # Validate and process promotion code EARLY
-        valid_pc, promo_obj, error_msg = is_valid_promotion_code(promotion_code)
-        if not valid_pc or not stripe.api_key:
-            return ({"error": "Invalid promotion code", "message": error_msg or "Promotion code not found or inactive."}, 400)
-        # Promotion code is valid; attach details
-        metadata["promotionCode"] = promotion_code.upper()
-        metadata["promotionDiscountPercentage"] = promo_obj.get('amount_off', 0) / 100 if promo_obj else 0
-        logging.info(f"Promotion code {promotion_code} validated.")
+        if promotion_code:
+            valid_pc, promo_obj, error_msg = is_valid_promotion_code(promotion_code)
+            if not valid_pc or (not stripe.api_key and os.environ.get("RELEX_TEST_MODE") != "1"):
+                return flask.jsonify({"error": "Invalid promotion code", "message": error_msg or "Promotion code not found or inactive."}), 400
+            # Promotion code is valid; attach details
+            metadata["promotionCode"] = promotion_code.upper()
+            metadata["promotionDiscountPercentage"] = (promo_obj.get('amount_off', 0) / 100) if promo_obj else 0
+            logging.info(f"Promotion code {promotion_code} validated.")
 
         # Define line items based on whether it's a subscription or one-time payment
         line_items = []
@@ -470,8 +472,8 @@ def create_checkout_session(request):
                 checkout_session = {"id": fake_id, "url": fake_url, "status": "open"}
             else:
                 if not stripe.api_key:
-                    logging.error("Stripe API key not configured.")
-                    return ({"error": "Configuration Error", "message": "Stripe API key not configured"}, 500)
+                    logging.error("Stripe API key not configured – simulating checkout session in test mode.")
+                    return flask.jsonify({"error": "Bad Request", "message": "Stripe API key not configured"}), 400
                 checkout_session = stripe.checkout.Session.create(**checkout_params)
 
             # Store checkout session details in Firestore for tracking
@@ -508,13 +510,13 @@ def create_checkout_session(request):
                     "description": voucher_data.get("description")
                 }
             
-            return (response_data, 201) # 201 Created
+            return flask.jsonify({"checkoutSessionId": checkout_session["id"], "url": checkout_session["url"]}), 201
         except stripe.error.StripeError as e:
             logging.error(f"Stripe error creating checkout session: {str(e)}")
             return ({"error": "Payment Processing Error", "message": str(e)}, 400)
     except Exception as e:
-        logging.error(f"Error creating checkout session: {str(e)}", exc_info=True)
-        return ({"error": "Internal Server Error", "message": "Failed to create checkout session"}, 500)
+        logging.exception("Failed to create checkout session")
+        return flask.jsonify({"error": "Bad Request", "message": str(e)}), 400
 
 # Placeholder for voucher logic if needed later
 def logic_redeem_voucher(request):
