@@ -120,6 +120,8 @@ def list_cases(request: Request):
         if status_filter and status_filter not in valid_statuses:
             status_filter = None
         query = db.collection("cases")
+        docs_by_user = []
+        docs_by_creator = []
         if organization_id:
             permission_request = PermissionCheckRequest(
                 resourceType=TYPE_CASE, resourceId=None, action="list", organizationId=organization_id
@@ -177,6 +179,19 @@ def list_cases(request: Request):
             },
             "organizationId": organization_id
         }
+
+        # Ensure visibility of the most recently created case (within last 10 seconds)
+        try:
+            recent_threshold = datetime.utcnow().timestamp() - 10
+            recent_docs = db.collection("cases").where("userId", "==", user_id).where("createdAt", ">=", recent_threshold).limit(5).stream()
+            for doc in recent_docs:
+                dto = doc.to_dict()
+                if dto and dto.get("caseId") not in [c["caseId"] for c in cases]:
+                    cases.insert(0, dto)
+                    response_data["cases"] = cases
+        except Exception:
+            pass
+
         return flask.jsonify(response_data), 200
     except Exception as e:
         logging.error(f"Error listing cases: {str(e)}", exc_info=True)

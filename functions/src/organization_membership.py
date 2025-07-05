@@ -160,29 +160,42 @@ def list_organization_members(request):
         members_query = get_db_client().collection('organization_memberships').where('organizationId', '==', org_id)
         members_docs = members_query.stream()
 
-        members_list = []
+        members_map = {}
+        role_rank = {"administrator": 1, "staff": 0}
         for doc in members_docs:
             member_data = doc.to_dict()
             member_user_id = member_data.get('userId')
-            if not member_user_id: continue
+            if not member_user_id:
+                continue
+
+            current_role = member_data.get('role', 'staff')
+
+            existing = members_map.get(member_user_id)
+            if existing and role_rank.get(existing["role"], 0) >= role_rank.get(current_role, 0):
+                continue  # Keep higher-ranked role already stored
 
             user_ref = get_db_client().collection('users').document(member_user_id)
             user_doc = user_ref.get()
-            user_info = {"userId": member_user_id, "role": member_data.get('role', 'staff')}
+            user_info = {
+                "userId": member_user_id,
+                "role": current_role,
+                "displayName": "",
+                "email": "",
+            }
 
             if user_doc.exists:
                 user_data = user_doc.to_dict()
                 user_info['displayName'] = user_data.get('displayName', '')
                 user_info['email'] = user_data.get('email', '')
-            else:
-                 user_info['displayName'] = "Profile N/A"
-                 user_info['email'] = "N/A"
 
             if isinstance(member_data.get("joinedAt"), datetime):
                  user_info["joinedAt"] = member_data["joinedAt"].isoformat()
             else:
                  user_info["joinedAt"] = None
-            members_list.append(user_info)
+
+            members_map[member_user_id] = user_info
+
+        members_list = list(members_map.values())
 
         return jsonify({"members": members_list}), 200
     except Exception as e:

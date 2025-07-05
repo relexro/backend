@@ -27,8 +27,9 @@ logger = logging.getLogger(__name__)
 # Re-export for backward-compat with tests that patch these names directly.
 GrokClient = ChatXAI  # alias used by older unit tests
 
-# Ensure tests default to direct Gemini path to avoid UnboundLocalError in pytest logic.
-os.environ.setdefault("USE_DIRECT_GEMINI", "1")
+# Guarantee env var before any test module captures it (sitecustomize fallback handled elsewhere)
+if "USE_DIRECT_GEMINI" not in os.environ:
+    os.environ["USE_DIRECT_GEMINI"] = "1"
 
 # ---------------------------------------------------------------------------
 # Lightweight duck-typing for easier exception handling in tests.
@@ -614,3 +615,17 @@ class ChatGoogleGenerativeAI:  # pragma: no cover
 
 # Re-export ChatXAI so that patch path works even if import alias changes.
 ChatXAI = ChatXAI
+
+# After all function/class definitions ensure symbol is exported for patching
+
+__all__ = [
+    "GeminiProcessor",
+    "GrokProcessor",
+    "process_with_gemini",
+    "process_with_grok",
+    "process_legal_query",
+    "maintain_conversation_history",
+    "ChatGoogleGenerativeAI",
+    "ChatXAI",
+    "LLMError",
+]

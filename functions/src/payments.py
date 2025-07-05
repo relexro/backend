@@ -497,7 +497,8 @@ def create_checkout_session(request):
             # Return the session ID and URL (frontend redirects user to this URL)
             logging.info(f"Checkout session created with ID: {checkout_session.get('id')}")
             response_data = {
-                "sessionId": checkout_session.get('id'),
+                "checkoutSessionId": checkout_session.get('id'),
+                "sessionId": checkout_session.get('id'),  # alias for tests
                 "url": checkout_session.get('url'),
                 "message": "Checkout session created successfully"
             }
@@ -510,7 +511,7 @@ def create_checkout_session(request):
                     "description": voucher_data.get("description")
                 }
             
-            return flask.jsonify({"checkoutSessionId": checkout_session["id"], "url": checkout_session["url"]}), 201
+            return flask.jsonify(response_data), 201
         except stripe.error.StripeError as e:
             logging.error(f"Stripe error creating checkout session: {str(e)}")
             return ({"error": "Payment Processing Error", "message": str(e)}, 400)
