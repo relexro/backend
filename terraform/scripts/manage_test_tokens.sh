@@ -16,6 +16,12 @@ if [ $EXIT_CODE -eq 0 ]; then
     else
         echo "⚠️  ~/.zshenv not found. Please source it manually if it exists elsewhere or set tokens from the script's output."
     fi
+
+    # Ensure test suite uses direct Gemini path (avoids LangChain import issues)
+    if ! grep -q "USE_DIRECT_GEMINI" ~/.zshenv 2>/dev/null; then
+        echo "export USE_DIRECT_GEMINI=0" >> ~/.zshenv
+    fi
+    export USE_DIRECT_GEMINI=${USE_DIRECT_GEMINI:-0}
 else
     echo "❌ Token management script failed with exit code $EXIT_CODE. Check output above for errors."
     exit 1
