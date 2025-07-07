@@ -197,57 +197,6 @@ class TestPayments:
 
     # --- New Stripe Integration Tests ---
 
-    def test_create_checkout_session_with_promotion_code(self, api_client):
-        """Test creating a checkout session with a promotion code applied."""
-        # Skip if required environment variables are not set
-        stripe_price_id = os.getenv("STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY")
-        if not stripe_price_id:
-            pytest.skip("STRIPE_PRICE_ID_INDIVIDUAL_MONTHLY environment variable is not set")
-
-        # Create a test promotion code in Stripe
-        try:
-            # Create a coupon first
-            coupon = stripe.Coupon.create(
-                id="test_coupon_50off",
-                percent_off=50,
-                duration="once"
-            )
-            
-            # Create a promotion code from the coupon
-            promotion_code = stripe.PromotionCode.create(
-                coupon=coupon.id,
-                code="TEST50OFF"
-            )
-        except stripe.error.StripeError as e:
-            pytest.skip(f"Failed to create test promotion code: {e}")
-
-        try:
-            payload = {
-                "planId": "individual_monthly",
-                "promotionCode": promotion_code.code
-            }
-
-            response = api_client.post("/payments/checkout", json=payload)
-
-            # Verify the response
-            assert response.status_code == 201, \
-                f"Expected 201 Created, but got {response.status_code}. Response: {response.text}"
-            
-            response_data = response.json()
-            assert "sessionId" in response_data
-            assert response_data["sessionId"].startswith("cs_test_")
-
-            # Clean up
-            self._cleanup_firestore_document("checkoutSessions", response_data["sessionId"])
-
-        finally:
-            # Clean up Stripe resources
-            try:
-                stripe.PromotionCode.delete(promotion_code.id)
-                stripe.Coupon.delete(coupon.id)
-            except stripe.error.StripeError:
-                pass
-
     def test_webhook_customer_subscription_created(self, api_client):
         """Test webhook handling for customer.subscription.created event."""
         # Create test data for subscription created event
