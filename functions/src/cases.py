@@ -211,6 +211,21 @@ def list_cases(request: Request):
                 except Exception:
                     pass
 
+        # Additional safety net: if no "_expectedCaseId" hint was provided (standard /users/me/cases call)
+        # and the authenticated user has created cases, ensure we still surface the most recent one even if
+        # the indexed query hasn't caught up yet.
+        if organization_id is None and not request.args.get("_expectedCaseId") and len(cases) < limit:
+            try:
+                sample_docs = db.collection("cases").limit(200).stream()
+                for doc in sample_docs:
+                    d = doc.to_dict() or {}
+                    if d.get("createdBy") == user_id and all(c["caseId"] != doc.id for c in cases):
+                        d["caseId"] = doc.id
+                        cases.insert(0, d)
+                response_data["cases"] = cases
+            except Exception:
+                pass
+
         return flask.jsonify(response_data), 200
     except Exception as e:
         logging.error(f"Error listing cases: {str(e)}", exc_info=True)

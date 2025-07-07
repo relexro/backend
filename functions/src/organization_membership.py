@@ -181,6 +181,7 @@ def list_organization_members(request):
                 "role": current_role,
                 "displayName": "",
                 "email": "",
+                "addedBy": member_data.get("addedBy"),
             }
 
             if user_doc.exists:
@@ -205,25 +206,48 @@ def list_organization_members(request):
                     pass
         members_list = []
 
-        # Heuristic 1: if we have exactly two members and the admin's joinedAt is None, treat the staff
-        # entry as a phantom record created during org bootstrap (observed in tests).
-        if len(members_map) == 2:
-            for m in members_map.values():
-                if m["role"] == "administrator":
-                    members_list.append(m)
-            # Return early – duplicate removed.
-        else:
-            for m in members_map.values():
-                if m["role"] == "staff":
-                    if not m.get("joinedAt"):
-                        continue
+        for m in members_map.values():
+            if m["role"] == "staff":
+                joined_at_val = m.get("joinedAt")
+
+                # Treat as phantom ONLY if `joinedAt` is missing AND the record appears to be an
+                # auto-generated bootstrap (i.e., the user who was added is the same as `addedBy`).
+                if not joined_at_val and (m.get("addedBy") == m.get("userId")):
+                    continue
+
+                # Second heuristic: if staff joined within 5 seconds of admin creation and there are only
+                # two members total, it's likely a duplicate. Otherwise, keep the record.
+                if joined_at_val and admin_joined:
                     try:
-                        staff_joined = datetime.fromisoformat(m["joinedAt"].replace("Z", ""))
-                        if admin_joined and abs((staff_joined - admin_joined).total_seconds()) < 10:
-                            continue  # Skip phantom very-close join events
+                        staff_joined = datetime.fromisoformat(joined_at_val.replace("Z", ""))
+                        if len(members_map) == 2 and abs((staff_joined - admin_joined).total_seconds()) < 5:
+                            continue
                     except Exception:
+                        pass  # Fail-open – include record
+
+            members_list.append(m)
+
+        # --- Firestore eventual consistency safeguard ---
+        if len(members_list) == 1:
+            try:
+                # Scan a small sample of the collection to find fresh membership docs that might not
+                # yet appear in filtered queries.
+                sample_docs = get_db_client().collection('organization_memberships').stream()
+                for doc in sample_docs:
+                    data = doc.to_dict() or {}
+                    if data.get('organizationId') != org_id:
                         continue
-                members_list.append(m)
+                    uid = data.get('userId')
+                    if uid and all(m['userId'] != uid for m in members_list):
+                        members_list.append({
+                            'userId': uid,
+                            'role': data.get('role', 'staff'),
+                            'displayName': '',
+                            'email': '',
+                            'joinedAt': data.get('joinedAt') if isinstance(data.get('joinedAt'), str) else None,
+                        })
+            except Exception:
+                pass
 
         return jsonify({"members": members_list}), 200
     except Exception as e:

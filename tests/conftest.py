@@ -16,8 +16,8 @@ from tests.helpers.create_test_user import ensure_firebase_user
 # Add functions/src to the Python path if not already there
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../functions/src')))
 
-# Ensure env var for direct Gemini path is set before other test modules evaluate it.
-os.environ["USE_DIRECT_GEMINI"] = "0"
+# Ensure env var for direct Gemini path is enabled so tests import correctly.
+os.environ["USE_DIRECT_GEMINI"] = "1"
 
 # Check if FIRESTORE_EMULATOR_HOST is set, which indicates we're running against an emulator
 def is_using_emulator():
