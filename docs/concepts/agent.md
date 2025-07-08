@@ -2,7 +2,120 @@
 
 ## Overview
 
-The Relex AI Agent is an advanced legal assistant designed to help users with Romanian legal cases within the Relex platform. It operates through a sophisticated LangGraph workflow system, leveraging multiple specialized Large Language Models (LLMs) to provide comprehensive legal services.
+The Relex AI Agent is an advanced legal assistant that operates through the `/cases/{caseId}/agent/messages` endpoint. It uses a LangGraph workflow, multiple LLMs (Gemini, Grok), and a set of backend tools to provide legal guidance, research, and document generation for Romanian legal cases.
+
+## How to Integrate (Frontend Guide)
+
+### Endpoint
+
+**POST** `/v1/cases/{caseId}/agent/messages`
+
+- **Authentication:** Required (Firebase JWT in `Authorization: Bearer <token>` header)
+- **Path Parameter:** `caseId` (string) — The ID of the case for agent interaction
+- **Request Body:**
+  ```json
+  {
+    "message": "string" // The user's text message or input data
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "status": "success|error|quota_exceeded|payment_required",
+    "message": "string", // Agent's textual response or status message
+    "response": {
+      "content": "string", // Agent's main reply
+      "recommendations": ["string"],
+      "next_steps": ["string"],
+      "draft_documents": [
+        {"id": "string", "title": "string", "url": "string"}
+      ],
+      "research_summary": "string"
+    },
+    "completed_steps": ["string"],
+    "errors": [
+      {"node": "string", "error": "string", "timestamp": "string"}
+    ],
+    "timestamp": "string"
+  }
+  ```
+
+### Typical Workflow
+
+1. **User initiates a case and opens the agent chat.**
+2. **Frontend sends user input to `/cases/{caseId}/agent/messages`.**
+3. **Agent determines case tier, checks quota, and may request payment if needed.**
+4. **Agent iteratively gathers information, performs legal research, and generates drafts.**
+5. **Frontend displays agent responses, recommendations, and draft document links.**
+6. **User can download drafts, ask follow-up questions, or request further actions.**
+
+### Integration Tips
+
+- Always include a valid Firebase JWT in the `Authorization` header.
+- Display the `status` and `message` fields to the user for clear feedback.
+- Use the `response.draft_documents` array to show downloadable links for generated PDFs.
+- Handle `quota_exceeded` and `payment_required` statuses by prompting the user to purchase more quota or complete payment.
+- Use the `completed_steps` and `next_steps` arrays to show workflow progress and guide the user.
+- Display any `errors` to the user and provide retry options if appropriate.
+
+## Agent Architecture (Summary)
+
+- **HTTP Layer:** Handles authentication and request routing.
+- **Agent Handler:** Parses input, checks permissions, and delegates to the agent core.
+- **Agent Core:** Manages state, executes the LangGraph workflow, and persists results in Firestore.
+- **LangGraph Workflow:** Orchestrates LLMs and tool usage for legal reasoning, research, and document generation.
+- **Tools:** Implemented in `agent_tools.py`, invoked by the agent for research, quota checks, document generation, etc.
+
+## Request/Response Example
+
+**Request:**
+```http
+POST /v1/cases/abc123/agent/messages
+Authorization: Bearer <firebase_jwt>
+Content-Type: application/json
+
+{
+  "message": "Am nevoie de un model de plângere pentru o amendă rutieră."
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Am analizat situația dvs. și am generat un draft de plângere. Vă rugăm să verificați documentul atașat.",
+  "response": {
+    "content": "Am generat un model de plângere pentru amenda rutieră descrisă. Găsiți documentul atașat mai jos.",
+    "recommendations": ["Verificați datele personale din document.", "Atașați dovada plății taxei de timbru."],
+    "next_steps": ["Descărcați și semnați documentul.", "Depuneți plângerea la instanța competentă."],
+    "draft_documents": [
+      {"id": "draft1", "title": "Plângere contravenție", "url": "https://storage.googleapis.com/.../draft1.pdf"}
+    ],
+    "research_summary": "Conform OUG 195/2002, aveți dreptul să contestați amenda în termen de 15 zile."
+  },
+  "completed_steps": ["Analiză descriere", "Determinare tier", "Generare draft"],
+  "errors": [],
+  "timestamp": "2024-07-10T12:34:56Z"
+}
+```
+
+## Error Handling
+
+- If the user does not have quota, the agent will return `status: "quota_exceeded"` or `"payment_required"`.
+- If the user is not authorized for the case, a `403 Forbidden` error is returned.
+- All errors are included in the `errors` array for transparency.
+
+## Security and Compliance
+
+- All agent operations are protected by strict authentication and authorization checks.
+- All data is stored securely in Firestore and Cloud Storage.
+- The agent is compliant with GDPR and Romanian data protection laws.
+
+## Further Reading
+
+- See `docs/api.md` for full API endpoint documentation.
+- See `docs/concepts/tools.md` for details on agent tools and their parameters.
+- See `docs/concepts/tiers.md` for case tier definitions and quota logic.
 
 ## Core Architecture
 
